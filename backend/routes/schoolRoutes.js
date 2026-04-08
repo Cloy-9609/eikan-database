@@ -5,5 +5,8 @@ const router = express.Router();
 
 router.get("/", controller.getSchools);
 router.get("/:id", controller.getSchoolById);
+router.post("/", controller.createSchool);
+router.patch("/:id", controller.updateSchool);
+router.delete("/:id", controller.deleteSchool);
 
 module.exports = router;
