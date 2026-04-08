@@ -1,0 +1,5 @@
+#player-detail-root,
+#player-register-form,
+#player-edit-form {
+  min-height: 240px;
+}
