@@ -1,1 +1,133 @@
--- Seed data placeholder
+PRAGMA foreign_keys = ON;
+
+BEGIN TRANSACTION;
+
+INSERT INTO schools (
+  name,
+  play_style,
+  memo,
+  is_archived
+) VALUES (
+  'サンプル高校',
+  'three_year',
+  'Phase1 seed data',
+  0
+);
+
+INSERT INTO players (
+  school_id,
+  name,
+  player_type,
+  player_type_note,
+  total_stars,
+  prefecture,
+  grade,
+  admission_year,
+  snapshot_label,
+  main_position,
+  throwing_hand,
+  batting_hand,
+  is_reincarnated,
+  is_genius,
+  velocity,
+  control,
+  stamina,
+  trajectory,
+  meat,
+  power,
+  run_speed,
+  arm_strength,
+  fielding,
+  catching,
+  evidence_image_path
+) VALUES (
+  1,
+  'サンプル太郎',
+  'normal',
+  NULL,
+  120,
+  '東京都',
+  2,
+  2025,
+  'entrance',
+  '投手',
+  'right',
+  'right',
+  0,
+  0,
+  135,
+  52,
+  48,
+  2,
+  40,
+  45,
+  50,
+  47,
+  44,
+  43,
+  NULL
+);
+
+INSERT INTO player_pitch_types (
+  player_id,
+  pitch_name,
+  level,
+  is_original,
+  original_pitch_name
+) VALUES (
+  1,
+  'ストレート',
+  1,
+  0,
+  NULL
+);
+
+INSERT INTO player_special_abilities (
+  player_id,
+  ability_name,
+  ability_category,
+  rank_value
+) VALUES (
+  1,
+  '対ピンチ',
+  'pitcher_ranked',
+  'B'
+);
+
+INSERT INTO player_sub_positions (
+  player_id,
+  position_name,
+  suitability_value
+) VALUES (
+  1,
+  '一塁手',
+  'E'
+);
+
+INSERT INTO player_results (
+  player_id,
+  result_label,
+  batting_average,
+  home_runs,
+  runs_batted_in,
+  stolen_bases,
+  earned_run_average,
+  wins,
+  losses,
+  holds,
+  saves
+) VALUES (
+  1,
+  'summer',
+  0.286,
+  3,
+  18,
+  6,
+  2.45,
+  7,
+  2,
+  0,
+  1
+);
+
+COMMIT;
