@@ -3,9 +3,9 @@ node_modules/
 .env.*
 *.db
 *.sqlite
+uploads/
 dist/
 coverage/
-uploads/
 .DS_Store
 Thumbs.db
 .vscode/
