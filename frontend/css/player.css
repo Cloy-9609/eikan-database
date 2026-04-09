@@ -1,5 +1,124 @@
-#player-detail-root,
+﻿#player-detail-root,
 #player-register-form,
 #player-edit-form {
   min-height: 240px;
+}
+
+.player-detail {
+  display: grid;
+  gap: 24px;
+}
+
+.detail-card {
+  padding: 20px;
+  border: 1px solid #d7dee8;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.detail-kicker {
+  margin: 0 0 8px;
+  color: #5f6b7a;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.player-name,
+.detail-title {
+  margin: 0;
+}
+
+.detail-title {
+  margin-bottom: 16px;
+  font-size: 1.05rem;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.action-link {
+  color: #0b63c9;
+  text-decoration: none;
+}
+
+.action-link:hover {
+  text-decoration: underline;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 20px;
+  margin: 0;
+}
+
+.compact-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.detail-row {
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5eaf0;
+}
+
+.detail-row dt {
+  margin: 0 0 6px;
+  color: #5f6b7a;
+  font-size: 0.92rem;
+}
+
+.detail-row dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.detail-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.detail-list li + li {
+  margin-top: 8px;
+}
+
+.empty-value {
+  margin: 0;
+  color: #5f6b7a;
+}
+
+.message-box {
+  padding: 16px;
+  border-radius: 10px;
+  background: #f5f7fa;
+}
+
+.error-message {
+  border: 1px solid #efc2c2;
+  background: #fff1f1;
+  color: #8a1c1c;
+}
+
+.message-box p {
+  margin: 0 0 8px;
+}
+
+.message-box p:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .detail-header {
+    flex-direction: column;
+  }
 }
