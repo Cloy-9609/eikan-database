@@ -4,11 +4,12 @@ function errorHandler(err, req, res, next) {
   const message = err.message || "Internal Server Error";
 
   res.status(status).json({
-    success: false,
-    data: null,
-    error: {
-      message,
-    },
+    "success": false,
+    "data": null,
+    "error": {
+      "message": "School not found.",
+      "code": "SCHOOL_NOT_FOUND"
+    }
   });
 }
 
