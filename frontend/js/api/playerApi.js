@@ -18,7 +18,7 @@ async function parseResponse(response) {
 }
 
 export async function fetchPlayers({ schoolId } = {}) {
-  const url = new URL(PLAYER_API_BASE, window.location.origin);
+  const url = new URL(PLAYER_API_BASE);
 
   if (schoolId !== undefined && schoolId !== null && schoolId !== "") {
     url.searchParams.set("school_id", schoolId);

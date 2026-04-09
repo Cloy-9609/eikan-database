@@ -13,6 +13,7 @@ app.use(express.json());
 
 app.use("/api/schools", schoolRoutes);
 app.use("/api/players", playerRoutes);
+
 app.use(errorHandler);
 
 if (require.main === module) {

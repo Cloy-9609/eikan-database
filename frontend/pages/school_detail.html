@@ -11,7 +11,20 @@
 <body>
   <main class="page">
     <h1>学校詳細</h1>
-    <div id="school-detail-root"></div>
+    <div id="school-detail-root" class="school-detail">
+      <section class="detail-section">
+        <h2 class="section-title">学校情報</h2>
+        <div id="school-info-root"></div>
+      </section>
+
+      <section class="detail-section">
+        <div class="section-header">
+          <h2 class="section-title">所属選手一覧</h2>
+          <a class="action-link" id="player-register-link" href="./player_register.html">選手登録</a>
+        </div>
+        <div id="school-players-root"></div>
+      </section>
+    </div>
   </main>
   <script type="module" src="../js/pages/school_detail.js"></script>
 </body>
