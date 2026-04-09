@@ -1,53 +1,71 @@
 # 原案アイデア置き場
-
 各ドキュメントに紐づく原案レベルのメモを一時的に置いておくためのファイル。
+## バックエンド
 
-## deletion_policy
+### deletion_policy
 - フロントエンド画面での復元機能の実装
 
-## ocr_policy
+### ocr_policy
 - スキャン機能の実装（モバイル用）
 
-## tech_stack
+### tech_stack
 
 
-## api_design
+### api_design
 
 
-## data_model
+### data_model
 
 
-## database_design
+### database_design
 
 
-## state_management
+### state_management
 
 
-## phase1
+### phase1
 
 
-## phase2
+### phase2
 
 
-## phase3
+### phase3
 
 
-## feature_list
+### feature_list
 
 
-## mvp_scope
+### mvp_scope
 
 
-## non_functional
+### non_functional
 
 
-## player_data
+### player_data
 
 
-## requirements
+### requirements
 
 
-## screen_list
+### screen_list
 
 
-## others
+### others
+
+
+## フロントエンド
+
+### player_detail
+function formatHand(value) {
+  if (!value) return "-";
+  return HAND_LABELS[value] ?? value;
+}
+- 56行目への修正候補。優先度低。
+
+### player_register
+
+
+### school_detail
+
+
+### schools
