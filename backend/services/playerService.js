@@ -5,6 +5,15 @@ const ALLOWED_PLAYER_TYPES = ["normal", "genius", "reincarnated"];
 const ALLOWED_SNAPSHOT_LABELS = ["entrance", "post_tournament"];
 const ALLOWED_THROWING_HANDS = ["right", "left"];
 const ALLOWED_BATTING_HANDS = ["right", "left", "both"];
+const ALLOWED_POSITIONS = [
+  "投手",
+  "捕手",
+  "一塁手",
+  "二塁手",
+  "三塁手",
+  "遊撃手",
+  "外野手",
+];
 const ALLOWED_ABILITY_CATEGORIES = [
   "pitcher_ranked",
   "pitcher_unranked",
@@ -19,9 +28,13 @@ function createHttpError(status, message) {
   return error;
 }
 
-function parseRequiredInteger(value, fieldName, { min, max } = {}) {
+function parseInteger(value, fieldName, { required = false, min, max } = {}) {
   if (value === undefined || value === null || value === "") {
-    throw createHttpError(400, `${fieldName} is required.`);
+    if (required) {
+      throw createHttpError(400, `${fieldName} is required.`);
+    }
+
+    return null;
   }
 
   const numericValue = Number(value);
@@ -41,22 +54,12 @@ function parseRequiredInteger(value, fieldName, { min, max } = {}) {
   return numericValue;
 }
 
+function parseRequiredInteger(value, fieldName, options = {}) {
+  return parseInteger(value, fieldName, { ...options, required: true });
+}
+
 function parseOptionalInteger(value, fieldName, { min } = {}) {
-  if (value === undefined || value === null || value === "") {
-    return null;
-  }
-
-  const numericValue = Number(value);
-
-  if (!Number.isInteger(numericValue)) {
-    throw createHttpError(400, `${fieldName} must be an integer.`);
-  }
-
-  if (min !== undefined && numericValue < min) {
-    throw createHttpError(400, `${fieldName} must be greater than or equal to ${min}.`);
-  }
-
-  return numericValue;
+  return parseInteger(value, fieldName, { min });
 }
 
 function parseOptionalText(value) {
@@ -149,7 +152,11 @@ function validateSubPositions(items) {
   }
 
   return items.map((item, index) => ({
-    position_name: parseRequiredText(item.position_name, `sub_positions[${index}].position_name`),
+    position_name: validateEnum(
+      parseRequiredText(item.position_name, `sub_positions[${index}].position_name`),
+      `sub_positions[${index}].position_name`,
+      ALLOWED_POSITIONS
+    ),
     suitability_value: parseRequiredText(
       item.suitability_value,
       `sub_positions[${index}].suitability_value`
@@ -180,6 +187,11 @@ function validatePlayerPayload(payload = {}) {
     "batting_hand",
     ALLOWED_BATTING_HANDS
   );
+  const mainPosition = validateEnum(
+    parseRequiredText(payload.main_position, "main_position"),
+    "main_position",
+    ALLOWED_POSITIONS
+  );
 
   return {
     school_id: schoolId,
@@ -191,7 +203,7 @@ function validatePlayerPayload(payload = {}) {
     grade: parseRequiredInteger(payload.grade, "grade", { min: 1, max: 3 }),
     admission_year: parseRequiredInteger(payload.admission_year, "admission_year", { min: 0 }),
     snapshot_label: snapshotLabel,
-    main_position: parseRequiredText(payload.main_position, "main_position"),
+    main_position: mainPosition,
     throwing_hand: throwingHand,
     batting_hand: battingHand,
     is_reincarnated: parseBooleanFlag(payload.is_reincarnated, "is_reincarnated"),
@@ -224,6 +236,35 @@ async function createPlayer(payload) {
   return playerModel.createPlayer(validatedPayload);
 }
 
+async function getPlayerById(id) {
+  const playerId = parseRequiredInteger(id, "player id", { min: 1 });
+  const player = await playerModel.findById(playerId);
+
+  if (!player) {
+    throw createHttpError(404, "Player not found.");
+  }
+
+  return player;
+}
+
+async function getPlayers(query = {}) {
+  const schoolId = parseInteger(query.school_id, "school_id", { min: 1 });
+
+  if (schoolId !== null) {
+    const school = await schoolModel.findById(schoolId);
+
+    if (!school || school.is_archived === 1) {
+      throw createHttpError(404, "School not found.");
+    }
+
+    return playerModel.findBySchoolId(schoolId);
+  }
+
+  return playerModel.findAll();
+}
+
 module.exports = {
+  getPlayers,
+  getPlayerById,
   createPlayer,
 };

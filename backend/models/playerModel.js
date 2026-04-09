@@ -1,36 +1,63 @@
 const { get, all, run } = require("../db/database");
 
+const PLAYER_SELECT_COLUMNS = `
+  id,
+  school_id,
+  name,
+  player_type,
+  player_type_note,
+  total_stars,
+  prefecture,
+  grade,
+  admission_year,
+  snapshot_label,
+  main_position,
+  throwing_hand,
+  batting_hand,
+  is_reincarnated,
+  is_genius,
+  velocity,
+  control,
+  stamina,
+  trajectory,
+  meat,
+  power,
+  run_speed,
+  arm_strength,
+  fielding,
+  catching,
+  evidence_image_path,
+  created_at,
+  updated_at
+`;
+
+async function findAll() {
+  const sql = `
+    SELECT
+      ${PLAYER_SELECT_COLUMNS}
+    FROM players
+    ORDER BY id DESC
+  `;
+
+  return all(sql);
+}
+
+async function findBySchoolId(schoolId) {
+  const sql = `
+    SELECT
+      ${PLAYER_SELECT_COLUMNS}
+    FROM players
+    WHERE school_id = ?
+    ORDER BY id DESC
+  `;
+
+  return all(sql, [schoolId]);
+}
+
 async function findById(id) {
   const playerSql = `
     SELECT
-      id,
-      school_id,
-      name,
-      player_type,
-      player_type_note,
-      total_stars,
-      prefecture,
-      grade,
-      admission_year,
-      snapshot_label,
-      main_position,
-      throwing_hand,
-      batting_hand,
-      is_reincarnated,
-      is_genius,
-      velocity,
-      control,
-      stamina,
-      trajectory,
-      meat,
-      power,
-      run_speed,
-      arm_strength,
-      fielding,
-      catching,
-      evidence_image_path,
-      created_at,
-      updated_at
+      ${PLAYER_SELECT_COLUMNS}
     FROM players
     WHERE id = ?
   `;
@@ -230,6 +257,8 @@ async function createPlayer(player) {
 }
 
 module.exports = {
+  findAll,
+  findBySchoolId,
   findById,
   createPlayer,
 };
