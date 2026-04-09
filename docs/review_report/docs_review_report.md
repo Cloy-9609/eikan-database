@@ -21,9 +21,11 @@
 - `docs/requirements/screen_list.md`
 - `docs/requirements/player_data.md`
 - `docs/requirements/requirements_v2.md`
-- `docs/docs_review_report.md`
+- `docs/review_report/docs_review_report.md`
 
 ## 前回コードレビュー結果（全文再掲）
+
+以下は当時の出力の再掲であり、当時のファイル名や保存先の表記をそのまま含む。
 
 ### 要修正
 - `docs/decisions/deletion_policy.md`
@@ -71,8 +73,8 @@
 - `docs/ideas/ideas.md`
   - `ideas_memo.md` への参照が実ファイル名と一致していない。
   - line 47 の閉じ括弧抜けなど表記ゆれも直したほうが良い。
-- `docs/ideas/ideas_mamo.md`
-  - ファイル名が `memo` ではなく `mamo`、見出しにも `delectioin_policy` など誤記がある。
+- `docs/ideas/ideas_memo.md`
+  - ファイル名が `memo` ではなく `memo`、見出しにも `delectioin_policy` など誤記がある。
   - 名称修正のうえ、空欄テンプレートの役割を 1 行入れたほうが良い。
 - `docs/ideas/reference/pitch_reference.md`
   - 参考資料としては有用だが、出典、ゲーム版本、数値の単位、現行スキーマ対象外であることが未記載。

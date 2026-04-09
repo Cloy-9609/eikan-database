@@ -27,13 +27,13 @@
 
 ## Schools API 詳細
 
-| メソッド | パス | 用途 |
-| --- | --- | --- |
-| GET | `/api/schools` | 論理削除されていない学校一覧を取得する |
-| GET | `/api/schools/:id` | 学校詳細を取得する |
-| POST | `/api/schools` | 学校を新規登録する |
-| PATCH | `/api/schools/:id` | 学校名、プレイ方針、メモを更新する |
-| DELETE | `/api/schools/:id` | 学校を論理削除する（`is_archived = 1` に更新） |
+| メソッド | パス | 主なステータス | 用途 |
+| --- | --- | --- | --- |
+| GET | `/api/schools` | `200` | 論理削除されていない学校一覧を取得する |
+| GET | `/api/schools/:id` | `200`, `404` | 学校詳細を取得する |
+| POST | `/api/schools` | `201`, `400` | 学校を新規登録する |
+| PATCH | `/api/schools/:id` | `200`, `400`, `404` | 学校名、プレイ方針、メモを更新する |
+| DELETE | `/api/schools/:id` | `200`, `404` | 学校を論理削除する（`is_archived = 1` に更新） |
 
 ## 設計観点
 - レスポンス形式
@@ -78,3 +78,4 @@
 ## 補足
 - `DELETE /api/schools/:id` は物理削除ではなく、学校をアーカイブ状態へ変更する API として扱う。
 - Players 一覧は将来的に `school_id` 指定での絞り込みを検討するが、現時点では正式仕様に含めない。
+- Players API は公開時に、Schools と同じレスポンス構造とエラー方針へそろえる。

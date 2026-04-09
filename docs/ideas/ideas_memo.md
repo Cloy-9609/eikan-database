@@ -1,6 +1,8 @@
 # 原案アイデア置き場
 
-## delectioin_policy
+各ドキュメントに紐づく原案レベルのメモを一時的に置いておくためのファイル。
+
+## deletion_policy
 - フロントエンド画面での復元機能の実装
 
 ## ocr_policy
@@ -42,7 +44,7 @@
 ## player_data
 
 
-## requirement
+## requirements
 
 
 ## screen_list

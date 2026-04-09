@@ -87,10 +87,6 @@
 - updated_at
 
 ## リレーション
-Player は School に属する（N:1）  
-Player は複数の Skill を持つ（1:N）
-Player は複数の SubPosition を持つ（1:N）  
-main_position が投手となるPlayerは複数の、最低でも１つの PicthType を持つ（1:N）
 - School 1 --- N Player
 - Player 1 --- N PlayerPitchType
 - Player 1 --- N PlayerSpecialAbility
@@ -102,3 +98,4 @@ main_position が投手となるPlayerは複数の、最低でも１つの Picth
 - `player_type` は `normal`、`genius`、`reincarnated` を取る。
 - `snapshot_label` は `entrance` または `post_tournament` を取る。
 - `ability_category` は投手特能、野手特能、緑特などの区分を保持する。
+- 旧表記の `player_skills` は、現行モデルでは `PlayerSpecialAbility` に相当する。

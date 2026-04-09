@@ -62,7 +62,7 @@ players
 - snapshot_label
   入学直後や大会後など、どの時点の能力値を記録したデータかを表す区分。`entrance` または `post_tournament` を想定する。
 - main_position
-  栄冠ナイン上での主守備位置。 `pitcher`、`catcher`、`first`、`second`、`third`、`short`、`outfield` を想定する。
+  栄冠ナイン上での主守備位置。内部地として `pitcher`、`catcher`、`first`、`second`、`third`、`short`、`outfield` フロントエンド表示値として投手、捕手、一塁手、二塁手、三塁手、遊撃手、外野手を想定する。
 - throwing_hand
   右投げか左投げかを表す利き腕情報。`right` または `left` を想定する。
 - batting_hand

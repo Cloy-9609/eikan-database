@@ -10,7 +10,7 @@
 ### schools
 - 学校の基本情報を保持する親テーブル。
 - 主な列: `id`, `name`, `play_style`, `memo`, `is_archived`, `created_at`, `updated_at`
-- `is_archived` により論理削除を管理する。
+- `is_archived` により論理削除を管理する（schools のみ適用）。
 
 ### players
 - 選手の基本情報と主要能力値を保持する主テーブル。
@@ -26,6 +26,7 @@
 - `admission_year`: INTEGER NOT NULL
 - `snapshot_label`: TEXT NOT NULL CHECK (`entrance`, `post_tournament`)
 - `main_position`: TEXT NOT NULL
+  - enum想定（pitcher, catcher, infielder, outfielder）
 - `throwing_hand`: TEXT NOT NULL CHECK (`right`, `left`)
 - `batting_hand`: TEXT NOT NULL CHECK (`right`, `left`, `both`)
 - `is_reincarnated`: INTEGER NOT NULL DEFAULT 0 CHECK (`0` or `1`)
@@ -46,6 +47,7 @@
 - `catching`: INTEGER CHECK (`catching >= 0`)
 
 - 補助列:
+- players.school_id
 - `evidence_image_path`: TEXT
 - `created_at`: TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 - `updated_at`: TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP

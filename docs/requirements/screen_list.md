@@ -11,11 +11,12 @@
 ## 画面遷移
 `index.html` → `schools.html` → `school_detail.html`
 
-`school_detail.html` → `player_register.html` → `player_detail.html`
+ 選手登録完了の後、「続けて選手登録(player_register.htmlへ遷移)」「登録した選手の確認(その選手のplayer_detail.htmlへ遷移)」「高校管理画面へ(school_detail.htmlへ遷移)」を選択できる
+- `school_detail.html` → `player_register.html` → `player_register.html` or `player_detail.html` or `school_detail.html`
 
-`school_detail.html` → `player_edit.html`
-
-`player_detail.html` → `player_edit.html`
+複数画面から選手編集ができ、完了の後、「登録した選手の確認(その選手のplayer_detail.htmlへ遷移)」「高校管理画面へ(school_detail.htmlへ遷移)」を選択できる  
+- `school_detail.html` → `player_edit.html` → `player_detail.html` or `school_detail.html`
+- `player_detail.html` → `player_edit.html` → `player_detail.html` or `school_detail.html`
 
 ## 補足
 - 学校 CRUD は専用ページを増やさず、`schools.html` と `school_detail.html` 内の操作として扱う。
