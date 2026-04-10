@@ -2,6 +2,7 @@ export const ADMISSION_YEAR_MIN = 1948;
 export const ADMISSION_YEAR_MAX = 2126;
 
 const DIGIT_PLACES = ["千の位", "百の位", "十の位", "一の位"];
+const DIGIT_WEIGHTS = [1000, 100, 10, 1];
 
 function escapeAttribute(value) {
   return String(value ?? "")
@@ -48,17 +49,12 @@ function getYearDigits(year) {
     .map(Number);
 }
 
-function digitsToYear(digits) {
-  return Number(digits.join(""));
-}
-
 export function getNextAdmissionYear(currentYear, digitIndex, step) {
   const safeCurrentYear = getSafeAdmissionYear(currentYear);
-  const digits = getYearDigits(safeCurrentYear);
   const index = Number(digitIndex);
   const amount = Number(step);
 
-  if (!Number.isInteger(index) || index < 0 || index >= digits.length) {
+  if (!Number.isInteger(index) || index < 0 || index >= DIGIT_WEIGHTS.length) {
     return { year: safeCurrentYear, changed: false, rejectedYear: null };
   }
 
@@ -66,9 +62,7 @@ export function getNextAdmissionYear(currentYear, digitIndex, step) {
     return { year: safeCurrentYear, changed: false, rejectedYear: null };
   }
 
-  digits[index] = (digits[index] + amount + 10) % 10;
-
-  const nextYear = digitsToYear(digits);
+  const nextYear = safeCurrentYear + DIGIT_WEIGHTS[index] * amount;
 
   if (!isAdmissionYearInRange(nextYear)) {
     return { year: safeCurrentYear, changed: false, rejectedYear: nextYear };
