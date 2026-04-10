@@ -117,6 +117,37 @@
   margin-bottom: 0;
 }
 
+.admission-year-picker {
+  display: grid;
+  gap: 8px;
+  max-width: 520px;
+}
+
+.admission-year-group {
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.admission-year-summary {
+  cursor: pointer;
+  padding: 8px 10px;
+  font-weight: 600;
+}
+
+.admission-year-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 6px;
+  padding: 0 10px 10px;
+}
+
+.admission-year-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 @media (max-width: 640px) {
   .detail-header {
     flex-direction: column;

@@ -6,5 +6,6 @@ const router = express.Router();
 router.get("/", controller.getPlayers);
 router.get("/:id", controller.getPlayerById);
 router.post("/", controller.createPlayer);
+router.put("/:id", controller.updatePlayer);
 
 module.exports = router;

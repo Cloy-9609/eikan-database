@@ -1,4 +1,4 @@
-﻿const PLAYER_API_BASE = "http://localhost:3000/api/players";
+﻿const PLAYER_API_BASE = "/api/players";
 
 async function parseResponse(response) {
   let payload = null;
@@ -18,13 +18,14 @@ async function parseResponse(response) {
 }
 
 export async function fetchPlayers({ schoolId } = {}) {
-  const url = new URL(PLAYER_API_BASE);
+  const params = new URLSearchParams();
 
   if (schoolId !== undefined && schoolId !== null && schoolId !== "") {
-    url.searchParams.set("school_id", schoolId);
+    params.set("school_id", schoolId);
   }
 
-  const response = await fetch(url);
+  const query = params.toString();
+  const response = await fetch(query ? `${PLAYER_API_BASE}?${query}` : PLAYER_API_BASE);
   return parseResponse(response);
 }
 
@@ -36,6 +37,18 @@ export async function fetchPlayerById(id) {
 export async function createPlayer(playerPayload) {
   const response = await fetch(PLAYER_API_BASE, {
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(playerPayload),
+  });
+
+  return parseResponse(response);
+}
+
+export async function updatePlayer(id, playerPayload) {
+  const response = await fetch(`${PLAYER_API_BASE}/${id}`, {
+    method: "PUT",
     headers: {
       "Content-Type": "application/json",
     },
