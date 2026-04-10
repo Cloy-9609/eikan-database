@@ -1,6 +1,7 @@
-const ADMISSION_YEAR_START = 1948;
-const ADMISSION_YEAR_END = 2126;
-const ADMISSION_YEAR_AFTER_RANGE_VALUE = 2127;
+export const ADMISSION_YEAR_MIN = 1948;
+export const ADMISSION_YEAR_MAX = 2126;
+
+const DIGIT_PLACES = ["千の位", "百の位", "十の位", "一の位"];
 
 function escapeAttribute(value) {
   return String(value ?? "")
@@ -10,134 +11,204 @@ function escapeAttribute(value) {
     .replaceAll(">", "&gt;");
 }
 
-function createYearRange(start, end) {
-  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
-}
-
-function createYearGroups() {
-  const groups = [
-    {
-      label: "1948〜1959",
-      start: 1948,
-      end: 1959,
-      years: createYearRange(1948, 1959),
-    },
-  ];
-
-  for (let start = 1960; start <= 2110; start += 10) {
-    groups.push({
-      label: `${start}年代`,
-      start,
-      end: start + 9,
-      years: createYearRange(start, start + 9),
-    });
-  }
-
-  groups.push({
-    label: "2120〜2126",
-    start: 2120,
-    end: 2126,
-    years: createYearRange(2120, 2126),
-  });
-
-  groups.push({
-    label: "それ以降",
-    start: ADMISSION_YEAR_AFTER_RANGE_VALUE,
-    end: ADMISSION_YEAR_AFTER_RANGE_VALUE,
-    years: [ADMISSION_YEAR_AFTER_RANGE_VALUE],
-  });
-
-  return groups;
-}
-
-function clampCurrentYear(currentYear) {
-  if (currentYear < ADMISSION_YEAR_START) {
-    return ADMISSION_YEAR_START;
-  }
-
-  if (currentYear > ADMISSION_YEAR_END) {
-    return ADMISSION_YEAR_AFTER_RANGE_VALUE;
-  }
-
-  return currentYear;
-}
-
-function isYearInGroup(group, year) {
-  return Number.isInteger(year) && year >= group.start && year <= group.end;
-}
-
-function shouldOpenGroup(group, selectedYear, currentYear) {
+function isAdmissionYearInRange(year) {
   return (
-    isYearInGroup(group, selectedYear) ||
-    isYearInGroup(group, clampCurrentYear(currentYear))
+    Number.isInteger(year) &&
+    year >= ADMISSION_YEAR_MIN &&
+    year <= ADMISSION_YEAR_MAX
   );
 }
 
-function findGroupIndex(groups, year) {
-  return groups.findIndex((group) => isYearInGroup(group, year));
-}
+export function getSafeAdmissionYear(value, fallbackYear = new Date().getFullYear()) {
+  const hasValue = value !== undefined && value !== null && value !== "";
+  const numericValue = hasValue ? Number(value) : NaN;
+  const numericFallback = Number(fallbackYear);
+  const baseYear = Number.isInteger(numericValue)
+    ? numericValue
+    : Number.isInteger(numericFallback)
+      ? numericFallback
+      : ADMISSION_YEAR_MIN;
 
-function orderGroupsForDisplay(groups, selectedYear, currentYear) {
-  const orderedIndexes = [];
-  const currentYearInRange = clampCurrentYear(currentYear);
-
-  for (const year of [selectedYear, currentYearInRange]) {
-    const index = findGroupIndex(groups, year);
-
-    if (index !== -1 && !orderedIndexes.includes(index)) {
-      orderedIndexes.push(index);
-    }
+  if (baseYear < ADMISSION_YEAR_MIN) {
+    return ADMISSION_YEAR_MIN;
   }
 
-  for (const index of groups.keys()) {
-    if (!orderedIndexes.includes(index)) {
-      orderedIndexes.push(index);
-    }
+  if (baseYear > ADMISSION_YEAR_MAX) {
+    return ADMISSION_YEAR_MAX;
   }
 
-  return orderedIndexes.map((index) => groups[index]);
+  return baseYear;
 }
 
-function formatYearLabel(year) {
-  return year === ADMISSION_YEAR_AFTER_RANGE_VALUE ? "それ以降" : `${year}年`;
+function getYearDigits(year) {
+  return String(getSafeAdmissionYear(year))
+    .padStart(4, "0")
+    .slice(-4)
+    .split("")
+    .map(Number);
+}
+
+function digitsToYear(digits) {
+  return Number(digits.join(""));
+}
+
+export function getNextAdmissionYear(currentYear, digitIndex, step) {
+  const safeCurrentYear = getSafeAdmissionYear(currentYear);
+  const digits = getYearDigits(safeCurrentYear);
+  const index = Number(digitIndex);
+  const amount = Number(step);
+
+  if (!Number.isInteger(index) || index < 0 || index >= digits.length) {
+    return { year: safeCurrentYear, changed: false, rejectedYear: null };
+  }
+
+  if (!Number.isInteger(amount) || amount === 0) {
+    return { year: safeCurrentYear, changed: false, rejectedYear: null };
+  }
+
+  digits[index] = (digits[index] + amount + 10) % 10;
+
+  const nextYear = digitsToYear(digits);
+
+  if (!isAdmissionYearInRange(nextYear)) {
+    return { year: safeCurrentYear, changed: false, rejectedYear: nextYear };
+  }
+
+  return { year: nextYear, changed: true, rejectedYear: null };
+}
+
+function renderDigits(year) {
+  return getYearDigits(year)
+    .map(
+      (digit, index) => `
+        <div class="admission-year-digit" data-admission-year-digit-box="${index}">
+          <button
+            type="button"
+            class="admission-year-button admission-year-button-up"
+            data-admission-year-step="1"
+            data-admission-year-digit-index="${index}"
+            aria-label="${DIGIT_PLACES[index]}を増やす"
+          >▲</button>
+          <output
+            class="admission-year-number"
+            data-admission-year-digit="${index}"
+            aria-label="${DIGIT_PLACES[index]}"
+          >${digit}</output>
+          <button
+            type="button"
+            class="admission-year-button admission-year-button-down"
+            data-admission-year-step="-1"
+            data-admission-year-digit-index="${index}"
+            aria-label="${DIGIT_PLACES[index]}を減らす"
+          >▼</button>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function updatePicker(picker, year) {
+  const safeYear = getSafeAdmissionYear(year);
+  const digits = getYearDigits(safeYear);
+  const input = picker.querySelector("[data-admission-year-input]");
+  const label = picker.querySelector("[data-admission-year-label]");
+  const error = picker.querySelector("[data-admission-year-error]");
+
+  if (input) {
+    input.value = String(safeYear);
+  }
+
+  digits.forEach((digit, index) => {
+    const digitElement = picker.querySelector(`[data-admission-year-digit="${index}"]`);
+
+    if (digitElement) {
+      digitElement.textContent = String(digit);
+    }
+  });
+
+  if (label) {
+    label.textContent = `${safeYear}年`;
+  }
+
+  if (error) {
+    error.textContent = "";
+  }
+}
+
+function handlePickerClick(event) {
+  const button = event.target.closest("[data-admission-year-step]");
+
+  if (!button) {
+    return;
+  }
+
+  const picker = button.closest("[data-admission-year-picker]");
+  const input = picker?.querySelector("[data-admission-year-input]");
+
+  if (!picker || !input) {
+    return;
+  }
+
+  const result = getNextAdmissionYear(
+    Number(input.value),
+    Number(button.dataset.admissionYearDigitIndex),
+    Number(button.dataset.admissionYearStep)
+  );
+
+  if (!result.changed) {
+    const error = picker.querySelector("[data-admission-year-error]");
+
+    if (error && result.rejectedYear !== null) {
+      error.textContent = `${result.rejectedYear}年は選択できません。${ADMISSION_YEAR_MIN}〜${ADMISSION_YEAR_MAX}年から選択してください。`;
+    }
+
+    return;
+  }
+
+  updatePicker(picker, result.year);
 }
 
 export function buildAdmissionYearPicker({
   selectedYear = null,
   currentYear = new Date().getFullYear(),
 } = {}) {
-  const selectedNumericYear = Number.isInteger(Number(selectedYear)) ? Number(selectedYear) : null;
-  const groups = createYearGroups();
+  const year = getSafeAdmissionYear(selectedYear ?? currentYear, currentYear);
 
   return `
-    <div class="admission-year-picker" role="group" aria-label="入学年">
-      ${orderGroupsForDisplay(groups, selectedNumericYear, currentYear)
-        .map((group) => {
-          const open = shouldOpenGroup(group, selectedNumericYear, currentYear) ? " open" : "";
-
-          return `
-            <details class="admission-year-group"${open}>
-              <summary class="admission-year-summary">${group.label}</summary>
-              <div class="admission-year-options">
-                ${group.years
-                  .map((year) => {
-                    const checked = year === selectedNumericYear ? " checked" : "";
-
-                    return `
-                      <label class="admission-year-option">
-                        <input type="radio" name="admission_year" value="${escapeAttribute(
-                          year
-                        )}" required${checked}>
-                        ${formatYearLabel(year)}
-                      </label>
-                    `;
-                  })
-                  .join("")}
-              </div>
-            </details>
-          `;
-        })
-        .join("")}
+    <div
+      class="admission-year-picker"
+      data-admission-year-picker
+      data-min-year="${ADMISSION_YEAR_MIN}"
+      data-max-year="${ADMISSION_YEAR_MAX}"
+      role="group"
+      aria-label="入学年"
+    >
+      <input
+        id="admission_year"
+        type="hidden"
+        name="admission_year"
+        value="${escapeAttribute(year)}"
+        data-admission-year-input
+      >
+      <div class="admission-year-digits" aria-label="入学年 ${escapeAttribute(year)}年">
+        ${renderDigits(year)}
+      </div>
+      <p class="admission-year-current">
+        選択中: <output data-admission-year-label>${escapeAttribute(year)}年</output>
+      </p>
+      <p class="admission-year-error" data-admission-year-error role="alert"></p>
     </div>
   `;
+}
+
+export function setupAdmissionYearPickers(root = document) {
+  root.querySelectorAll("[data-admission-year-picker]").forEach((picker) => {
+    if (picker.dataset.admissionYearReady === "true") {
+      return;
+    }
+
+    picker.dataset.admissionYearReady = "true";
+    picker.addEventListener("click", handlePickerClick);
+    updatePicker(picker, picker.querySelector("[data-admission-year-input]")?.value);
+  });
 }

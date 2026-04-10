@@ -1,6 +1,9 @@
 ﻿import { createPlayer } from "../api/playerApi.js";
 import { fetchSchoolById } from "../api/schoolApi.js";
-import { buildAdmissionYearPicker } from "../components/admissionYearPicker.js";
+import {
+  buildAdmissionYearPicker,
+  setupAdmissionYearPickers,
+} from "../components/admissionYearPicker.js";
 import { PREFECTURE_GROUPS } from "../constants/prefectures.js";
 
 const PLAYER_TYPE_OPTIONS = [
@@ -98,7 +101,7 @@ function renderForm(form, schoolId) {
       </select>
     </div>
     <div>
-      <label for="admission_year">入学年</label><br>
+      <span>入学年</span><br>
       ${buildAdmissionYearPicker()}
     </div>
     <div>
@@ -183,6 +186,7 @@ async function init() {
 
     schoolElement.textContent = `対象学校: ${school.name} (ID: ${school.id})`;
     renderForm(form, schoolId);
+    setupAdmissionYearPickers(form);
     form.addEventListener("submit", (event) => handleSubmit(event, schoolId, messageElement));
   } catch (error) {
     setMessage(messageElement, error.message, true);

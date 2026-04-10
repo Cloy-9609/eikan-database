@@ -83,7 +83,6 @@ const ALLOWED_COUNTRIES = [
 const ALLOWED_PREFECTURE_VALUES = [...ALLOWED_PREFECTURES, ...ALLOWED_COUNTRIES];
 const ADMISSION_YEAR_MIN = 1948;
 const ADMISSION_YEAR_MAX = 2126;
-const ADMISSION_YEAR_AFTER_RANGE_VALUE = 2127;
 const ALLOWED_ABILITY_CATEGORIES = [
   "pitcher_ranked",
   "pitcher_unranked",
@@ -217,13 +216,10 @@ function validatePrefecture(value) {
 function validateAdmissionYear(value) {
   const admissionYear = parseRequiredInteger(value, "admission_year");
 
-  if (
-    admissionYear !== ADMISSION_YEAR_AFTER_RANGE_VALUE &&
-    (admissionYear < ADMISSION_YEAR_MIN || admissionYear > ADMISSION_YEAR_MAX)
-  ) {
+  if (admissionYear < ADMISSION_YEAR_MIN || admissionYear > ADMISSION_YEAR_MAX) {
     throw createHttpError(
       400,
-      `admission_year must be between ${ADMISSION_YEAR_MIN} and ${ADMISSION_YEAR_MAX}, or ${ADMISSION_YEAR_AFTER_RANGE_VALUE} for later years.`
+      `admission_year must be between ${ADMISSION_YEAR_MIN} and ${ADMISSION_YEAR_MAX}.`
     );
   }
 

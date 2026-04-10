@@ -120,32 +120,54 @@
 .admission-year-picker {
   display: grid;
   gap: 8px;
-  max-width: 520px;
+  max-width: 360px;
 }
 
-.admission-year-group {
+.admission-year-digits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.admission-year-digit {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.admission-year-button {
+  width: 36px;
+  min-height: 28px;
+  border: 1px solid #9aa8b8;
+  border-radius: 8px;
+  background: #f5f7fa;
+  cursor: pointer;
+}
+
+.admission-year-button:hover {
+  background: #e8eef6;
+}
+
+.admission-year-number {
+  width: 36px;
+  padding: 8px 0;
   border: 1px solid #d7dee8;
   border-radius: 8px;
   background: #ffffff;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 700;
 }
 
-.admission-year-summary {
-  cursor: pointer;
-  padding: 8px 10px;
-  font-weight: 600;
+.admission-year-current,
+.admission-year-error {
+  margin: 0;
 }
 
-.admission-year-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
-  gap: 6px;
-  padding: 0 10px 10px;
-}
-
-.admission-year-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.admission-year-error {
+  min-height: 1.2em;
+  color: #b91c1c;
 }
 
 @media (max-width: 640px) {

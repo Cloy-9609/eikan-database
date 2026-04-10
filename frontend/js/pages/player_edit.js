@@ -1,5 +1,8 @@
 import { fetchPlayerById, updatePlayer } from "../api/playerApi.js";
-import { buildAdmissionYearPicker } from "../components/admissionYearPicker.js";
+import {
+  buildAdmissionYearPicker,
+  setupAdmissionYearPickers,
+} from "../components/admissionYearPicker.js";
 import { PREFECTURE_GROUPS, isKnownPrefecture } from "../constants/prefectures.js";
 
 const PLAYER_TYPE_OPTIONS = [
@@ -106,7 +109,7 @@ function renderForm(form, player) {
       </select>
     </div>
     <div>
-      <label for="admission_year">入学年</label><br>
+      <span>入学年</span><br>
       ${buildAdmissionYearPicker({ selectedYear: player.admission_year })}
     </div>
     <div>
@@ -187,6 +190,7 @@ async function init() {
     const player = await fetchPlayerById(playerId);
 
     renderForm(form, player);
+    setupAdmissionYearPickers(form);
     form.addEventListener("submit", (event) => handleSubmit(event, player, messageElement));
   } catch (error) {
     setMessage(messageElement, error.message, true);
