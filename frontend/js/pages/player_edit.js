@@ -86,66 +86,86 @@ function buildGroupedOptions(groups, selectedValue) {
 
 function renderForm(form, player) {
   form.innerHTML = `
-    <div>
-      <label for="name">名前</label><br>
-      <input id="name" name="name" type="text" value="${escapeAttribute(player.name)}" required>
+    <div class="player-form-row">
+      <label class="player-form-label" for="name">名前</label>
+      <div class="player-form-control">
+        <input id="name" name="name" type="text" value="${escapeAttribute(player.name)}" required>
+      </div>
     </div>
-    <div>
-      <label for="player_type">選手種別</label><br>
-      <select id="player_type" name="player_type" required>
-        ${buildOptions(PLAYER_TYPE_OPTIONS, player.player_type)}
-      </select>
+    <div class="player-form-row">
+      <label class="player-form-label" for="player_type">選手種別</label>
+      <div class="player-form-control">
+        <select id="player_type" name="player_type" required>
+          ${buildOptions(PLAYER_TYPE_OPTIONS, player.player_type)}
+        </select>
+      </div>
     </div>
-    <div>
-      <label for="prefecture">都道府県</label><br>
-      <select id="prefecture" name="prefecture" required>
-        ${buildGroupedOptions(PREFECTURE_GROUPS, player.prefecture)}
-      </select>
+    <div class="player-form-row">
+      <label class="player-form-label" for="prefecture">都道府県</label>
+      <div class="player-form-control">
+        <select id="prefecture" name="prefecture" required>
+          ${buildGroupedOptions(PREFECTURE_GROUPS, player.prefecture)}
+        </select>
+      </div>
     </div>
-    <div>
-      <label for="grade">学年</label><br>
-      <select id="grade" name="grade" required>
-        ${buildOptions(["1", "2", "3"], String(player.grade))}
-      </select>
+    <div class="player-form-row">
+      <label class="player-form-label" for="grade">学年</label>
+      <div class="player-form-control">
+        <select id="grade" name="grade" required>
+          ${buildOptions(["1", "2", "3"], String(player.grade))}
+        </select>
+      </div>
     </div>
-    <div>
-      <span>入学年</span><br>
-      ${buildAdmissionYearPicker({ selectedYear: player.admission_year })}
+    <div class="player-form-row">
+      <span class="player-form-label">入学年</span>
+      <div class="player-form-control player-form-control--year">
+        ${buildAdmissionYearPicker({ selectedYear: player.admission_year })}
+      </div>
     </div>
-    <div>
-      <label for="snapshot_label">スナップショット</label><br>
-      <select id="snapshot_label" name="snapshot_label" required>
-        ${buildOptions(SNAPSHOT_LABEL_OPTIONS, player.snapshot_label)}
-      </select>
+    <div class="player-form-row">
+      <label class="player-form-label" for="snapshot_label">スナップショット</label>
+      <div class="player-form-control">
+        <select id="snapshot_label" name="snapshot_label" required>
+          ${buildOptions(SNAPSHOT_LABEL_OPTIONS, player.snapshot_label)}
+        </select>
+      </div>
     </div>
-    <div>
-      <label for="main_position">メインポジション</label><br>
-      <select id="main_position" name="main_position" required>
-        ${buildOptions(POSITION_OPTIONS, player.main_position)}
-      </select>
+    <div class="player-form-row">
+      <label class="player-form-label" for="main_position">メインポジション</label>
+      <div class="player-form-control">
+        <select id="main_position" name="main_position" required>
+          ${buildOptions(POSITION_OPTIONS, player.main_position)}
+        </select>
+      </div>
     </div>
-    <div>
-      <label for="throwing_hand">投球</label><br>
-      <select id="throwing_hand" name="throwing_hand" required>
-        ${buildOptions(THROWING_HAND_OPTIONS, player.throwing_hand)}
-      </select>
+    <div class="player-form-row">
+      <label class="player-form-label" for="throwing_hand">投球</label>
+      <div class="player-form-control">
+        <select id="throwing_hand" name="throwing_hand" required>
+          ${buildOptions(THROWING_HAND_OPTIONS, player.throwing_hand)}
+        </select>
+      </div>
     </div>
-    <div>
-      <label for="batting_hand">打席</label><br>
-      <select id="batting_hand" name="batting_hand" required>
-        ${buildOptions(BATTING_HAND_OPTIONS, player.batting_hand)}
-      </select>
+    <div class="player-form-row">
+      <label class="player-form-label" for="batting_hand">打席</label>
+      <div class="player-form-control">
+        <select id="batting_hand" name="batting_hand" required>
+          ${buildOptions(BATTING_HAND_OPTIONS, player.batting_hand)}
+        </select>
+      </div>
     </div>
-    <div>
-      <button type="submit">保存する</button>
-      <a href="./player_detail.html?id=${encodeURIComponent(player.id)}">戻る</a>
+    <div class="player-form-actions">
+      <button type="submit" class="player-button player-button-primary">保存する</button>
+      <a class="player-button player-button-secondary" href="./player_detail.html?id=${encodeURIComponent(player.id)}">詳細へ戻る</a>
     </div>
   `;
 }
 
 function setMessage(messageElement, message, isError = false) {
   messageElement.textContent = message;
-  messageElement.style.color = isError ? "#b91c1c" : "#047857";
+  messageElement.classList.toggle("is-visible", Boolean(message));
+  messageElement.classList.toggle("is-error", Boolean(message) && isError);
+  messageElement.classList.toggle("is-success", Boolean(message) && !isError);
 }
 
 function buildPayload(formData, player) {
@@ -194,7 +214,11 @@ async function init() {
     form.addEventListener("submit", (event) => handleSubmit(event, player, messageElement));
   } catch (error) {
     setMessage(messageElement, error.message, true);
-    form.innerHTML = `<p><a href="./schools.html">学校一覧へ戻る</a></p>`;
+    form.innerHTML = `
+      <div class="player-form-actions">
+        <a class="player-button player-button-secondary" href="./schools.html">学校一覧へ戻る</a>
+      </div>
+    `;
   }
 }
 

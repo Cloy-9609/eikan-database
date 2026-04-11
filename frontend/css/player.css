@@ -1,7 +1,209 @@
 ﻿#player-detail-root,
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 #player-register-form,
 #player-edit-form {
   min-height: 240px;
+}
+
+#player-detail-root {
+  min-height: 240px;
+}
+
+.player-page {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, #f8fbff 0%, #eef3f9 100%);
+}
+
+.player-page .page {
+  max-width: 760px;
+  padding-top: 40px;
+  padding-bottom: 56px;
+}
+
+.player-form-card {
+  padding: clamp(24px, 4vw, 36px);
+  border: 1px solid #d7dee8;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+.player-page-header {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.player-page-kicker {
+  margin: 0;
+  color: #5f6b7a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.player-page-title {
+  margin: 0;
+  color: #162336;
+  font-size: clamp(1.75rem, 4vw, 2.1rem);
+  line-height: 1.2;
+}
+
+.player-page-context {
+  min-height: 1.6em;
+  margin: 0;
+  color: #526071;
+  line-height: 1.6;
+}
+
+.player-message {
+  display: none;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: #f5f7fa;
+  line-height: 1.5;
+}
+
+.player-message.is-visible {
+  display: block;
+}
+
+.player-message.is-success {
+  border-color: #b8dfca;
+  background: #ecfdf3;
+  color: #0f766e;
+}
+
+.player-message.is-error {
+  border-color: #efc2c2;
+  background: #fff1f1;
+  color: #8a1c1c;
+}
+
+.player-form {
+  display: grid;
+  gap: 18px;
+}
+
+.player-form-row {
+  display: grid;
+  gap: 8px;
+}
+
+.player-form-label {
+  color: #243447;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.player-form-control {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.player-form-control > * {
+  max-width: 100%;
+}
+
+.player-form-control > input:not([type="hidden"]),
+.player-form-control > select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid #bcc9d8;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1f2937;
+  font: inherit;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.player-form-control > input:not([type="hidden"]):hover,
+.player-form-control > select:hover {
+  border-color: #94a7bc;
+}
+
+.player-form-control > input:not([type="hidden"]):focus,
+.player-form-control > select:focus {
+  border-color: #175f9f;
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(23, 95, 159, 0.14);
+}
+
+.player-form-control > input:not([type="hidden"])::placeholder {
+  color: #8b96a4;
+}
+
+.player-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.player-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.player-button:hover {
+  transform: translateY(-1px);
+}
+
+.player-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(23, 95, 159, 0.18);
+}
+
+.player-button-primary {
+  border-color: #175f9f;
+  background: #175f9f;
+  color: #ffffff;
+}
+
+.player-button-primary:hover {
+  background: #0f4c81;
+  border-color: #0f4c81;
+}
+
+.player-button-secondary {
+  border-color: #bcc9d8;
+  background: #ffffff;
+  color: #243447;
+}
+
+.player-button-secondary:hover {
+  border-color: #94a7bc;
+  background: #f8fbff;
 }
 
 .player-detail {
@@ -119,45 +321,127 @@
 
 .admission-year-picker {
   display: grid;
-  gap: 8px;
-  max-width: 360px;
+  position: relative;
+  gap: 14px;
+  width: 100%;
+  max-width: 100%;
+  padding: 16px;
+  border: 2px solid #7f9ec0;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, #fafdff 0%, #e3edf8 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 0 0 2px rgba(214, 229, 245, 0.92),
+    0 2px 0 rgba(123, 150, 180, 0.22);
+  overflow: hidden;
+}
+
+.admission-year-picker::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.admission-year-picker > * {
+  position: relative;
+  z-index: 1;
 }
 
 .admission-year-digits {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+  padding: 10px;
+  border: 1px solid #a9c0da;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(216, 231, 246, 0.92) 0%, rgba(194, 214, 236, 0.84) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(131, 162, 194, 0.22);
 }
 
 .admission-year-digit {
   display: grid;
-  gap: 4px;
-  justify-items: center;
+  grid-template-rows: 34px minmax(60px, auto) 34px;
+  gap: 7px;
+  justify-items: stretch;
 }
 
 .admission-year-button {
-  width: 36px;
-  min-height: 28px;
-  border: 1px solid #9aa8b8;
-  border-radius: 8px;
-  background: #f5f7fa;
+  width: 100%;
+  min-height: 34px;
+  padding: 0;
+  border: 1px solid #6f90b6;
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, #fefefe 0%, #d8e4f0 100%);
+  color: #36506e;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
   cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -2px 0 rgba(122, 149, 178, 0.25);
 }
 
 .admission-year-button:hover {
-  background: #e8eef6;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #cfe0f2 100%);
+  border-color: #587ba4;
+  color: #1f3957;
+}
+
+.admission-year-button:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -2px 0 rgba(122, 149, 178, 0.25),
+    0 0 0 4px rgba(39, 110, 174, 0.2);
+}
+
+.admission-year-button:active {
+  transform: translateY(1px);
+  background:
+    linear-gradient(180deg, #d4e1ee 0%, #f7fbff 100%);
+  box-shadow:
+    inset 0 2px 2px rgba(111, 144, 182, 0.28),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.65);
 }
 
 .admission-year-number {
-  width: 36px;
-  padding: 8px 0;
-  border: 1px solid #d7dee8;
-  border-radius: 8px;
-  background: #ffffff;
-  text-align: center;
-  font-size: 1.25rem;
+  display: grid;
+  width: 100%;
+  min-height: 60px;
+  place-items: center;
+  padding: 0;
+  border: 2px solid #6f86a3;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #edf3f8 56%, #dfe7f0 100%);
+  color: #15314b;
+  font-size: 1.6rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -3px 0 rgba(136, 156, 180, 0.28);
 }
 
 .admission-year-current,
@@ -165,13 +449,106 @@
   margin: 0;
 }
 
+.admission-year-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  padding: 6px 12px;
+  border: 1px solid #b7cade;
+  border-radius: 999px;
+  background: rgba(248, 251, 255, 0.88);
+  color: #42556b;
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.admission-year-current output {
+  color: #14324e;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
 .admission-year-error {
-  min-height: 1.2em;
-  color: #b91c1c;
+  min-height: 1.6em;
+  padding: 0 2px;
+  color: #b24545;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.admission-year-error:not(:empty) {
+  padding: 7px 10px;
+  border: 1px solid #efc4c4;
+  border-radius: 10px;
+  background: rgba(255, 244, 244, 0.92);
 }
 
 @media (max-width: 640px) {
+  .player-page .page {
+    padding-top: 24px;
+    padding-bottom: 40px;
+  }
+
+  .player-form-card {
+    padding: 22px 18px;
+    border-radius: 18px;
+  }
+
+  .player-button {
+    width: 100%;
+  }
+
   .detail-header {
     flex-direction: column;
+  }
+
+  .admission-year-digits {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .admission-year-digit {
+    grid-template-rows: 32px minmax(52px, auto) 32px;
+    gap: 6px;
+  }
+
+  .admission-year-picker {
+    gap: 12px;
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .admission-year-picker::before {
+    inset: 5px;
+  }
+
+  .admission-year-button {
+    min-height: 32px;
+    font-size: 0.82rem;
+  }
+
+  .admission-year-number {
+    min-height: 52px;
+    font-size: 1.35rem;
+  }
+
+  .admission-year-current {
+    width: 100%;
+    justify-content: center;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .admission-year-current output {
+    font-size: 0.94rem;
+  }
+
+  .admission-year-error {
+    min-height: 1.5em;
+    font-size: 0.76rem;
   }
 }
