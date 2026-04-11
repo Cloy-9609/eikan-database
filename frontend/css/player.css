@@ -83,6 +83,7 @@
   --player-space-3xl: 20px;
   --player-space-4xl: 24px;
   --player-space-5xl: 40px;
+  --player-space-page-bottom: 56px;
   --player-space-panel-max: 36px;
 
   --player-radius-sm: 8px;
@@ -153,7 +154,7 @@
 .player-page .page {
   max-width: var(--player-page-width);
   padding-top: var(--player-space-5xl);
-  padding-bottom: 56px;
+  padding-bottom: var(--player-space-page-bottom);
 }
 
 .player-page-shell {
