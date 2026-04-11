@@ -94,20 +94,60 @@ function renderListSection(title, items, formatter) {
   `;
 }
 
-function renderError(root, message) {
+function setMessage(messageElement, message, isError = false) {
+  messageElement.textContent = message;
+  messageElement.classList.toggle("is-visible", Boolean(message));
+  messageElement.classList.toggle("is-error", Boolean(message) && isError);
+  messageElement.classList.toggle("is-success", Boolean(message) && !isError);
+}
+
+function renderActions(container, actions) {
+  container.innerHTML = actions
+    .map(
+      (action) => `
+        <a class="player-button ${action.primary ? "player-button-primary" : "player-button-secondary"}" href="${action.href}">
+          ${action.label}
+        </a>
+      `
+    )
+    .join("");
+}
+
+function renderError(root, messageElement, titleElement, contextElement, actionsElement, message) {
+  titleElement.textContent = "選手詳細";
+  contextElement.textContent = "選手情報を取得できませんでした。";
+  renderActions(actionsElement, [
+    { href: "./schools.html", label: "学校一覧へ戻る", primary: false },
+  ]);
+  setMessage(messageElement, message, true);
+
   root.innerHTML = `
     <section class="detail-card">
-      <div class="message-box error-message">
-        <p>選手情報の取得に失敗しました。</p>
-        <p>${escapeHtml(message)}</p>
-        <p><a href="./schools.html">学校一覧へ戻る</a></p>
+      <div class="player-empty-state">
+        <p class="player-empty-text">学校一覧から選手を選び直してください。</p>
+        <a class="player-button player-button-secondary" href="./schools.html">学校一覧へ戻る</a>
       </div>
     </section>
   `;
 }
 
-function renderPlayer(root, player) {
+function renderPlayer(root, messageElement, titleElement, contextElement, actionsElement, player) {
   document.title = `${player.name} | 選手詳細`;
+  titleElement.textContent = formatValue(player.name, "名称未設定");
+  contextElement.textContent = `選手ID: ${escapeHtml(player.id)} / 学校ID: ${escapeHtml(player.school_id)}`;
+  renderActions(actionsElement, [
+    {
+      href: `./school_detail.html?id=${encodeURIComponent(player.school_id)}`,
+      label: "学校詳細へ戻る",
+      primary: false,
+    },
+    {
+      href: `./player_edit.html?id=${encodeURIComponent(player.id)}`,
+      label: "編集",
+      primary: true,
+    },
+  ]);
+  setMessage(messageElement, "");
 
   const basicInfo = renderDefinitionRows([
     { label: "名前", value: formatValue(player.name) },
@@ -168,19 +208,6 @@ function renderPlayer(root, player) {
 
   root.innerHTML = `
     <section class="detail-card">
-      <div class="detail-header">
-        <div>
-          <p class="detail-kicker">Player Detail</p>
-          <h2 class="player-name">${formatValue(player.name, "名称未設定")}</h2>
-        </div>
-        <div class="detail-actions">
-          <a class="action-link" href="./school_detail.html?id=${encodeURIComponent(player.school_id)}">学校詳細へ戻る</a>
-          <a class="action-link" href="./player_edit.html?id=${encodeURIComponent(player.id)}">編集</a>
-        </div>
-      </div>
-    </section>
-
-    <section class="detail-card">
       <h2 class="detail-title">基本情報</h2>
       <dl class="detail-grid">
         ${basicInfo}
@@ -209,13 +236,17 @@ function renderPlayer(root, player) {
 
 async function init() {
   const root = document.getElementById("player-detail-root");
+  const messageElement = document.getElementById("player-detail-message");
+  const titleElement = document.getElementById("player-detail-title");
+  const contextElement = document.getElementById("player-detail-context");
+  const actionsElement = document.getElementById("player-detail-actions");
 
   try {
     const playerId = getPlayerIdFromQuery();
     const player = await fetchPlayerById(playerId);
-    renderPlayer(root, player);
+    renderPlayer(root, messageElement, titleElement, contextElement, actionsElement, player);
   } catch (error) {
-    renderError(root, error.message);
+    renderError(root, messageElement, titleElement, contextElement, actionsElement, error.message);
   }
 }
 

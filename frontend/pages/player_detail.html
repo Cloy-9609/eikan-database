@@ -8,10 +8,25 @@
   <link rel="stylesheet" href="../css/layout.css">
   <link rel="stylesheet" href="../css/player.css">
 </head>
-<body>
+<body class="player-page">
   <main class="page">
-    <h1>選手詳細</h1>
-    <div id="player-detail-root" class="player-detail"></div>
+    <section class="player-page-shell player-detail-shell">
+      <div class="player-page-panel player-detail-hero">
+        <header class="player-page-header">
+          <p class="player-page-kicker">Player Detail</p>
+          <h1 id="player-detail-title" class="player-page-title">選手詳細</h1>
+          <p id="player-detail-context" class="player-page-context">選手情報を読み込み中です。</p>
+          <div id="player-detail-actions" class="player-page-actions"></div>
+        </header>
+        <div
+          id="player-detail-message"
+          class="player-message"
+          role="alert"
+          aria-live="polite"
+        ></div>
+      </div>
+      <div id="player-detail-root" class="player-detail"></div>
+    </section>
   </main>
   <script type="module" src="../js/pages/player_detail.js"></script>
 </body>
