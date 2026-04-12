@@ -1,8 +1,10 @@
-export const ADMISSION_YEAR_MIN = 1948;
-export const ADMISSION_YEAR_MAX = 2126;
+export const ADMISSION_YEAR_MIN = 1932;
+export const ADMISSION_YEAR_MAX = 2039;
 
 const DIGIT_PLACES = ["千の位", "百の位", "十の位", "一の位"];
 const DIGIT_WEIGHTS = [1000, 100, 10, 1];
+const ADMISSION_YEAR_ERROR_MESSAGE =
+  "この操作では有効な入学年にならないため、値は変更されません。1932〜2039年から選択してください。";
 
 function escapeAttribute(value) {
   return String(value ?? "")
@@ -12,12 +14,8 @@ function escapeAttribute(value) {
     .replaceAll(">", "&gt;");
 }
 
-function isAdmissionYearInRange(year) {
-  return (
-    Number.isInteger(year) &&
-    year >= ADMISSION_YEAR_MIN &&
-    year <= ADMISSION_YEAR_MAX
-  );
+export function isValidYear(year) {
+  return Number.isInteger(year) && year >= ADMISSION_YEAR_MIN && year <= ADMISSION_YEAR_MAX;
 }
 
 export function getSafeAdmissionYear(value, fallbackYear = new Date().getFullYear()) {
@@ -55,20 +53,20 @@ export function getNextAdmissionYear(currentYear, digitIndex, step) {
   const amount = Number(step);
 
   if (!Number.isInteger(index) || index < 0 || index >= DIGIT_WEIGHTS.length) {
-    return { year: safeCurrentYear, changed: false, rejectedYear: null };
+    return { year: safeCurrentYear, changed: false, rejected: false };
   }
 
   if (!Number.isInteger(amount) || amount === 0) {
-    return { year: safeCurrentYear, changed: false, rejectedYear: null };
+    return { year: safeCurrentYear, changed: false, rejected: false };
   }
 
   const nextYear = safeCurrentYear + DIGIT_WEIGHTS[index] * amount;
 
-  if (!isAdmissionYearInRange(nextYear)) {
-    return { year: safeCurrentYear, changed: false, rejectedYear: nextYear };
+  if (!isValidYear(nextYear)) {
+    return { year: safeCurrentYear, changed: false, rejected: true };
   }
 
-  return { year: nextYear, changed: true, rejectedYear: null };
+  return { year: nextYear, changed: nextYear !== safeCurrentYear, rejected: false };
 }
 
 function renderDigits(year) {
@@ -152,8 +150,8 @@ function handlePickerClick(event) {
   if (!result.changed) {
     const error = picker.querySelector("[data-admission-year-error]");
 
-    if (error && result.rejectedYear !== null) {
-      error.textContent = `${result.rejectedYear}年は選択できません。${ADMISSION_YEAR_MIN}〜${ADMISSION_YEAR_MAX}年から選択してください。`;
+    if (error) {
+      error.textContent = result.rejected ? ADMISSION_YEAR_ERROR_MESSAGE : "";
     }
 
     return;
