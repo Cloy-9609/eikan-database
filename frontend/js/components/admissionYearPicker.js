@@ -2,7 +2,8 @@ export const ADMISSION_YEAR_MIN = 1932;
 export const ADMISSION_YEAR_MAX = 2039;
 
 const DIGIT_PLACES = ["千の位", "百の位", "十の位", "一の位"];
-const DIGIT_WEIGHTS = [1000, 100, 10, 1];
+const DIGIT_COUNT = DIGIT_PLACES.length;
+const DIGIT_CYCLE_LENGTH = 10;
 const ADMISSION_YEAR_ERROR_MESSAGE =
   "この操作では有効な入学年にならないため、値は変更されません。1932〜2039年から選択してください。";
 
@@ -47,12 +48,115 @@ function getYearDigits(year) {
     .map(Number);
 }
 
+function getYearFromDigits(digits) {
+  return Number(digits.join(""));
+}
+
+function wrapDigitValue(value) {
+  return ((value % DIGIT_CYCLE_LENGTH) + DIGIT_CYCLE_LENGTH) % DIGIT_CYCLE_LENGTH;
+}
+
+function getSearchDirection(step) {
+  return step > 0 ? 1 : -1;
+}
+
+function buildResult(currentYear, nextYear) {
+  return {
+    year: nextYear,
+    changed: nextYear !== currentYear,
+    rejected: false,
+  };
+}
+
+function getRejectedResult(year) {
+  return { year, changed: false, rejected: true };
+}
+
+function findFirstValidYear(candidateFactory, currentYear) {
+  for (let attempt = 1; attempt <= DIGIT_CYCLE_LENGTH; attempt += 1) {
+    const candidateYear = candidateFactory(attempt);
+
+    if (candidateYear !== currentYear && isValidYear(candidateYear)) {
+      return buildResult(currentYear, candidateYear);
+    }
+  }
+
+  return getRejectedResult(currentYear);
+}
+
+function getThousandsDigitAdjustedAdmissionYear(currentYear) {
+  return buildResult(currentYear, currentYear < 2000 ? ADMISSION_YEAR_MAX : ADMISSION_YEAR_MIN);
+}
+
+function getHundredsDigitAdjustedAdmissionYear(currentYear) {
+  const lowerDigits = currentYear % 100;
+  const candidateYear = currentYear < 2000 ? 2000 + lowerDigits : 1900 + lowerDigits;
+
+  if (isValidYear(candidateYear)) {
+    return buildResult(currentYear, candidateYear);
+  }
+
+  return buildResult(currentYear, currentYear < 2000 ? ADMISSION_YEAR_MAX : ADMISSION_YEAR_MIN);
+}
+
+function getOnesDigitAdjustedAdmissionYear(currentYear, step) {
+  const digits = getYearDigits(currentYear);
+  const direction = getSearchDirection(step);
+
+  return findFirstValidYear((attempt) => {
+    const candidateDigits = [...digits];
+    candidateDigits[3] = wrapDigitValue(digits[3] + direction * attempt);
+    return getYearFromDigits(candidateDigits);
+  }, currentYear);
+}
+
+function getTensDigitCandidateYear(digits, direction, attempt) {
+  const candidateDigits = [...digits];
+  candidateDigits[2] = wrapDigitValue(digits[2] + direction * attempt);
+  const candidateYear = getYearFromDigits(candidateDigits);
+
+  if (isValidYear(candidateYear)) {
+    return candidateYear;
+  }
+
+  const isPartial1930s =
+    candidateDigits[0] === 1 &&
+    candidateDigits[1] === 9 &&
+    candidateDigits[2] === 3;
+
+  if (!isPartial1930s) {
+    return null;
+  }
+
+  for (let onesAttempt = 0; onesAttempt < DIGIT_CYCLE_LENGTH; onesAttempt += 1) {
+    candidateDigits[3] = wrapDigitValue(digits[3] + direction * onesAttempt);
+
+    const partialCandidateYear = getYearFromDigits(candidateDigits);
+
+    if (isValidYear(partialCandidateYear)) {
+      return partialCandidateYear;
+    }
+  }
+
+  return null;
+}
+
+function getTensDigitAdjustedAdmissionYear(currentYear, step) {
+  const digits = getYearDigits(currentYear);
+  const direction = getSearchDirection(step);
+
+  return findFirstValidYear(
+    (attempt) => getTensDigitCandidateYear(digits, direction, attempt),
+    currentYear
+  );
+}
+
 export function getNextAdmissionYear(currentYear, digitIndex, step) {
   const safeCurrentYear = getSafeAdmissionYear(currentYear);
   const index = Number(digitIndex);
   const amount = Number(step);
 
-  if (!Number.isInteger(index) || index < 0 || index >= DIGIT_WEIGHTS.length) {
+  if (!Number.isInteger(index) || index < 0 || index >= DIGIT_COUNT) {
     return { year: safeCurrentYear, changed: false, rejected: false };
   }
 
@@ -60,13 +164,21 @@ export function getNextAdmissionYear(currentYear, digitIndex, step) {
     return { year: safeCurrentYear, changed: false, rejected: false };
   }
 
-  const nextYear = safeCurrentYear + DIGIT_WEIGHTS[index] * amount;
-
-  if (!isValidYear(nextYear)) {
-    return { year: safeCurrentYear, changed: false, rejected: true };
+  if (index === 0) {
+    return getThousandsDigitAdjustedAdmissionYear(safeCurrentYear);
   }
 
-  return { year: nextYear, changed: nextYear !== safeCurrentYear, rejected: false };
+  if (index === 1) {
+    return getHundredsDigitAdjustedAdmissionYear(safeCurrentYear);
+  }
+
+  if (index === 2) {
+    return getTensDigitAdjustedAdmissionYear(safeCurrentYear, amount);
+  }
+
+  if (index === 3) {
+    return getOnesDigitAdjustedAdmissionYear(safeCurrentYear, amount);
+  }
 }
 
 function renderDigits(year) {
