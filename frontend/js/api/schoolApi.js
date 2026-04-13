@@ -1,4 +1,4 @@
-﻿const SCHOOL_API_BASE = "http://localhost:3000/api/schools";
+﻿const SCHOOL_API_BASE = "/api/schools";
 
 async function parseResponse(response) {
   let payload = null;

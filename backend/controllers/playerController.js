@@ -39,8 +39,22 @@ async function createPlayer(req, res, next) {
   }
 }
 
+async function updatePlayer(req, res, next) {
+  try {
+    const player = await playerService.updatePlayer(req.params.id, req.body);
+    res.json({
+      success: true,
+      data: player,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   getPlayers,
   getPlayerById,
   createPlayer,
+  updatePlayer,
 };

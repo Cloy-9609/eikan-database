@@ -8,12 +8,22 @@
   <link rel="stylesheet" href="../css/layout.css">
   <link rel="stylesheet" href="../css/player.css">
 </head>
-<body>
+<body class="player-page">
   <main class="page">
-    <h1>選手登録</h1>
-    <p id="player-register-school"></p>
-    <p id="player-register-message" role="alert"></p>
-    <form id="player-register-form"></form>
+    <section class="player-page-panel player-form-card">
+      <header class="player-page-header">
+        <p class="player-page-kicker">Player Form</p>
+        <h1 class="player-page-title">選手登録</h1>
+        <p id="player-register-school" class="player-page-context"></p>
+      </header>
+      <div
+        id="player-register-message"
+        class="player-message"
+        role="alert"
+        aria-live="polite"
+      ></div>
+      <form id="player-register-form" class="player-form"></form>
+    </section>
   </main>
   <script type="module" src="../js/pages/player_register.js"></script>
 </body>

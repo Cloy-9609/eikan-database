@@ -1,10 +1,9 @@
-﻿import { createPlayer } from "../api/playerApi.js";
-import { fetchSchoolById } from "../api/schoolApi.js";
+import { fetchPlayerById, updatePlayer } from "../api/playerApi.js";
 import {
   buildAdmissionYearPicker,
   setupAdmissionYearPickers,
 } from "../components/admissionYearPicker.js";
-import { PREFECTURE_GROUPS } from "../constants/prefectures.js";
+import { PREFECTURE_GROUPS, isKnownPrefecture } from "../constants/prefectures.js";
 
 const PLAYER_TYPE_OPTIONS = [
   { value: "normal", label: "通常" },
@@ -28,27 +27,15 @@ const BATTING_HAND_OPTIONS = [
   { value: "both", label: "両" },
 ];
 
-function getSchoolIdFromQuery() {
+function getPlayerIdFromQuery() {
   const params = new URLSearchParams(window.location.search);
-  const schoolId = params.get("school_id");
+  const playerId = params.get("id");
 
-  if (!schoolId) {
-    throw new Error("school_id が指定されていません。");
+  if (!playerId) {
+    throw new Error("選手IDが指定されていません。");
   }
 
-  return schoolId;
-}
-
-function buildOptions(options) {
-  return options
-    .map((option) => {
-      if (typeof option === "string") {
-        return `<option value="${option}">${option}</option>`;
-      }
-
-      return `<option value="${option.value}">${option.label}</option>`;
-    })
-    .join("");
+  return playerId;
 }
 
 function escapeAttribute(value) {
@@ -59,33 +46,57 @@ function escapeAttribute(value) {
     .replaceAll(">", "&gt;");
 }
 
-function buildGroupedOptions(groups) {
-  return groups
-    .map(
-      (group) => `
-        <optgroup label="${escapeAttribute(group.label)}">
-          ${group.options
-            .map((option) => `<option value="${escapeAttribute(option)}">${option}</option>`)
-            .join("")}
-        </optgroup>
-      `
-    )
+function buildOptions(options, selectedValue) {
+  return options
+    .map((option) => {
+      const value = typeof option === "string" ? option : option.value;
+      const label = typeof option === "string" ? option : option.label;
+      const selected = value === selectedValue ? " selected" : "";
+
+      return `<option value="${escapeAttribute(value)}"${selected}>${label}</option>`;
+    })
     .join("");
 }
 
-function renderForm(form, schoolId) {
+function buildGroupedOptions(groups, selectedValue) {
+  const fallbackOption = isKnownPrefecture(selectedValue)
+    ? ""
+    : `<option value="" selected>現在の値は選択肢にありません: ${escapeAttribute(
+        selectedValue
+      )}</option>`;
+
+  return `
+    ${fallbackOption}
+    ${groups
+      .map(
+        (group) => `
+          <optgroup label="${escapeAttribute(group.label)}">
+            ${group.options
+              .map((option) => {
+                const selected = option === selectedValue ? " selected" : "";
+                return `<option value="${escapeAttribute(option)}"${selected}>${option}</option>`;
+              })
+              .join("")}
+          </optgroup>
+        `
+      )
+      .join("")}
+  `;
+}
+
+function renderForm(form, player) {
   form.innerHTML = `
     <div class="player-form-row">
       <label class="player-form-label" for="name">名前</label>
       <div class="player-form-control">
-        <input id="name" name="name" type="text" required>
+        <input id="name" name="name" type="text" value="${escapeAttribute(player.name)}" required>
       </div>
     </div>
     <div class="player-form-row">
       <label class="player-form-label" for="player_type">選手種別</label>
       <div class="player-form-control">
         <select id="player_type" name="player_type" required>
-          ${buildOptions(PLAYER_TYPE_OPTIONS)}
+          ${buildOptions(PLAYER_TYPE_OPTIONS, player.player_type)}
         </select>
       </div>
     </div>
@@ -93,8 +104,7 @@ function renderForm(form, schoolId) {
       <label class="player-form-label" for="prefecture">都道府県</label>
       <div class="player-form-control">
         <select id="prefecture" name="prefecture" required>
-          <option value="">選択してください</option>
-          ${buildGroupedOptions(PREFECTURE_GROUPS)}
+          ${buildGroupedOptions(PREFECTURE_GROUPS, player.prefecture)}
         </select>
       </div>
     </div>
@@ -102,23 +112,21 @@ function renderForm(form, schoolId) {
       <label class="player-form-label" for="grade">学年</label>
       <div class="player-form-control">
         <select id="grade" name="grade" required>
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
+          ${buildOptions(["1", "2", "3"], String(player.grade))}
         </select>
       </div>
     </div>
     <div class="player-form-row">
       <span class="player-form-label">入学年</span>
       <div class="player-form-control player-form-control--year">
-        ${buildAdmissionYearPicker()}
+        ${buildAdmissionYearPicker({ selectedYear: player.admission_year })}
       </div>
     </div>
     <div class="player-form-row">
       <label class="player-form-label" for="snapshot_label">スナップショット</label>
       <div class="player-form-control">
         <select id="snapshot_label" name="snapshot_label" required>
-          ${buildOptions(SNAPSHOT_LABEL_OPTIONS)}
+          ${buildOptions(SNAPSHOT_LABEL_OPTIONS, player.snapshot_label)}
         </select>
       </div>
     </div>
@@ -126,7 +134,7 @@ function renderForm(form, schoolId) {
       <label class="player-form-label" for="main_position">メインポジション</label>
       <div class="player-form-control">
         <select id="main_position" name="main_position" required>
-          ${buildOptions(POSITION_OPTIONS)}
+          ${buildOptions(POSITION_OPTIONS, player.main_position)}
         </select>
       </div>
     </div>
@@ -134,7 +142,7 @@ function renderForm(form, schoolId) {
       <label class="player-form-label" for="throwing_hand">投球</label>
       <div class="player-form-control">
         <select id="throwing_hand" name="throwing_hand" required>
-          ${buildOptions(THROWING_HAND_OPTIONS)}
+          ${buildOptions(THROWING_HAND_OPTIONS, player.throwing_hand)}
         </select>
       </div>
     </div>
@@ -142,14 +150,13 @@ function renderForm(form, schoolId) {
       <label class="player-form-label" for="batting_hand">打席</label>
       <div class="player-form-control">
         <select id="batting_hand" name="batting_hand" required>
-          ${buildOptions(BATTING_HAND_OPTIONS)}
+          ${buildOptions(BATTING_HAND_OPTIONS, player.batting_hand)}
         </select>
       </div>
     </div>
-    <input type="hidden" name="school_id" value="${schoolId}">
     <div class="player-form-actions">
-      <button type="submit" class="player-button player-button-primary">登録する</button>
-      <a class="player-button player-button-secondary" href="./school_detail.html?id=${schoolId}">戻る</a>
+      <button type="submit" class="player-button player-button-primary">保存する</button>
+      <a class="player-button player-button-secondary" href="./player_detail.html?id=${encodeURIComponent(player.id)}">詳細へ戻る</a>
     </div>
   `;
 }
@@ -161,9 +168,8 @@ function setMessage(messageElement, message, isError = false) {
   messageElement.classList.toggle("is-success", Boolean(message) && !isError);
 }
 
-function buildPayload(formData, schoolId) {
+function buildPayload(formData, player) {
   return {
-    school_id: Number(schoolId),
     name: formData.get("name"),
     player_type: formData.get("player_type"),
     prefecture: formData.get("prefecture"),
@@ -176,18 +182,18 @@ function buildPayload(formData, schoolId) {
   };
 }
 
-async function handleSubmit(event, schoolId, messageElement) {
+async function handleSubmit(event, player, messageElement) {
   event.preventDefault();
 
   const formData = new FormData(event.currentTarget);
-  const payload = buildPayload(formData, schoolId);
+  const payload = buildPayload(formData, player);
 
   try {
-    setMessage(messageElement, "登録中です...");
-    await createPlayer(payload);
-    setMessage(messageElement, "登録に成功しました。学校詳細へ戻ります。");
+    setMessage(messageElement, "保存中です...");
+    await updatePlayer(player.id, payload);
+    setMessage(messageElement, "保存に成功しました。選手詳細へ戻ります。");
     window.setTimeout(() => {
-      window.location.href = `./school_detail.html?id=${schoolId}`;
+      window.location.href = `./player_detail.html?id=${encodeURIComponent(player.id)}`;
     }, 800);
   } catch (error) {
     setMessage(messageElement, error.message, true);
@@ -196,18 +202,16 @@ async function handleSubmit(event, schoolId, messageElement) {
 }
 
 async function init() {
-  const form = document.getElementById("player-register-form");
-  const schoolElement = document.getElementById("player-register-school");
-  const messageElement = document.getElementById("player-register-message");
+  const form = document.getElementById("player-edit-form");
+  const messageElement = document.getElementById("player-edit-message");
 
   try {
-    const schoolId = getSchoolIdFromQuery();
-    const school = await fetchSchoolById(schoolId);
+    const playerId = getPlayerIdFromQuery();
+    const player = await fetchPlayerById(playerId);
 
-    schoolElement.textContent = `対象学校: ${school.name} (ID: ${school.id})`;
-    renderForm(form, schoolId);
+    renderForm(form, player);
     setupAdmissionYearPickers(form);
-    form.addEventListener("submit", (event) => handleSubmit(event, schoolId, messageElement));
+    form.addEventListener("submit", (event) => handleSubmit(event, player, messageElement));
   } catch (error) {
     setMessage(messageElement, error.message, true);
     form.innerHTML = `

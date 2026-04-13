@@ -14,6 +14,75 @@ const ALLOWED_POSITIONS = [
   "遊撃手",
   "外野手",
 ];
+const ALLOWED_PREFECTURES = [
+  "北海道",
+  "青森県",
+  "岩手県",
+  "宮城県",
+  "秋田県",
+  "山形県",
+  "福島県",
+  "茨城県",
+  "栃木県",
+  "群馬県",
+  "埼玉県",
+  "千葉県",
+  "東京都",
+  "神奈川県",
+  "新潟県",
+  "富山県",
+  "石川県",
+  "福井県",
+  "山梨県",
+  "長野県",
+  "岐阜県",
+  "静岡県",
+  "愛知県",
+  "三重県",
+  "滋賀県",
+  "京都府",
+  "大阪府",
+  "兵庫県",
+  "奈良県",
+  "和歌山県",
+  "鳥取県",
+  "島根県",
+  "岡山県",
+  "広島県",
+  "山口県",
+  "徳島県",
+  "香川県",
+  "愛媛県",
+  "高知県",
+  "福岡県",
+  "佐賀県",
+  "長崎県",
+  "熊本県",
+  "大分県",
+  "宮崎県",
+  "鹿児島県",
+  "沖縄県",
+];
+const ALLOWED_COUNTRIES = [
+  "アメリカ",
+  "ドミニカ共和国",
+  "ベネズエラ",
+  "キューバ",
+  "メキシコ",
+  "カナダ",
+  "プエルトリコ",
+  "コロンビア",
+  "パナマ",
+  "オランダ",
+  "韓国",
+  "台湾",
+  "中国",
+  "オーストラリア",
+  "その他",
+];
+const ALLOWED_PREFECTURE_VALUES = [...ALLOWED_PREFECTURES, ...ALLOWED_COUNTRIES];
+const ADMISSION_YEAR_MIN = 1932;
+const ADMISSION_YEAR_MAX = 2039;
 const ALLOWED_ABILITY_CATEGORIES = [
   "pitcher_ranked",
   "pitcher_unranked",
@@ -21,11 +90,42 @@ const ALLOWED_ABILITY_CATEGORIES = [
   "batter_unranked",
   "green",
 ];
+const REQUIRED_UPDATE_FIELDS = [
+  "name",
+  "player_type",
+  "prefecture",
+  "grade",
+  "admission_year",
+  "snapshot_label",
+  "main_position",
+  "throwing_hand",
+  "batting_hand",
+];
 
 function createHttpError(status, message) {
   const error = new Error(message);
   error.status = status;
   return error;
+}
+
+function assertObjectPayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw createHttpError(400, "payload must be an object.");
+  }
+
+  return payload;
+}
+
+function validateUpdatePayloadFields(payload) {
+  const updatePayload = assertObjectPayload(payload);
+
+  for (const fieldName of REQUIRED_UPDATE_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(updatePayload, fieldName)) {
+      throw createHttpError(400, `${fieldName} is required.`);
+    }
+  }
+
+  return updatePayload;
 }
 
 function parseInteger(value, fieldName, { required = false, min, max } = {}) {
@@ -105,6 +205,27 @@ function validateEnum(value, fieldName, allowedValues) {
   return value;
 }
 
+function validatePrefecture(value) {
+  if (!ALLOWED_PREFECTURE_VALUES.includes(value)) {
+    throw createHttpError(400, "prefecture must be one of the allowed prefectures or countries.");
+  }
+
+  return value;
+}
+
+function validateAdmissionYear(value) {
+  const admissionYear = parseRequiredInteger(value, "admission_year");
+
+  if (admissionYear < ADMISSION_YEAR_MIN || admissionYear > ADMISSION_YEAR_MAX) {
+    throw createHttpError(
+      400,
+      `admission_year must be between ${ADMISSION_YEAR_MIN} and ${ADMISSION_YEAR_MAX}.`
+    );
+  }
+
+  return admissionYear;
+}
+
 function validatePitchTypes(items) {
   if (items === undefined || items === null) {
     return [];
@@ -165,6 +286,8 @@ function validateSubPositions(items) {
 }
 
 function validatePlayerPayload(payload = {}) {
+  payload = assertObjectPayload(payload);
+
   const schoolId = parseRequiredInteger(payload.school_id, "school_id", { min: 1 });
   const name = parseRequiredText(payload.name, "name");
   const playerType = validateEnum(
@@ -199,9 +322,9 @@ function validatePlayerPayload(payload = {}) {
     player_type: playerType,
     player_type_note: parseOptionalText(payload.player_type_note),
     total_stars: parseOptionalInteger(payload.total_stars, "total_stars", { min: 0 }) ?? 0,
-    prefecture: parseRequiredText(payload.prefecture, "prefecture"),
+    prefecture: validatePrefecture(parseRequiredText(payload.prefecture, "prefecture")),
     grade: parseRequiredInteger(payload.grade, "grade", { min: 1, max: 3 }),
-    admission_year: parseRequiredInteger(payload.admission_year, "admission_year", { min: 0 }),
+    admission_year: validateAdmissionYear(payload.admission_year),
     snapshot_label: snapshotLabel,
     main_position: mainPosition,
     throwing_hand: throwingHand,
@@ -236,6 +359,40 @@ async function createPlayer(payload) {
   return playerModel.createPlayer(validatedPayload);
 }
 
+async function updatePlayer(id, payload) {
+  const playerId = parseRequiredInteger(id, "player id", { min: 1 });
+  const updatePayload = validateUpdatePayloadFields(payload);
+  const currentPlayer = await playerModel.findById(playerId);
+
+  if (!currentPlayer) {
+    throw createHttpError(404, "Player not found.");
+  }
+
+  const mergedPayload = {
+    ...currentPlayer,
+    ...updatePayload,
+    school_id: currentPlayer.school_id,
+    pitch_types: updatePayload.pitch_types ?? currentPlayer.pitch_types,
+    special_abilities: updatePayload.special_abilities ?? currentPlayer.special_abilities,
+    sub_positions: updatePayload.sub_positions ?? currentPlayer.sub_positions,
+  };
+
+  const validatedPayload = validatePlayerPayload(mergedPayload);
+  const school = await schoolModel.findById(validatedPayload.school_id);
+
+  if (!school || school.is_archived === 1) {
+    throw createHttpError(400, "school_id must reference an active school.");
+  }
+
+  const updatedPlayer = await playerModel.updatePlayer(playerId, validatedPayload);
+
+  if (!updatedPlayer) {
+    throw createHttpError(404, "Player not found.");
+  }
+
+  return updatedPlayer;
+}
+
 async function getPlayerById(id) {
   const playerId = parseRequiredInteger(id, "player id", { min: 1 });
   const player = await playerModel.findById(playerId);
@@ -267,4 +424,5 @@ module.exports = {
   getPlayers,
   getPlayerById,
   createPlayer,
+  updatePlayer,
 };

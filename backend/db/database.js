@@ -70,10 +70,35 @@ function all(sql, params = []) {
   });
 }
 
+async function transaction(callback) {
+  await run("BEGIN IMMEDIATE TRANSACTION");
+
+  let committed = false;
+
+  try {
+    const result = await callback();
+    await run("COMMIT");
+    committed = true;
+    return result;
+  } catch (error) {
+    if (!committed) {
+      try {
+        await run("ROLLBACK");
+      } catch (rollbackError) {
+        error.rollbackError = rollbackError;
+        console.error("Failed to rollback transaction:", rollbackError);
+      }
+    }
+
+    throw error;
+  }
+}
+
 module.exports = {
   connectDatabase,
   run,
   get,
   all,
+  transaction,
   databasePath,
 };
