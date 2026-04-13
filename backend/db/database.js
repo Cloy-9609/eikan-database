@@ -1,13 +1,47 @@
+const fs = require("fs");
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 
-const databasePath = path.join(__dirname, "../../database/eikan.sqlite");
+const defaultDatabasePath = path.join(__dirname, "../../database/eikan-app.sqlite");
+const databasePath = process.env.EIKAN_DB_PATH
+  ? path.resolve(process.env.EIKAN_DB_PATH)
+  : defaultDatabasePath;
+const databaseJournalPath = `${databasePath}-journal`;
+const schemaPath = path.join(__dirname, "schema.sql");
+const expectedTables = [
+  "schools",
+  "players",
+  "player_pitch_types",
+  "player_special_abilities",
+  "player_sub_positions",
+  "player_results",
+];
 let databaseInstance;
+let initializationPromise;
+
+function cleanupStaleJournalFile() {
+  if (!fs.existsSync(databasePath)) {
+    return;
+  }
+
+  const databaseStats = fs.statSync(databasePath);
+
+  if (databaseStats.size !== 0) {
+    return;
+  }
+
+  if (fs.existsSync(databaseJournalPath)) {
+    fs.rmSync(databaseJournalPath, { force: true });
+  }
+}
 
 function connectDatabase() {
   if (databaseInstance) {
     return databaseInstance;
   }
+
+  fs.mkdirSync(path.dirname(databasePath), { recursive: true });
+  cleanupStaleJournalFile();
 
   databaseInstance = new sqlite3.Database(databasePath, (error) => {
     if (error) {
@@ -17,9 +51,26 @@ function connectDatabase() {
 
   databaseInstance.serialize(() => {
     databaseInstance.run("PRAGMA foreign_keys = ON");
+    databaseInstance.run("PRAGMA journal_mode = MEMORY");
+    databaseInstance.run("PRAGMA temp_store = MEMORY");
   });
 
   return databaseInstance;
+}
+
+function exec(sql) {
+  const db = connectDatabase();
+
+  return new Promise((resolve, reject) => {
+    db.exec(sql, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
 }
 
 function run(sql, params = []) {
@@ -70,6 +121,51 @@ function all(sql, params = []) {
   });
 }
 
+function getUserTables() {
+  return all(
+    `
+      SELECT name
+      FROM sqlite_master
+      WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+      ORDER BY name ASC
+    `
+  );
+}
+
+function initializeDatabase() {
+  if (initializationPromise) {
+    return initializationPromise;
+  }
+
+  initializationPromise = (async () => {
+    const tables = await getUserTables();
+
+    if (tables.length === 0) {
+      const schemaSql = fs.readFileSync(schemaPath, "utf-8");
+      await exec(schemaSql);
+      console.log(`Initialized SQLite schema at ${databasePath}`);
+      return;
+    }
+
+    const tableNames = new Set(tables.map((table) => table.name));
+    const missingTables = expectedTables.filter((tableName) => !tableNames.has(tableName));
+
+    if (missingTables.length > 0) {
+      const error = new Error(
+        `SQLite schema is incomplete. Missing tables: ${missingTables.join(", ")}. ` +
+          `Please verify that the backend is pointing at the intended database file: ${databasePath}`
+      );
+      error.code = "SQLITE_SCHEMA_INCOMPLETE";
+      throw error;
+    }
+  })().catch((error) => {
+    initializationPromise = null;
+    throw error;
+  });
+
+  return initializationPromise;
+}
+
 async function transaction(callback) {
   await run("BEGIN IMMEDIATE TRANSACTION");
 
@@ -101,4 +197,6 @@ module.exports = {
   all,
   transaction,
   databasePath,
+  exec,
+  initializeDatabase,
 };

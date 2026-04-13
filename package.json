@@ -4,7 +4,8 @@
   "private": true,
   "main": "backend/app.js",
   "scripts": {
-    "start": "node backend/app.js"
+    "start": "node backend/app.js",
+    "db:reset": "node scripts/setup_db.js"
   },
   "dependencies": {
     "express": "^5.2.1",
