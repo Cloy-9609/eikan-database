@@ -44,7 +44,7 @@ async function getSchoolById(id) {
   const schoolId = validateId(id);
   const school = await schoolModel.findById(schoolId);
 
-  if (!school) {
+  if (!school || school.is_archived === 1) {
     throw createHttpError(404, "School not found.");
   }
 

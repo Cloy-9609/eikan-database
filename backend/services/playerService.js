@@ -101,6 +101,36 @@ const REQUIRED_UPDATE_FIELDS = [
   "throwing_hand",
   "batting_hand",
 ];
+const EDITABLE_PLAYER_FIELDS = [
+  "school_id",
+  "name",
+  "player_type",
+  "player_type_note",
+  "total_stars",
+  "prefecture",
+  "grade",
+  "admission_year",
+  "snapshot_label",
+  "main_position",
+  "throwing_hand",
+  "batting_hand",
+  "is_reincarnated",
+  "is_genius",
+  "velocity",
+  "control",
+  "stamina",
+  "trajectory",
+  "meat",
+  "power",
+  "run_speed",
+  "arm_strength",
+  "fielding",
+  "catching",
+  "evidence_image_path",
+  "pitch_types",
+  "special_abilities",
+  "sub_positions",
+];
 
 function createHttpError(status, message) {
   const error = new Error(message);
@@ -126,6 +156,24 @@ function validateUpdatePayloadFields(payload) {
   }
 
   return updatePayload;
+}
+
+function pickEditablePlayerFields(player) {
+  return EDITABLE_PLAYER_FIELDS.reduce((picked, fieldName) => {
+    picked[fieldName] = player[fieldName];
+    return picked;
+  }, {});
+}
+
+function mergePlayerUpdatePayload(currentPlayer, updatePayload) {
+  return {
+    ...pickEditablePlayerFields(currentPlayer),
+    ...updatePayload,
+    school_id: currentPlayer.school_id,
+    pitch_types: updatePayload.pitch_types ?? currentPlayer.pitch_types,
+    special_abilities: updatePayload.special_abilities ?? currentPlayer.special_abilities,
+    sub_positions: updatePayload.sub_positions ?? currentPlayer.sub_positions,
+  };
 }
 
 function parseInteger(value, fieldName, { required = false, min, max } = {}) {
@@ -368,14 +416,7 @@ async function updatePlayer(id, payload) {
     throw createHttpError(404, "Player not found.");
   }
 
-  const mergedPayload = {
-    ...currentPlayer,
-    ...updatePayload,
-    school_id: currentPlayer.school_id,
-    pitch_types: updatePayload.pitch_types ?? currentPlayer.pitch_types,
-    special_abilities: updatePayload.special_abilities ?? currentPlayer.special_abilities,
-    sub_positions: updatePayload.sub_positions ?? currentPlayer.sub_positions,
-  };
+  const mergedPayload = mergePlayerUpdatePayload(currentPlayer, updatePayload);
 
   const validatedPayload = validatePlayerPayload(mergedPayload);
   const school = await schoolModel.findById(validatedPayload.school_id);

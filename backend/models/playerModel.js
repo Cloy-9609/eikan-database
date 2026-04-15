@@ -1,34 +1,36 @@
 const { get, all, run, transaction } = require("../db/database");
 
 const PLAYER_SELECT_COLUMNS = `
-  id,
-  school_id,
-  name,
-  player_type,
-  player_type_note,
-  total_stars,
-  prefecture,
-  grade,
-  admission_year,
-  snapshot_label,
-  main_position,
-  throwing_hand,
-  batting_hand,
-  is_reincarnated,
-  is_genius,
-  velocity,
-  control,
-  stamina,
-  trajectory,
-  meat,
-  power,
-  run_speed,
-  arm_strength,
-  fielding,
-  catching,
-  evidence_image_path,
-  created_at,
-  updated_at
+  players.id,
+  players.school_id,
+  players.name,
+  players.player_type,
+  players.player_type_note,
+  players.total_stars,
+  players.prefecture,
+  players.grade,
+  players.admission_year,
+  players.snapshot_label,
+  players.main_position,
+  players.throwing_hand,
+  players.batting_hand,
+  players.is_reincarnated,
+  players.is_genius,
+  players.velocity,
+  players.control,
+  players.stamina,
+  players.trajectory,
+  players.meat,
+  players.power,
+  players.run_speed,
+  players.arm_strength,
+  players.fielding,
+  players.catching,
+  players.evidence_image_path,
+  players.created_at,
+  players.updated_at,
+  schools.name AS school_name,
+  schools.is_archived AS school_is_archived
 `;
 
 async function findAll() {
@@ -36,7 +38,9 @@ async function findAll() {
     SELECT
       ${PLAYER_SELECT_COLUMNS}
     FROM players
-    ORDER BY id DESC
+    INNER JOIN schools ON schools.id = players.school_id
+    WHERE schools.is_archived = 0
+    ORDER BY players.id DESC
   `;
 
   return all(sql);
@@ -47,8 +51,9 @@ async function findBySchoolId(schoolId) {
     SELECT
       ${PLAYER_SELECT_COLUMNS}
     FROM players
-    WHERE school_id = ?
-    ORDER BY id DESC
+    INNER JOIN schools ON schools.id = players.school_id
+    WHERE players.school_id = ? AND schools.is_archived = 0
+    ORDER BY players.id DESC
   `;
 
   return all(sql, [schoolId]);
@@ -59,7 +64,8 @@ async function findById(id) {
     SELECT
       ${PLAYER_SELECT_COLUMNS}
     FROM players
-    WHERE id = ?
+    INNER JOIN schools ON schools.id = players.school_id
+    WHERE players.id = ?
   `;
 
   const player = await get(playerSql, [id]);

@@ -17,6 +17,10 @@ const HAND_LABELS = {
   both: "両",
 };
 
+function isArchivedSchool(player) {
+  return Number(player.school_is_archived) === 1;
+}
+
 function getPlayerIdFromQuery() {
   const params = new URLSearchParams(window.location.search);
   const playerId = params.get("id");
@@ -132,25 +136,37 @@ function renderError(root, messageElement, titleElement, contextElement, actions
 }
 
 function renderPlayer(root, messageElement, titleElement, contextElement, actionsElement, player) {
+  const archivedSchool = isArchivedSchool(player);
+  const schoolNameText = player.school_name ?? "不明";
+  const schoolName = formatValue(player.school_name, "不明");
+
   document.title = `${player.name} | 選手詳細`;
   titleElement.textContent = formatValue(player.name, "名称未設定");
-  contextElement.textContent = `選手ID: ${escapeHtml(player.id)} / 学校ID: ${escapeHtml(player.school_id)}`;
-  renderActions(actionsElement, [
-    {
-      href: `./school_detail.html?id=${encodeURIComponent(player.school_id)}`,
-      label: "学校詳細へ戻る",
-      primary: false,
-    },
-    {
-      href: `./player_edit.html?id=${encodeURIComponent(player.id)}`,
-      label: "編集",
-      primary: true,
-    },
-  ]);
+  contextElement.textContent = archivedSchool
+    ? `選手ID: ${escapeHtml(player.id)} / 削除済み学校の保持データ`
+    : `選手ID: ${player.id} / 所属学校: ${schoolNameText}`;
+  renderActions(
+    actionsElement,
+    archivedSchool
+      ? [{ href: "./schools.html", label: "学校一覧へ戻る", primary: false }]
+      : [
+          {
+            href: `./school_detail.html?id=${encodeURIComponent(player.school_id)}`,
+            label: "学校詳細へ戻る",
+            primary: false,
+          },
+          {
+            href: `./player_edit.html?id=${encodeURIComponent(player.id)}`,
+            label: "編集",
+            primary: true,
+          },
+        ]
+  );
   setMessage(messageElement, "");
 
   const basicInfo = renderDefinitionRows([
     { label: "名前", value: formatValue(player.name) },
+    { label: "所属学校", value: schoolName },
     { label: "選手種別", value: formatPlayerType(player.player_type) },
     { label: "出身都道府県", value: formatValue(player.prefecture) },
     { label: "学年", value: formatValue(player.grade) },
@@ -206,7 +222,21 @@ function renderPlayer(root, messageElement, titleElement, contextElement, action
     return `${name}${suitability}`;
   });
 
+  const archivedNotice = archivedSchool
+    ? `
+      <section class="detail-card">
+        <div class="player-empty-state">
+          <p class="player-empty-text">
+            この選手は削除済み学校「${schoolName}」に所属していた保持データです。通常の一覧には表示されず、現時点では編集できません。
+          </p>
+        </div>
+      </section>
+    `
+    : "";
+
   root.innerHTML = `
+    ${archivedNotice}
+
     <section class="detail-card">
       <h2 class="detail-title">基本情報</h2>
       <dl class="detail-grid">

@@ -7,7 +7,13 @@
   gap: 24px;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .detail-section {
+  box-sizing: border-box;
+  min-width: 0;
   padding: 20px;
   border: 1px solid #d7dee8;
   border-radius: 12px;
@@ -56,6 +62,16 @@
   background: #f5f7fa;
 }
 
+.detail-message {
+  margin-bottom: 16px;
+}
+
+.success-message {
+  border: 1px solid #b8dfca;
+  background: #ecfdf3;
+  color: #0f766e;
+}
+
 .error-message {
   border: 1px solid #efc2c2;
   background: #fff1f1;
@@ -72,6 +88,133 @@
 
 .message-box p:last-child {
   margin-bottom: 0;
+}
+
+.school-meta {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.school-meta p {
+  margin: 0;
+}
+
+.school-form {
+  display: grid;
+  gap: 16px;
+}
+
+.school-form-row {
+  display: grid;
+  gap: 8px;
+}
+
+.school-form-row label {
+  font-weight: 700;
+  color: #243447;
+}
+
+.school-form-row input,
+.school-form-row select,
+.school-form-row textarea {
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #bcc9d8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f2937;
+  font: inherit;
+}
+
+.school-form-row textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.school-form-row input:focus,
+.school-form-row select:focus,
+.school-form-row textarea:focus {
+  outline: none;
+  border-color: #175f9f;
+  box-shadow: 0 0 0 3px rgba(23, 95, 159, 0.12);
+}
+
+.form-help {
+  margin: 0;
+  color: #526071;
+  line-height: 1.6;
+}
+
+.school-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.school-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.school-button:hover {
+  transform: translateY(-1px);
+}
+
+.school-button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+  transform: none;
+}
+
+.school-button-primary {
+  background: #175f9f;
+  border-color: #175f9f;
+  color: #ffffff;
+}
+
+.school-button-primary:hover {
+  background: #0f4c81;
+  border-color: #0f4c81;
+}
+
+.school-button-secondary {
+  border-color: #bcc9d8;
+  background: #ffffff;
+  color: #243447;
+}
+
+.school-button-secondary:hover {
+  background: #f8fbff;
+  border-color: #94a7bc;
+}
+
+.school-button-danger {
+  border-color: #d46a6a;
+  background: #fff1f1;
+  color: #8a1c1c;
+}
+
+.school-button-danger:hover {
+  border-color: #b24545;
+  background: #ffe3e3;
 }
 
 .table-wrap {
@@ -93,4 +236,10 @@
 .players-table th {
   background: #f5f7fa;
   font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .school-button {
+    width: 100%;
+  }
 }

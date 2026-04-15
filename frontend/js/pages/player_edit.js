@@ -168,7 +168,7 @@ function setMessage(messageElement, message, isError = false) {
   messageElement.classList.toggle("is-success", Boolean(message) && !isError);
 }
 
-function buildPayload(formData, player) {
+function buildPayload(formData) {
   return {
     name: formData.get("name"),
     player_type: formData.get("player_type"),
@@ -186,7 +186,7 @@ async function handleSubmit(event, player, messageElement) {
   event.preventDefault();
 
   const formData = new FormData(event.currentTarget);
-  const payload = buildPayload(formData, player);
+  const payload = buildPayload(formData);
 
   try {
     setMessage(messageElement, "保存中です...");
@@ -208,6 +208,17 @@ async function init() {
   try {
     const playerId = getPlayerIdFromQuery();
     const player = await fetchPlayerById(playerId);
+
+    if (Number(player.school_is_archived) === 1) {
+      setMessage(messageElement, "削除済み学校に所属する選手は編集できません。", true);
+      form.innerHTML = `
+        <div class="player-form-actions">
+          <a class="player-button player-button-secondary" href="./player_detail.html?id=${encodeURIComponent(player.id)}">選手詳細へ戻る</a>
+          <a class="player-button player-button-secondary" href="./schools.html">学校一覧へ戻る</a>
+        </div>
+      `;
+      return;
+    }
 
     renderForm(form, player);
     setupAdmissionYearPickers(form);

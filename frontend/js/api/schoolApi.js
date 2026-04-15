@@ -26,3 +26,35 @@ export async function fetchSchoolById(id) {
   const response = await fetch(`${SCHOOL_API_BASE}/${id}`);
   return parseResponse(response);
 }
+
+export async function createSchool(schoolPayload) {
+  const response = await fetch(SCHOOL_API_BASE, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(schoolPayload),
+  });
+
+  return parseResponse(response);
+}
+
+export async function updateSchool(id, schoolPayload) {
+  const response = await fetch(`${SCHOOL_API_BASE}/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(schoolPayload),
+  });
+
+  return parseResponse(response);
+}
+
+export async function deleteSchool(id) {
+  const response = await fetch(`${SCHOOL_API_BASE}/${id}`, {
+    method: "DELETE",
+  });
+
+  return parseResponse(response);
+}

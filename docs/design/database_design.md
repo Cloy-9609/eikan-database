@@ -3,6 +3,7 @@
 ## 方針
 - 学校と選手を中心に、関連データをテーブル分割して正規化する。
 - 学校は論理削除、選手関連の子テーブルは外部キーで整合を保つ。
+- 学校を論理削除しても配下の選手データは保持し、通常一覧からのみ除外する。
 - MVP 段階では SQLite を前提としたシンプルなスキーマを採用する。
 
 ## テーブル構成
@@ -53,6 +54,7 @@
 - `updated_at`: TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 
 - `school_id` は `schools.id` を参照し、学校の物理削除は `RESTRICT` とする。
+- 選手自体には削除フラグを持たせず、学校側の `is_archived` を可視性制御の正とする。
 
 ### player_pitch_types
 - 選手が所持する球種を保持する。
@@ -79,6 +81,9 @@
 - `player_sub_positions.player_id` -> `players.id`
 - `player_results.player_id` -> `players.id`
 - 学校削除は API 上は論理削除とし、`is_archived = 1` を設定する。
+- 学校削除時も `players` および関連子テーブルは物理削除しない。
+- 通常の選手一覧は `schools.is_archived = 0` を条件にして表示対象を絞る。
+- 選手詳細は `players.id` 指定で取得できるため、削除済み学校所属の選手も保持データとして参照可能である。
 - 選手が物理削除される場合、関連 4 テーブルは `CASCADE` で連動削除される。
 
 ## インデックス

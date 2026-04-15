@@ -1,5 +1,6 @@
 ﻿import { fetchSchoolById } from "../api/schoolApi.js";
 import { fetchPlayers } from "../api/playerApi.js";
+import { deleteSchool, updateSchool } from "../api/schoolApi.js";
 
 function getSchoolIdFromQuery() {
   const params = new URLSearchParams(window.location.search);
@@ -35,6 +36,42 @@ function getPlayerTypeLabel(playerType) {
   return playerTypeMap[playerType] ?? playerType ?? "不明";
 }
 
+const PLAY_STYLE_OPTIONS = [
+  { value: "continuous", label: "継続プレイ" },
+  { value: "three_year", label: "3年縛り" },
+];
+
+function escapeAttribute(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function buildPlayStyleOptions(selectedValue) {
+  return PLAY_STYLE_OPTIONS.map((option) => {
+    const selected = option.value === selectedValue ? " selected" : "";
+    return `<option value="${escapeAttribute(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
+  }).join("");
+}
+
+function setMessage(element, message, type = "") {
+  element.hidden = !message;
+  element.textContent = message;
+  element.classList.remove("error-message", "success-message");
+
+  if (!message) {
+    return;
+  }
+
+  if (type === "error") {
+    element.classList.add("error-message");
+  } else if (type === "success") {
+    element.classList.add("success-message");
+  }
+}
+
 function renderSchoolError(root, message) {
   root.innerHTML = `
     <div class="message-box error-message">
@@ -54,15 +91,49 @@ function renderPlayersError(root, message) {
   `;
 }
 
-function renderSchool(root, school) {
+function renderSchoolEditor(root, school, message = null) {
   root.innerHTML = `
-    <div class="info-list">
-      <p><strong>学校名:</strong> ${escapeHtml(school.name)}</p>
-      <p><strong>プレイ方針:</strong> ${escapeHtml(getPlayStyleLabel(school.play_style))}</p>
-      <p><strong>メモ:</strong> ${escapeHtml(school.memo ?? "なし")}</p>
-      <p><a href="./schools.html">学校一覧へ戻る</a></p>
+    <div class="school-meta">
+      <p><strong>学校ID:</strong> ${escapeHtml(school.id)}</p>
+      <p><strong>現在のプレイ方針:</strong> ${escapeHtml(getPlayStyleLabel(school.play_style))}</p>
     </div>
+    <div id="school-form-message" class="message-box detail-message" hidden></div>
+    <form id="school-edit-form" class="school-form">
+      <div class="school-form-row">
+        <label for="school-name">学校名</label>
+        <input
+          id="school-name"
+          name="name"
+          type="text"
+          value="${escapeAttribute(school.name)}"
+          required
+        >
+      </div>
+      <div class="school-form-row">
+        <label for="school-play-style">プレイ方針</label>
+        <select id="school-play-style" name="play_style" required>
+          ${buildPlayStyleOptions(school.play_style)}
+        </select>
+      </div>
+      <div class="school-form-row">
+        <label for="school-memo">メモ</label>
+        <textarea id="school-memo" name="memo" rows="4">${escapeHtml(school.memo ?? "")}</textarea>
+      </div>
+      <p class="form-help">
+        学校を削除すると学校は一覧から非表示になります。配下の選手データは保持され、将来機能から参照できる状態のまま残ります。
+      </p>
+      <div class="school-form-actions">
+        <button type="submit" class="school-button school-button-primary">保存する</button>
+        <button type="button" id="school-delete-button" class="school-button school-button-danger">学校を削除する</button>
+        <a class="school-button school-button-secondary" href="./schools.html">学校一覧へ戻る</a>
+      </div>
+    </form>
   `;
+
+  if (message) {
+    const messageElement = root.querySelector("#school-form-message");
+    setMessage(messageElement, message.text, message.type);
+  }
 }
 
 function renderPlayers(root, players) {
@@ -109,38 +180,93 @@ function renderPlayers(root, players) {
   `;
 }
 
+function getSchoolEditorElements(root) {
+  return {
+    form: root.querySelector("#school-edit-form"),
+    messageElement: root.querySelector("#school-form-message"),
+    deleteButton: root.querySelector("#school-delete-button"),
+  };
+}
+
+function buildSchoolPayload(form) {
+  return {
+    name: form.elements.name.value,
+    play_style: form.elements.play_style.value,
+    memo: form.elements.memo.value,
+  };
+}
+
+function bindSchoolEditor(root, schoolId) {
+  const { form, messageElement, deleteButton } = getSchoolEditorElements(root);
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    const payload = buildSchoolPayload(form);
+    submitButton.disabled = true;
+    setMessage(messageElement, "");
+
+    try {
+      const updatedSchool = await updateSchool(schoolId, payload);
+      document.title = `${updatedSchool.name} | 学校詳細`;
+      renderSchoolEditor(root, updatedSchool, {
+        text: "学校情報を更新しました。",
+        type: "success",
+      });
+      bindSchoolEditor(root, schoolId);
+    } catch (error) {
+      setMessage(messageElement, error.message, "error");
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+
+  deleteButton.addEventListener("click", async () => {
+    const shouldDelete = window.confirm(
+      "この学校を削除します。学校は一覧から非表示になり、配下の選手データのみ保持されます。"
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    deleteButton.disabled = true;
+    setMessage(messageElement, "");
+
+    try {
+      await deleteSchool(schoolId);
+      window.location.href = "./schools.html?message=school-deleted";
+    } catch (error) {
+      deleteButton.disabled = false;
+      setMessage(messageElement, error.message, "error");
+    }
+  });
+}
+
 async function init() {
   const schoolRoot = document.getElementById("school-info-root");
   const playersRoot = document.getElementById("school-players-root");
   const playerRegisterLink = document.getElementById("player-register-link");
 
+  playerRegisterLink.hidden = true;
+
   try {
     const schoolId = getSchoolIdFromQuery();
-    playerRegisterLink.href = `./player_register.html?school_id=${encodeURIComponent(
-      schoolId
-    )}`;
+    const school = await fetchSchoolById(schoolId);
 
-    const [schoolResult, playersResult] = await Promise.allSettled([
-      fetchSchoolById(schoolId),
-      fetchPlayers({ schoolId }),
-    ]);
+    document.title = `${school.name} | 学校詳細`;
+    renderSchoolEditor(schoolRoot, school);
+    bindSchoolEditor(schoolRoot, schoolId);
 
-    if (schoolResult.status === "fulfilled") {
-      renderSchool(schoolRoot, schoolResult.value);
-    } else {
-      renderSchoolError(
-        schoolRoot,
-        schoolResult.reason?.message ?? "不明なエラーが発生しました。"
-      );
-    }
+    playerRegisterLink.href = `./player_register.html?school_id=${encodeURIComponent(schoolId)}`;
+    playerRegisterLink.hidden = false;
 
-    if (playersResult.status === "fulfilled") {
-      renderPlayers(playersRoot, playersResult.value);
-    } else {
-      renderPlayersError(
-        playersRoot,
-        playersResult.reason?.message ?? "不明なエラーが発生しました。"
-      );
+    try {
+      const players = await fetchPlayers({ schoolId });
+      renderPlayers(playersRoot, players);
+    } catch (error) {
+      renderPlayersError(playersRoot, error.message);
     }
   } catch (error) {
     renderSchoolError(schoolRoot, error.message);
