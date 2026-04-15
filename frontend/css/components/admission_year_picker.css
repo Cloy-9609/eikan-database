@@ -245,29 +245,57 @@
 
 .admission-year-picker--compact {
   --admission-year-picker-width: fit-content;
-  --admission-year-picker-gap: 10px;
-  --admission-year-picker-padding: 12px;
+  --admission-year-picker-gap: 11px;
+  --admission-year-picker-padding: 13px;
   --admission-year-picker-inner-inset: 4px;
   --admission-year-picker-border-radius: 16px;
   --admission-year-picker-inner-radius: 12px;
-  --admission-year-picker-digits-gap: 8px;
-  --admission-year-picker-digits-padding: 8px;
-  --admission-year-picker-digit-gap: 6px;
-  --admission-year-picker-button-height: 28px;
-  --admission-year-picker-number-height: 46px;
+  --admission-year-picker-digits-gap: 9px;
+  --admission-year-picker-digits-padding: 9px;
+  --admission-year-picker-digit-gap: 7px;
+  --admission-year-picker-button-height: 31px;
+  --admission-year-picker-number-height: 50px;
   --admission-year-picker-label-padding-y: 4px;
   --admission-year-picker-label-padding-x: 10px;
   --admission-year-picker-label-gap: 6px;
-  --admission-year-picker-button-font-size: 0.82rem;
-  --admission-year-picker-number-font-size: 1.28rem;
+  --admission-year-picker-button-font-size: 0.86rem;
+  --admission-year-picker-number-font-size: 1.36rem;
   --admission-year-picker-label-font-size: 0.76rem;
   --admission-year-picker-label-value-font-size: 0.92rem;
   --admission-year-picker-error-font-size: 0.76rem;
-  --admission-year-picker-grid-template: repeat(4, minmax(46px, 52px));
+  --admission-year-picker-grid-template: repeat(4, minmax(58px, 62px));
+  --admission-year-picker-compact-digit-min-width: 58px;
 }
 
 .admission-year-picker--compact .admission-year-digits {
   width: auto;
+  justify-content: start;
+  justify-items: stretch;
+  align-items: center;
+}
+
+.admission-year-picker--compact .admission-year-digit {
+  width: 100%;
+  min-width: var(--admission-year-picker-compact-digit-min-width);
+  align-items: center;
+  justify-items: stretch;
+}
+
+.admission-year-picker--compact .admission-year-button,
+.admission-year-picker--compact .admission-year-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: var(--admission-year-picker-compact-digit-min-width);
+  text-align: center;
+}
+
+.admission-year-picker--compact .admission-year-number {
+  padding: 0;
+  line-height: 1;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 640px) {
@@ -297,15 +325,16 @@
   }
 
   .admission-year-picker--compact {
-    --admission-year-picker-gap: 8px;
-    --admission-year-picker-padding: 10px;
+    --admission-year-picker-gap: 9px;
+    --admission-year-picker-padding: 11px;
     --admission-year-picker-inner-inset: 4px;
-    --admission-year-picker-digits-gap: 6px;
-    --admission-year-picker-digits-padding: 6px;
-    --admission-year-picker-button-height: 26px;
-    --admission-year-picker-number-height: 42px;
-    --admission-year-picker-number-font-size: 1.16rem;
-    --admission-year-picker-grid-template: repeat(4, minmax(42px, 48px));
+    --admission-year-picker-digits-gap: 7px;
+    --admission-year-picker-digits-padding: 7px;
+    --admission-year-picker-button-height: 28px;
+    --admission-year-picker-number-height: 46px;
+    --admission-year-picker-number-font-size: 1.22rem;
+    --admission-year-picker-grid-template: repeat(4, minmax(52px, 56px));
+    --admission-year-picker-compact-digit-min-width: 52px;
   }
 
   .admission-year-picker--compact .admission-year-current {
