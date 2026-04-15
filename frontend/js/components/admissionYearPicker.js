@@ -6,6 +6,7 @@ export const ADMISSION_YEAR_MAX = YEAR_MAX;
 const DIGIT_PLACES = ["千の位", "百の位", "十の位", "一の位"];
 const DIGIT_COUNT = DIGIT_PLACES.length;
 const DIGIT_CYCLE_LENGTH = 10;
+const PICKER_VARIANTS = new Set(["default", "compact"]);
 const DEFAULT_YEAR_ERROR_MESSAGE =
   "この操作では有効な年度にならないため、値は変更されません。1932〜2039年から選択してください。";
 const ADMISSION_YEAR_ERROR_MESSAGE =
@@ -17,6 +18,22 @@ function escapeAttribute(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function normalizePickerVariant(variant, size) {
+  const candidate = typeof variant === "string" && variant
+    ? variant
+    : typeof size === "string" && size
+      ? size
+      : "default";
+
+  return PICKER_VARIANTS.has(candidate) ? candidate : "default";
+}
+
+function getPickerClassName(variant) {
+  return variant === "compact"
+    ? "admission-year-picker admission-year-picker--compact"
+    : "admission-year-picker";
 }
 
 export function isValidYear(year) {
@@ -297,13 +314,18 @@ export function buildYearPicker({
   groupLabel = "年度",
   selectionLabel = "選択中",
   errorMessage = DEFAULT_YEAR_ERROR_MESSAGE,
+  variant,
+  size,
 } = {}) {
   const year = getSafeYear(selectedYear ?? currentYear, currentYear);
+  const pickerVariant = normalizePickerVariant(variant, size);
+  const pickerClassName = getPickerClassName(pickerVariant);
 
   return `
     <div
-      class="admission-year-picker"
+      class="${pickerClassName}"
       data-year-picker
+      data-year-variant="${pickerVariant}"
       data-min-year="${YEAR_MIN}"
       data-max-year="${YEAR_MAX}"
       data-year-error-message="${escapeAttribute(errorMessage)}"

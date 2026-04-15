@@ -94,6 +94,7 @@ function renderShell(root) {
                 inputId: "school-start-year",
                 currentYear: DEFAULT_START_YEAR,
                 groupLabel: "開始年度",
+                variant: "compact",
               })}
             </div>
           </div>

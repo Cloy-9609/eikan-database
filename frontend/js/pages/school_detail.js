@@ -224,6 +224,7 @@ function renderSchoolEditor(root, school, message = null) {
             selectedYear: initialStartYear,
             currentYear: CURRENT_CALENDAR_YEAR,
             groupLabel: "開始年度",
+            variant: "compact",
           })}
         </div>
       </div>

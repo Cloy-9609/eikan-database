@@ -1,6 +1,7 @@
 # 年度ピッカー仕様書
 
 作成日: 2026-04-14 JST
+更新日: 2026-04-15 JST
 
 ## 1. 目的
 
@@ -24,6 +25,8 @@
 - フォーム送信用に hidden input `name="admission_year"` を保持する。
 - 現在選択中の年をラベル表示する。
 - エラーメッセージ表示領域を持つ。
+- 年度ピッカーは共通ロジックを維持したまま `default` / `compact` の UI variant を持つ。
+- compact variant はルート要素に modifier class `admission-year-picker--compact` を付与して見た目のみ切り替える。
 
 ## 4. 利用画面での扱い
 
@@ -33,18 +36,21 @@
 - 初期値は `currentYear`、未指定時はブラウザ実行時点の西暦年を使う。
 - `setupAdmissionYearPickers(form)` によりイベントをバインドする。
 - 送信時は `FormData` から `admission_year` を取得し、数値化して API に送信する。
+- player 系画面は既存表示を維持するため、default variant を使う。
 
 ### 4.2 player_edit.html
 
 - 既存選手の `admission_year` を `selectedYear` としてピッカーに反映する。
 - 編集画面でも登録画面と同じコンポーネント、同じ操作ルールを使う。
 - 送信時は `FormData` から `admission_year` を取得し、数値化して API に送信する。
+- player 系画面は既存表示を維持するため、default variant を使う。
 
 ### 4.3 schools.html
 
 - 学校作成フォームでは、共通コンポーネントの汎用 export を使って `start_year` 用ピッカーを生成する。
 - 初期値はブラウザ実行時点の西暦年を使う。
 - 送信時は `FormData` から `start_year` を取得し、数値化して `POST /api/schools` に送信する。
+- 学校画面では player 系と同一ロジック・同一 hidden input 更新仕様を維持したまま、compact variant を使う。
 
 ### 4.4 school_detail.html
 
@@ -52,6 +58,14 @@
 - legacy 学校で `start_year` が未設定の場合、編集フォームでは今年を初期表示する。
 - legacy 学校で未設定だったことは補助文言で明示し、summary 側は `未設定` 表示を維持する。
 - 送信時は `FormData` から `start_year` を取得し、数値化して `PATCH /api/schools/:id` に送信する。
+- 学校画面では player 系と同一ロジック・同一 hidden input 更新仕様を維持したまま、compact variant を使う。
+
+### 4.5 コンポーネント利用方針
+
+- `buildYearPicker()` は後方互換を維持し、未指定時は default variant として振る舞う。
+- `buildAdmissionYearPicker()` もそのまま利用でき、必要時のみ option で variant を上書きできる。
+- school 系画面は school 専用の別ロジックを作らず、共通コンポーネントに `variant: "compact"` を渡して利用する。
+- variant によって変わるのは UI の見た目のみであり、桁操作・バリデーション・エラー表示・hidden input 更新方式は共通とする。
 
 ## 5. 年の有効範囲
 
@@ -159,6 +173,8 @@
 
 - `player_register.html` で実ブラウザ確認済み。
 - `player_edit.html` で実ブラウザ確認済み。
+- `schools.html` は compact variant で確認対象とする。
+- `school_detail.html` は compact variant で確認対象とする。
 - 共通コンポーネントの境界値と代表的な桁操作をコードベースで確認済み。
 - hidden input `admission_year` がピッカー描画時に生成されることを確認済み。
 
@@ -166,5 +182,6 @@
 
 - 年度ピッカーの仕様変更は、本仕様書と `frontend/js/components/admissionYearPicker.js` を同時更新する。
 - player の入学年と school の開始年度で、同じ桁操作ルールを保つ。
+- 見た目の差分は共通コンポーネントの variant と共通 CSS で吸収し、画面別の別実装は増やさない。
 - 登録画面と編集画面で挙動差を作らない。
 - 年の有効範囲を変更する場合は、フロントエンドとバックエンドの両方を必ず更新する。
