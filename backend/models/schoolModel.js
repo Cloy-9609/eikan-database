@@ -1,6 +1,37 @@
 const { all, get, run } = require("../db/database");
 
-async function findAllActive() {
+function buildSortClause(sortBy, sortOrder) {
+  if (sortBy === "name") {
+    return `name ${sortOrder.toUpperCase()}, id DESC`;
+  }
+
+  if (sortBy === "start_year") {
+    return `CASE WHEN start_year IS NULL THEN 1 ELSE 0 END ASC, start_year ${sortOrder.toUpperCase()}, id DESC`;
+  }
+
+  return `updated_at ${sortOrder.toUpperCase()}, id DESC`;
+}
+
+async function findAllActive({ name = null, prefecture = null, playStyle = null, sortBy = "updated_at", sortOrder = "desc" } = {}) {
+  const conditions = ["is_archived = 0"];
+  const params = [];
+
+  if (name) {
+    conditions.push("name LIKE ?");
+    params.push(`%${name}%`);
+  }
+
+  if (prefecture) {
+    conditions.push("prefecture = ?");
+    params.push(prefecture);
+  }
+
+  if (playStyle) {
+    conditions.push("play_style = ?");
+    params.push(playStyle);
+  }
+
+  const orderByClause = buildSortClause(sortBy, sortOrder);
   const sql = `
     SELECT
       id,
@@ -14,11 +45,11 @@ async function findAllActive() {
       created_at,
       updated_at
     FROM schools
-    WHERE is_archived = 0
-    ORDER BY id DESC
+    WHERE ${conditions.join(" AND ")}
+    ORDER BY ${orderByClause}
   `;
 
-  return all(sql);
+  return all(sql, params);
 }
 
 async function findById(id) {

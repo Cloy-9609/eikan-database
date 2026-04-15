@@ -2,6 +2,8 @@ const schoolModel = require("../models/schoolModel");
 const { ALLOWED_PREFECTURE_VALUES } = require("../constants/prefectures");
 
 const ALLOWED_PLAY_STYLES = ["three_year", "continuous"];
+const ALLOWED_SCHOOL_SORT_BY = ["name", "start_year", "updated_at"];
+const ALLOWED_SORT_ORDERS = ["asc", "desc"];
 const SCHOOL_SUFFIX = "高校";
 const SCHOOL_YEAR_MIN = 1932;
 const SCHOOL_YEAR_MAX = 2039;
@@ -32,6 +34,15 @@ function parseRequiredText(value, fieldName) {
   return text;
 }
 
+function parseOptionalText(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const text = String(value).trim();
+  return text === "" ? null : text;
+}
+
 function normalizeSchoolBaseName(value) {
   const trimmedName = parseRequiredText(value, "name");
   const normalizedName = trimmedName.endsWith(SCHOOL_SUFFIX)
@@ -43,6 +54,20 @@ function normalizeSchoolBaseName(value) {
   }
 
   return normalizedName;
+}
+
+function normalizeSchoolSearchName(value) {
+  const text = parseOptionalText(value);
+
+  if (!text) {
+    return null;
+  }
+
+  const normalizedName = text.endsWith(SCHOOL_SUFFIX)
+    ? text.slice(0, -SCHOOL_SUFFIX.length).trim()
+    : text;
+
+  return normalizedName || null;
 }
 
 function validatePlayStyle(value) {
@@ -63,6 +88,20 @@ function validatePrefecture(value) {
   }
 
   return prefecture;
+}
+
+function validateOptionalEnum(value, fieldName, allowedValues) {
+  const text = parseOptionalText(value);
+
+  if (text === null) {
+    return null;
+  }
+
+  if (!allowedValues.includes(text)) {
+    throw createHttpError(400, `${fieldName} must be one of: ${allowedValues.join(", ")}.`);
+  }
+
+  return text;
 }
 
 function validateSchoolYear(value, fieldName) {
@@ -100,6 +139,22 @@ function validateSchoolPayload(payload = {}) {
   };
 }
 
+function normalizeSchoolListQuery(query = {}) {
+  const name = normalizeSchoolSearchName(query.name);
+  const prefecture = validateOptionalEnum(query.prefecture, "prefecture", ALLOWED_PREFECTURE_VALUES);
+  const playStyle = validateOptionalEnum(query.play_style, "play_style", ALLOWED_PLAY_STYLES);
+  const sortBy = validateOptionalEnum(query.sort_by, "sort_by", ALLOWED_SCHOOL_SORT_BY) ?? "updated_at";
+  const sortOrder = validateOptionalEnum(query.sort_order, "sort_order", ALLOWED_SORT_ORDERS) ?? "desc";
+
+  return {
+    name,
+    prefecture,
+    playStyle,
+    sortBy,
+    sortOrder,
+  };
+}
+
 async function getSchoolById(id) {
   const schoolId = validateId(id);
   const school = await schoolModel.findById(schoolId);
@@ -111,8 +166,9 @@ async function getSchoolById(id) {
   return school;
 }
 
-async function getSchools() {
-  return schoolModel.findAllActive();
+async function getSchools(query = {}) {
+  const normalizedQuery = normalizeSchoolListQuery(query);
+  return schoolModel.findAllActive(normalizedQuery);
 }
 
 async function createSchool(payload) {

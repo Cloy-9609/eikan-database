@@ -22,7 +22,7 @@
 
 | メソッド | パス | 主なステータス | 用途 |
 | --- | --- | --- | --- |
-| GET | `/api/schools` | `200` | 論理削除されていない学校一覧を取得する |
+| GET | `/api/schools` | `200`, `400` | 論理削除されていない学校一覧を取得する。basic 検索・ソート query を受け付ける |
 | GET | `/api/schools/:id` | `200`, `404` | 有効な学校詳細を取得する |
 | POST | `/api/schools` | `201`, `400` | 学校を新規登録する |
 | PATCH | `/api/schools/:id` | `200`, `400`, `404` | 学校名、都道府県、プレイ方針、開始年度、メモを更新する |
@@ -72,10 +72,23 @@
 ## バリデーション方針
 - リクエスト ID の検証は service 層で行う。
 - Schools の作成・更新 payload は service 層で必須項目と値域を検証する。
+- Schools 一覧 query も service 層で正規化と enum 検証を行う。
 - Players の作成・更新 payload も service 層で必須項目と値域を検証する。
 - 想定外エラーは共通エラーハンドラで 500 として返却する。
 
 ## 補足
+- `GET /api/schools` は以下の query parameter を受け付ける。
+  - `name`
+  - `prefecture`
+  - `play_style`
+  - `sort_by`
+  - `sort_order`
+- `GET /api/schools` の sort 許可値は `sort_by=name|start_year|updated_at`、`sort_order=asc|desc` とする。
+- `sort_by` / `sort_order` / enum query に不正値がある場合は `400` を返す。
+- `GET /api/schools` の既定ソートは `updated_at desc` とする。
+- `GET /api/schools` の `name` は trim 後に、末尾が正確に `高校` の場合のみ 1 回取り除いて検索へ使う。
+- `GET /api/schools` の `prefecture` / `play_style` / `name` はすべて AND 条件で適用する。
+- `GET /api/schools` の開始年度ソートでは、`start_year` が `NULL` の legacy 学校を常に最後へ寄せる。
 - `POST /api/schools` / `PATCH /api/schools/:id` の入力項目は `name`, `prefecture`, `play_style`, `start_year`, `memo` とする。
 - `current_year` はクライアント入力では受け取らず、Phase 1 ではサーバー側で `start_year` と同じ値に揃える。
 - `name` は保存前に trim し、末尾が正確に `高校` の場合のみ取り除いて本体名として保存する。

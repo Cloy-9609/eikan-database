@@ -17,8 +17,19 @@ async function parseResponse(response) {
   return payload.data;
 }
 
-export async function fetchSchools() {
-  const response = await fetch(SCHOOL_API_BASE);
+export async function fetchSchools(params = {}) {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+
+    searchParams.set(key, String(value));
+  });
+
+  const requestUrl = searchParams.size > 0 ? `${SCHOOL_API_BASE}?${searchParams.toString()}` : SCHOOL_API_BASE;
+  const response = await fetch(requestUrl);
   return parseResponse(response);
 }
 

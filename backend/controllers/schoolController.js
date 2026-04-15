@@ -2,7 +2,7 @@ const schoolService = require("../services/schoolService");
 
 async function getSchools(req, res, next) {
   try {
-    const schools = await schoolService.getSchools();
+    const schools = await schoolService.getSchools(req.query);
     res.json({
       success: true,
       data: schools,
