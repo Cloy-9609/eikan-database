@@ -360,8 +360,33 @@
 
 @media (min-width: 1040px) {
   .school-form-row-group--detail {
-    grid-template-columns: minmax(240px, 300px) minmax(360px, 1fr);
     align-items: stretch;
+  }
+
+  #school-create-form .school-form-row-group--detail {
+    grid-template-columns: minmax(320px, 332px) minmax(360px, 1fr);
+  }
+
+  #school-create-form .school-form-control--year {
+    width: min(100%, 332px);
+  }
+
+  #school-create-form .school-form-row--year .admission-year-picker {
+    width: 100%;
+    max-width: none;
+    justify-items: stretch;
+  }
+
+  #school-create-form .school-form-row--year .admission-year-digits {
+    width: 100%;
+    justify-self: center;
+    justify-content: center;
+  }
+
+  #school-create-form .school-form-row--year .admission-year-current {
+    width: fit-content;
+    margin-inline: auto;
+    justify-self: center;
   }
 
   .school-form-row--memo {
