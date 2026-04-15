@@ -5,7 +5,10 @@ async function findAllActive() {
     SELECT
       id,
       name,
+      prefecture,
       play_style,
+      start_year,
+      current_year,
       memo,
       is_archived,
       created_at,
@@ -23,7 +26,10 @@ async function findById(id) {
     SELECT
       id,
       name,
+      prefecture,
       play_style,
+      start_year,
+      current_year,
       memo,
       is_archived,
       created_at,
@@ -35,28 +41,31 @@ async function findById(id) {
   return get(sql, [id]);
 }
 
-async function createSchool({ name, playStyle, memo }) {
+async function createSchool({ name, prefecture, playStyle, startYear, currentYear, memo }) {
   const sql = `
-    INSERT INTO schools (name, play_style, memo)
-    VALUES (?, ?, ?)
+    INSERT INTO schools (name, prefecture, play_style, start_year, current_year, memo)
+    VALUES (?, ?, ?, ?, ?, ?)
   `;
 
-  const result = await run(sql, [name, playStyle, memo]);
+  const result = await run(sql, [name, prefecture, playStyle, startYear, currentYear, memo]);
   return findById(result.lastID);
 }
 
-async function updateSchool(id, { name, playStyle, memo }) {
+async function updateSchool(id, { name, prefecture, playStyle, startYear, currentYear, memo }) {
   const sql = `
     UPDATE schools
     SET
       name = ?,
+      prefecture = ?,
       play_style = ?,
+      start_year = ?,
+      current_year = ?,
       memo = ?,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND is_archived = 0
   `;
 
-  const result = await run(sql, [name, playStyle, memo, id]);
+  const result = await run(sql, [name, prefecture, playStyle, startYear, currentYear, memo, id]);
 
   if (result.changes === 0) {
     return null;

@@ -49,7 +49,7 @@
 
 .school-form {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .school-form-row {
@@ -57,9 +57,55 @@
   gap: 8px;
 }
 
+.school-form-row-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.school-form-label {
+  font-weight: 700;
+  color: #243447;
+}
+
 .school-form-row label {
   font-weight: 700;
   color: #243447;
+}
+
+.school-form-control {
+  min-width: 0;
+}
+
+.school-form-control--year {
+  display: block;
+}
+
+.school-name-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.school-name-suffix {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #bcc9d8;
+  border-radius: 10px;
+  background: #f5f7fa;
+  color: #243447;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.field-help {
+  margin: 0;
+  color: #526071;
+  line-height: 1.5;
 }
 
 .school-form-row input,
@@ -172,6 +218,7 @@
   padding: 12px;
   border-bottom: 1px solid #d7dee8;
   text-align: left;
+  vertical-align: top;
 }
 
 .schools-table th {
@@ -189,6 +236,18 @@
 }
 
 @media (max-width: 640px) {
+  .school-form-row-group {
+    grid-template-columns: 1fr;
+  }
+
+  .school-name-input {
+    grid-template-columns: 1fr;
+  }
+
+  .school-name-suffix {
+    justify-self: start;
+  }
+
   .school-button {
     width: 100%;
   }

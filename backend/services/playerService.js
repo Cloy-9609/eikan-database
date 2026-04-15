@@ -1,5 +1,6 @@
 const playerModel = require("../models/playerModel");
 const schoolModel = require("../models/schoolModel");
+const { ALLOWED_PREFECTURE_VALUES } = require("../constants/prefectures");
 
 const ALLOWED_PLAYER_TYPES = ["normal", "genius", "reincarnated"];
 const ALLOWED_SNAPSHOT_LABELS = ["entrance", "post_tournament"];
@@ -14,73 +15,6 @@ const ALLOWED_POSITIONS = [
   "遊撃手",
   "外野手",
 ];
-const ALLOWED_PREFECTURES = [
-  "北海道",
-  "青森県",
-  "岩手県",
-  "宮城県",
-  "秋田県",
-  "山形県",
-  "福島県",
-  "茨城県",
-  "栃木県",
-  "群馬県",
-  "埼玉県",
-  "千葉県",
-  "東京都",
-  "神奈川県",
-  "新潟県",
-  "富山県",
-  "石川県",
-  "福井県",
-  "山梨県",
-  "長野県",
-  "岐阜県",
-  "静岡県",
-  "愛知県",
-  "三重県",
-  "滋賀県",
-  "京都府",
-  "大阪府",
-  "兵庫県",
-  "奈良県",
-  "和歌山県",
-  "鳥取県",
-  "島根県",
-  "岡山県",
-  "広島県",
-  "山口県",
-  "徳島県",
-  "香川県",
-  "愛媛県",
-  "高知県",
-  "福岡県",
-  "佐賀県",
-  "長崎県",
-  "熊本県",
-  "大分県",
-  "宮崎県",
-  "鹿児島県",
-  "沖縄県",
-];
-const ALLOWED_COUNTRIES = [
-  "アメリカ",
-  "ドミニカ共和国",
-  "ベネズエラ",
-  "キューバ",
-  "メキシコ",
-  "カナダ",
-  "プエルトリコ",
-  "コロンビア",
-  "パナマ",
-  "オランダ",
-  "韓国",
-  "台湾",
-  "中国",
-  "オーストラリア",
-  "その他",
-];
-const ALLOWED_PREFECTURE_VALUES = [...ALLOWED_PREFECTURES, ...ALLOWED_COUNTRIES];
 const ADMISSION_YEAR_MIN = 1932;
 const ADMISSION_YEAR_MAX = 2039;
 const ALLOWED_ABILITY_CATEGORIES = [

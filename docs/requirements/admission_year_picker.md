@@ -1,10 +1,11 @@
-# 入学年ピッカー仕様書
+# 年度ピッカー仕様書
 
 作成日: 2026-04-14 JST
 
 ## 1. 目的
 
-`player_register.html` と `player_edit.html` で使用する入学年入力 UI の最終仕様を定義する。
+`player_register.html` と `player_edit.html` で使用する入学年入力 UI を基準に、
+学校の開始年度入力にも再利用する年度ピッカーの最終仕様を定義する。
 本仕様書では、実装済みコンポーネント `frontend/js/components/admissionYearPicker.js` を基準とし、
 ユーザーによる実ブラウザ確認で問題なしと判断された現行挙動を正式仕様として扱う。
 
@@ -12,6 +13,8 @@
 
 - 新規登録画面: `frontend/pages/player_register.html`
 - 編集画面: `frontend/pages/player_edit.html`
+- 学校作成画面: `frontend/pages/schools.html`
+- 学校編集画面: `frontend/pages/school_detail.html`
 - 共通コンポーネント: `frontend/js/components/admissionYearPicker.js`
 
 ## 3. UI 構成
@@ -36,6 +39,19 @@
 - 既存選手の `admission_year` を `selectedYear` としてピッカーに反映する。
 - 編集画面でも登録画面と同じコンポーネント、同じ操作ルールを使う。
 - 送信時は `FormData` から `admission_year` を取得し、数値化して API に送信する。
+
+### 4.3 schools.html
+
+- 学校作成フォームでは、共通コンポーネントの汎用 export を使って `start_year` 用ピッカーを生成する。
+- 初期値はブラウザ実行時点の西暦年を使う。
+- 送信時は `FormData` から `start_year` を取得し、数値化して `POST /api/schools` に送信する。
+
+### 4.4 school_detail.html
+
+- 既存学校の `start_year` がある場合は、その値を `selectedYear` として表示する。
+- legacy 学校で `start_year` が未設定の場合、編集フォームでは今年を初期表示する。
+- legacy 学校で未設定だったことは補助文言で明示し、summary 側は `未設定` 表示を維持する。
+- 送信時は `FormData` から `start_year` を取得し、数値化して `PATCH /api/schools/:id` に送信する。
 
 ## 5. 年の有効範囲
 
@@ -136,6 +152,7 @@
 - フロントエンド送信値は `admission_year` の整数。
 - `player_register.html` では `POST /api/players` に送信する。
 - `player_edit.html` では `PUT /api/players/:id` に送信する。
+- `schools.html` と `school_detail.html` では `start_year` の整数を送信する。
 - バックエンドでは `1932` 以上 `2039` 以下の整数のみ許可する。
 
 ## 11. 回帰確認済み事項
@@ -147,6 +164,7 @@
 
 ## 12. 今後の運用ルール
 
-- 入学年入力の仕様変更は、本仕様書と `frontend/js/components/admissionYearPicker.js` を同時更新する。
+- 年度ピッカーの仕様変更は、本仕様書と `frontend/js/components/admissionYearPicker.js` を同時更新する。
+- player の入学年と school の開始年度で、同じ桁操作ルールを保つ。
 - 登録画面と編集画面で挙動差を作らない。
 - 年の有効範囲を変更する場合は、フロントエンドとバックエンドの両方を必ず更新する。

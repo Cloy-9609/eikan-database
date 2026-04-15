@@ -1,9 +1,13 @@
 import { createSchool, fetchSchools } from "../api/schoolApi.js";
+import { buildYearPicker, setYearPickerValue, setupYearPickers } from "../components/admissionYearPicker.js";
+import { PREFECTURE_GROUPS } from "../constants/prefectures.js";
+import { formatSchoolName, formatSchoolPlayStyle } from "../utils/formatter.js";
 
 const DEFAULT_PLAY_STYLE = "continuous";
+const DEFAULT_START_YEAR = new Date().getFullYear();
 const PLAY_STYLE_OPTIONS = [
   { value: "continuous", label: "継続プレイ" },
-  { value: "three_year", label: "3年縛り" },
+  { value: "three_year", label: "3年モード" },
 ];
 
 function escapeHtml(value) {
@@ -23,15 +27,33 @@ function escapeAttribute(value) {
     .replaceAll(">", "&gt;");
 }
 
-function getPlayStyleLabel(playStyle) {
-  return playStyle === "three_year" ? "3年縛り" : "継続プレイ";
-}
-
 function buildPlayStyleOptions(selectedValue = DEFAULT_PLAY_STYLE) {
   return PLAY_STYLE_OPTIONS.map((option) => {
     const selected = option.value === selectedValue ? " selected" : "";
     return `<option value="${escapeAttribute(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
   }).join("");
+}
+
+function buildGroupedOptions(groups, selectedValue = "") {
+  const blankSelected = !selectedValue ? " selected" : "";
+
+  return `
+    <option value=""${blankSelected}>選択してください</option>
+    ${groups
+      .map(
+        (group) => `
+          <optgroup label="${escapeAttribute(group.label)}">
+            ${group.options
+              .map((option) => {
+                const selected = option === selectedValue ? " selected" : "";
+                return `<option value="${escapeAttribute(option)}"${selected}>${option}</option>`;
+              })
+              .join("")}
+          </optgroup>
+        `
+      )
+      .join("")}
+  `;
 }
 
 function renderShell(root) {
@@ -40,17 +62,40 @@ function renderShell(root) {
     <div class="schools-layout">
       <section class="schools-panel">
         <h2 class="section-title">学校作成</h2>
-        <p class="section-description">学校名、プレイ方針、メモを登録できます。</p>
+        <p class="section-description">学校の基本情報を登録します。学校名は本体名のみ入力してください。</p>
         <form id="school-create-form" class="school-form">
           <div class="school-form-row">
             <label for="school-name">学校名</label>
-            <input id="school-name" name="name" type="text" required>
+            <div class="school-name-input">
+              <input id="school-name" name="name" type="text" required placeholder="青葉" aria-describedby="school-name-help">
+              <span class="school-name-suffix" aria-hidden="true">高校</span>
+            </div>
+            <p id="school-name-help" class="field-help">DB には本体名のみ保存し、表示時に「高校」を付けます。</p>
+          </div>
+          <div class="school-form-row-group">
+            <div class="school-form-row">
+              <label for="school-prefecture">都道府県</label>
+              <select id="school-prefecture" name="prefecture" required>
+                ${buildGroupedOptions(PREFECTURE_GROUPS)}
+              </select>
+            </div>
+            <div class="school-form-row">
+              <label for="school-play-style">プレイ方針</label>
+              <select id="school-play-style" name="play_style" required>
+                ${buildPlayStyleOptions()}
+              </select>
+            </div>
           </div>
           <div class="school-form-row">
-            <label for="school-play-style">プレイ方針</label>
-            <select id="school-play-style" name="play_style" required>
-              ${buildPlayStyleOptions()}
-            </select>
+            <span class="school-form-label">開始年度</span>
+            <div class="school-form-control school-form-control--year">
+              ${buildYearPicker({
+                inputName: "start_year",
+                inputId: "school-start-year",
+                currentYear: DEFAULT_START_YEAR,
+                groupLabel: "開始年度",
+              })}
+            </div>
           </div>
           <div class="school-form-row">
             <label for="school-memo">メモ</label>
@@ -89,6 +134,14 @@ function setMessage(element, message, type = "") {
   }
 }
 
+function formatOptionalValue(value) {
+  if (value === undefined || value === null || value === "") {
+    return "未設定";
+  }
+
+  return String(value);
+}
+
 function renderSchoolList(root, schools) {
   if (!Array.isArray(schools) || schools.length === 0) {
     root.innerHTML = `
@@ -105,11 +158,13 @@ function renderSchoolList(root, schools) {
         <tr>
           <td>
             <a href="./school_detail.html?id=${encodeURIComponent(school.id)}">
-              ${escapeHtml(school.name)}
+              ${escapeHtml(formatSchoolName(school.name))}
             </a>
           </td>
-          <td>${escapeHtml(getPlayStyleLabel(school.play_style))}</td>
-          <td>${escapeHtml(school.memo ?? "")}</td>
+          <td>${escapeHtml(formatOptionalValue(school.prefecture))}</td>
+          <td>${escapeHtml(school.start_year ? `${school.start_year}年` : "未設定")}</td>
+          <td>${escapeHtml(formatSchoolPlayStyle(school.play_style))}</td>
+          <td>${escapeHtml(formatOptionalValue(school.memo))}</td>
         </tr>
       `
     )
@@ -121,6 +176,8 @@ function renderSchoolList(root, schools) {
         <thead>
           <tr>
             <th>学校名</th>
+            <th>都道府県</th>
+            <th>開始年度</th>
             <th>プレイ方針</th>
             <th>メモ</th>
           </tr>
@@ -168,9 +225,18 @@ function clearFlashMessage() {
 function buildCreatePayload(form) {
   return {
     name: form.elements.name.value,
+    prefecture: form.elements.prefecture.value,
     play_style: form.elements.play_style.value,
+    start_year: Number(form.elements.start_year.value),
     memo: form.elements.memo.value,
   };
+}
+
+function resetCreateForm(form) {
+  form.reset();
+  form.elements.prefecture.value = "";
+  form.elements.play_style.value = DEFAULT_PLAY_STYLE;
+  setYearPickerValue(form.querySelector("[data-year-picker]"), DEFAULT_START_YEAR);
 }
 
 async function handleCreateSubmit(event, listRoot, pageMessageElement, listMessageElement) {
@@ -185,8 +251,7 @@ async function handleCreateSubmit(event, listRoot, pageMessageElement, listMessa
 
   try {
     await createSchool(payload);
-    form.reset();
-    form.elements.play_style.value = DEFAULT_PLAY_STYLE;
+    resetCreateForm(form);
     setMessage(pageMessageElement, "学校を登録しました。", "success");
     await loadSchools(listRoot, listMessageElement);
   } catch (error) {
@@ -199,6 +264,7 @@ async function handleCreateSubmit(event, listRoot, pageMessageElement, listMessa
 async function init() {
   const root = document.getElementById("schools-root");
   renderShell(root);
+  setupYearPickers(root);
 
   const pageMessageElement = document.getElementById("schools-page-message");
   const listMessageElement = document.getElementById("schools-list-message");

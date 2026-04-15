@@ -5,6 +5,7 @@ import {
   setupAdmissionYearPickers,
 } from "../components/admissionYearPicker.js";
 import { PREFECTURE_GROUPS } from "../constants/prefectures.js";
+import { formatSchoolName } from "../utils/formatter.js";
 
 const PLAYER_TYPE_OPTIONS = [
   { value: "normal", label: "通常" },
@@ -204,7 +205,7 @@ async function init() {
     const schoolId = getSchoolIdFromQuery();
     const school = await fetchSchoolById(schoolId);
 
-    schoolElement.textContent = `対象学校: ${school.name} (ID: ${school.id})`;
+    schoolElement.textContent = `対象学校: ${formatSchoolName(school.name)} (ID: ${school.id})`;
     renderForm(form, schoolId);
     setupAdmissionYearPickers(form);
     form.addEventListener("submit", (event) => handleSubmit(event, schoolId, messageElement));

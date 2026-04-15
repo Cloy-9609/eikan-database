@@ -90,19 +90,40 @@
   margin-bottom: 0;
 }
 
-.school-meta {
+.school-summary-grid {
   display: grid;
-  gap: 8px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
+  margin: 0;
 }
 
-.school-meta p {
+.school-summary-row {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid #d7dee8;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.school-summary-row dt {
+  color: #526071;
+  font-weight: 700;
+}
+
+.school-summary-row dd {
   margin: 0;
+  color: #1f2937;
+  line-height: 1.6;
+}
+
+.school-summary-row-full {
+  grid-column: 1 / -1;
 }
 
 .school-form {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .school-form-row {
@@ -110,9 +131,55 @@
   gap: 8px;
 }
 
+.school-form-row-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.school-form-label {
+  font-weight: 700;
+  color: #243447;
+}
+
 .school-form-row label {
   font-weight: 700;
   color: #243447;
+}
+
+.school-form-control {
+  min-width: 0;
+}
+
+.school-form-control--year {
+  display: block;
+}
+
+.school-name-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.school-name-suffix {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #bcc9d8;
+  border-radius: 10px;
+  background: #f5f7fa;
+  color: #243447;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.field-help {
+  margin: 0;
+  color: #526071;
+  line-height: 1.5;
 }
 
 .school-form-row input,
@@ -146,6 +213,15 @@
 .form-help {
   margin: 0;
   color: #526071;
+  line-height: 1.6;
+}
+
+.form-note {
+  margin: -4px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f8fbff;
+  color: #175f9f;
   line-height: 1.6;
 }
 
@@ -239,6 +315,22 @@
 }
 
 @media (max-width: 640px) {
+  .school-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .school-form-row-group {
+    grid-template-columns: 1fr;
+  }
+
+  .school-name-input {
+    grid-template-columns: 1fr;
+  }
+
+  .school-name-suffix {
+    justify-self: start;
+  }
+
   .school-button {
     width: 100%;
   }

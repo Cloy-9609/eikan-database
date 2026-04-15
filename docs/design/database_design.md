@@ -10,8 +10,11 @@
 
 ### schools
 - 学校の基本情報を保持する親テーブル。
-- 主な列: `id`, `name`, `play_style`, `memo`, `is_archived`, `created_at`, `updated_at`
+- 主な列: `id`, `name`, `prefecture`, `play_style`, `start_year`, `current_year`, `memo`, `is_archived`, `created_at`, `updated_at`
+- `name` は学校名の本体部分のみを保持し、`高校` の表示付与はフロントエンド helper で行う。
+- `prefecture`, `start_year`, `current_year` は legacy データ移行との互換のため nullable で追加する。
 - `is_archived` により論理削除を管理する（schools のみ適用）。
+- Phase 1 では `current_year` は `start_year` と同じ値で保存し、将来の年度更新機能で独立更新する前提とする。
 
 ### players
 - 選手の基本情報と主要能力値を保持する主テーブル。
@@ -85,6 +88,14 @@
 - 通常の選手一覧は `schools.is_archived = 0` を条件にして表示対象を絞る。
 - 選手詳細は `players.id` 指定で取得できるため、削除済み学校所属の選手も保持データとして参照可能である。
 - 選手が物理削除される場合、関連 4 テーブルは `CASCADE` で連動削除される。
+
+## 既存データ移行方針
+- 既存 DB に `prefecture`, `start_year`, `current_year` がない場合は、起動時マイグレーションで不足列のみ `ALTER TABLE` で追加する。
+- 既存レコードの `prefecture`, `start_year`, `current_year` は自動補完せず `NULL` のまま残す。
+- 学校名の移行は一度だけ行い、末尾が正確に `高校` の場合のみ本体名へ変換する。
+  - `青葉高校` -> `青葉`
+  - `青葉` -> 変更なし
+  - `高等学校研究会` -> 変更なし
 
 ## インデックス
 - `schools.is_archived`

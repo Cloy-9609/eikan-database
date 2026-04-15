@@ -4,12 +4,18 @@ BEGIN TRANSACTION;
 
 INSERT INTO schools (
   name,
+  prefecture,
   play_style,
+  start_year,
+  current_year,
   memo,
   is_archived
 ) VALUES (
-  'サンプル高校',
+  'サンプル',
+  '東京都',
   'three_year',
+  2025,
+  2025,
   'Phase1 seed data',
   0
 );

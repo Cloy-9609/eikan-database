@@ -16,6 +16,11 @@ const expectedTables = [
   "player_sub_positions",
   "player_results",
 ];
+const SCHOOL_MIGRATION_COLUMNS = [
+  { name: "prefecture", definition: "TEXT" },
+  { name: "start_year", definition: "INTEGER" },
+  { name: "current_year", definition: "INTEGER" },
+];
 let databaseInstance;
 let initializationPromise;
 
@@ -132,6 +137,44 @@ function getUserTables() {
   );
 }
 
+function getTableColumns(tableName) {
+  return all(`PRAGMA table_info(${tableName})`);
+}
+
+async function migrateSchoolsSchema() {
+  const columns = await getTableColumns("schools");
+  const columnNames = new Set(columns.map((column) => column.name));
+  const missingColumns = SCHOOL_MIGRATION_COLUMNS.filter((column) => !columnNames.has(column.name));
+
+  if (missingColumns.length === 0) {
+    return;
+  }
+
+  await transaction(async () => {
+    for (const column of missingColumns) {
+      await run(`ALTER TABLE schools ADD COLUMN ${column.name} ${column.definition}`);
+    }
+
+    await run(
+      `
+        UPDATE schools
+        SET
+          name = TRIM(SUBSTR(name, 1, LENGTH(name) - 2)),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE
+          SUBSTR(name, -2) = '高校'
+          AND LENGTH(TRIM(SUBSTR(name, 1, LENGTH(name) - 2))) > 0
+      `
+    );
+  });
+
+  console.log(
+    `Migrated schools schema at ${databasePath}. Added columns: ${missingColumns
+      .map((column) => column.name)
+      .join(", ")}`
+  );
+}
+
 function initializeDatabase() {
   if (initializationPromise) {
     return initializationPromise;
@@ -158,6 +201,8 @@ function initializeDatabase() {
       error.code = "SQLITE_SCHEMA_INCOMPLETE";
       throw error;
     }
+
+    await migrateSchoolsSchema();
   })().catch((error) => {
     initializationPromise = null;
     throw error;

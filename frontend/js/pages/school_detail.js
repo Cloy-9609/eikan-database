@@ -1,6 +1,15 @@
 ﻿import { fetchSchoolById } from "../api/schoolApi.js";
 import { fetchPlayers } from "../api/playerApi.js";
 import { deleteSchool, updateSchool } from "../api/schoolApi.js";
+import { buildYearPicker, setupYearPickers } from "../components/admissionYearPicker.js";
+import { PREFECTURE_GROUPS } from "../constants/prefectures.js";
+import { formatDate, formatSchoolName, formatSchoolPlayStyle } from "../utils/formatter.js";
+
+const CURRENT_CALENDAR_YEAR = new Date().getFullYear();
+const PLAY_STYLE_OPTIONS = [
+  { value: "continuous", label: "継続プレイ" },
+  { value: "three_year", label: "3年モード" },
+];
 
 function getSchoolIdFromQuery() {
   const params = new URLSearchParams(window.location.search);
@@ -22,8 +31,35 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function getPlayStyleLabel(playStyle) {
-  return playStyle === "three_year" ? "3年縛り" : "継続プレイ";
+function escapeAttribute(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function formatOptionalValue(value) {
+  if (value === undefined || value === null || value === "") {
+    return "未設定";
+  }
+
+  return String(value);
+}
+
+function formatYearValue(value) {
+  return Number.isInteger(Number(value)) ? `${Number(value)}年` : "未設定";
+}
+
+function formatElapsedYears(startYear, currentYear) {
+  const numericStartYear = Number(startYear);
+  const numericCurrentYear = Number(currentYear);
+
+  if (!Number.isInteger(numericStartYear) || !Number.isInteger(numericCurrentYear)) {
+    return "未設定";
+  }
+
+  return `${numericCurrentYear - numericStartYear}年`;
 }
 
 function getPlayerTypeLabel(playerType) {
@@ -36,24 +72,33 @@ function getPlayerTypeLabel(playerType) {
   return playerTypeMap[playerType] ?? playerType ?? "不明";
 }
 
-const PLAY_STYLE_OPTIONS = [
-  { value: "continuous", label: "継続プレイ" },
-  { value: "three_year", label: "3年縛り" },
-];
-
-function escapeAttribute(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
 function buildPlayStyleOptions(selectedValue) {
   return PLAY_STYLE_OPTIONS.map((option) => {
     const selected = option.value === selectedValue ? " selected" : "";
     return `<option value="${escapeAttribute(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
   }).join("");
+}
+
+function buildGroupedOptions(groups, selectedValue = "") {
+  const blankSelected = !selectedValue ? " selected" : "";
+
+  return `
+    <option value=""${blankSelected}>選択してください</option>
+    ${groups
+      .map(
+        (group) => `
+          <optgroup label="${escapeAttribute(group.label)}">
+            ${group.options
+              .map((option) => {
+                const selected = option === selectedValue ? " selected" : "";
+                return `<option value="${escapeAttribute(option)}"${selected}>${option}</option>`;
+              })
+              .join("")}
+          </optgroup>
+        `
+      )
+      .join("")}
+  `;
 }
 
 function setMessage(element, message, type = "") {
@@ -91,30 +136,102 @@ function renderPlayersError(root, message) {
   `;
 }
 
-function renderSchoolEditor(root, school, message = null) {
+function renderSchoolSummary(root, school) {
   root.innerHTML = `
-    <div class="school-meta">
-      <p><strong>学校ID:</strong> ${escapeHtml(school.id)}</p>
-      <p><strong>現在のプレイ方針:</strong> ${escapeHtml(getPlayStyleLabel(school.play_style))}</p>
-    </div>
+    <dl class="school-summary-grid">
+      <div class="school-summary-row">
+        <dt>学校名</dt>
+        <dd>${escapeHtml(formatSchoolName(school.name))}</dd>
+      </div>
+      <div class="school-summary-row">
+        <dt>都道府県</dt>
+        <dd>${escapeHtml(formatOptionalValue(school.prefecture))}</dd>
+      </div>
+      <div class="school-summary-row">
+        <dt>開始年度</dt>
+        <dd>${escapeHtml(formatYearValue(school.start_year))}</dd>
+      </div>
+      <div class="school-summary-row">
+        <dt>現在年度</dt>
+        <dd>${escapeHtml(formatYearValue(school.current_year))}</dd>
+      </div>
+      <div class="school-summary-row">
+        <dt>経過年数</dt>
+        <dd>${escapeHtml(formatElapsedYears(school.start_year, school.current_year))}</dd>
+      </div>
+      <div class="school-summary-row">
+        <dt>プレイ方針</dt>
+        <dd>${escapeHtml(formatSchoolPlayStyle(school.play_style))}</dd>
+      </div>
+      <div class="school-summary-row">
+        <dt>作成日時</dt>
+        <dd>${escapeHtml(formatDate(school.created_at))}</dd>
+      </div>
+      <div class="school-summary-row">
+        <dt>更新日時</dt>
+        <dd>${escapeHtml(formatDate(school.updated_at))}</dd>
+      </div>
+      <div class="school-summary-row school-summary-row-full">
+        <dt>メモ</dt>
+        <dd>${escapeHtml(formatOptionalValue(school.memo))}</dd>
+      </div>
+    </dl>
+  `;
+}
+
+function renderSchoolEditor(root, school, message = null) {
+  const startYearIsLegacy = !Number.isInteger(Number(school.start_year));
+  const initialStartYear = startYearIsLegacy ? CURRENT_CALENDAR_YEAR : Number(school.start_year);
+
+  root.innerHTML = `
     <div id="school-form-message" class="message-box detail-message" hidden></div>
     <form id="school-edit-form" class="school-form">
       <div class="school-form-row">
         <label for="school-name">学校名</label>
-        <input
-          id="school-name"
-          name="name"
-          type="text"
-          value="${escapeAttribute(school.name)}"
-          required
-        >
+        <div class="school-name-input">
+          <input
+            id="school-name"
+            name="name"
+            type="text"
+            value="${escapeAttribute(school.name)}"
+            placeholder="青葉"
+            required
+          >
+          <span class="school-name-suffix" aria-hidden="true">高校</span>
+        </div>
+        <p class="field-help">DB には本体名のみ保存し、表示時に「高校」を付けます。</p>
+      </div>
+      <div class="school-form-row-group">
+        <div class="school-form-row">
+          <label for="school-prefecture">都道府県</label>
+          <select id="school-prefecture" name="prefecture" required>
+            ${buildGroupedOptions(PREFECTURE_GROUPS, school.prefecture ?? "")}
+          </select>
+        </div>
+        <div class="school-form-row">
+          <label for="school-play-style">プレイ方針</label>
+          <select id="school-play-style" name="play_style" required>
+            ${buildPlayStyleOptions(school.play_style)}
+          </select>
+        </div>
       </div>
       <div class="school-form-row">
-        <label for="school-play-style">プレイ方針</label>
-        <select id="school-play-style" name="play_style" required>
-          ${buildPlayStyleOptions(school.play_style)}
-        </select>
+        <span class="school-form-label">開始年度</span>
+        <div class="school-form-control school-form-control--year">
+          ${buildYearPicker({
+            inputName: "start_year",
+            inputId: "school-start-year",
+            selectedYear: initialStartYear,
+            currentYear: CURRENT_CALENDAR_YEAR,
+            groupLabel: "開始年度",
+          })}
+        </div>
       </div>
+      ${
+        startYearIsLegacy
+          ? '<p class="form-note">開始年度が未設定だったため、今年を初期表示しています。必要に応じて変更して保存してください。</p>'
+          : ""
+      }
       <div class="school-form-row">
         <label for="school-memo">メモ</label>
         <textarea id="school-memo" name="memo" rows="4">${escapeHtml(school.memo ?? "")}</textarea>
@@ -134,6 +251,8 @@ function renderSchoolEditor(root, school, message = null) {
     const messageElement = root.querySelector("#school-form-message");
     setMessage(messageElement, message.text, message.type);
   }
+
+  setupYearPickers(root);
 }
 
 function renderPlayers(root, players) {
@@ -191,13 +310,15 @@ function getSchoolEditorElements(root) {
 function buildSchoolPayload(form) {
   return {
     name: form.elements.name.value,
+    prefecture: form.elements.prefecture.value,
     play_style: form.elements.play_style.value,
+    start_year: Number(form.elements.start_year.value),
     memo: form.elements.memo.value,
   };
 }
 
-function bindSchoolEditor(root, schoolId) {
-  const { form, messageElement, deleteButton } = getSchoolEditorElements(root);
+function bindSchoolEditor(summaryRoot, editRoot, schoolId) {
+  const { form, messageElement, deleteButton } = getSchoolEditorElements(editRoot);
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -209,12 +330,13 @@ function bindSchoolEditor(root, schoolId) {
 
     try {
       const updatedSchool = await updateSchool(schoolId, payload);
-      document.title = `${updatedSchool.name} | 学校詳細`;
-      renderSchoolEditor(root, updatedSchool, {
+      document.title = `${formatSchoolName(updatedSchool.name)} | 学校詳細`;
+      renderSchoolSummary(summaryRoot, updatedSchool);
+      renderSchoolEditor(editRoot, updatedSchool, {
         text: "学校情報を更新しました。",
         type: "success",
       });
-      bindSchoolEditor(root, schoolId);
+      bindSchoolEditor(summaryRoot, editRoot, schoolId);
     } catch (error) {
       setMessage(messageElement, error.message, "error");
     } finally {
@@ -245,7 +367,8 @@ function bindSchoolEditor(root, schoolId) {
 }
 
 async function init() {
-  const schoolRoot = document.getElementById("school-info-root");
+  const summaryRoot = document.getElementById("school-summary-root");
+  const editRoot = document.getElementById("school-edit-root");
   const playersRoot = document.getElementById("school-players-root");
   const playerRegisterLink = document.getElementById("player-register-link");
 
@@ -255,9 +378,10 @@ async function init() {
     const schoolId = getSchoolIdFromQuery();
     const school = await fetchSchoolById(schoolId);
 
-    document.title = `${school.name} | 学校詳細`;
-    renderSchoolEditor(schoolRoot, school);
-    bindSchoolEditor(schoolRoot, schoolId);
+    document.title = `${formatSchoolName(school.name)} | 学校詳細`;
+    renderSchoolSummary(summaryRoot, school);
+    renderSchoolEditor(editRoot, school);
+    bindSchoolEditor(summaryRoot, editRoot, schoolId);
 
     playerRegisterLink.href = `./player_register.html?school_id=${encodeURIComponent(schoolId)}`;
     playerRegisterLink.hidden = false;
@@ -269,7 +393,8 @@ async function init() {
       renderPlayersError(playersRoot, error.message);
     }
   } catch (error) {
-    renderSchoolError(schoolRoot, error.message);
+    renderSchoolError(summaryRoot, error.message);
+    editRoot.innerHTML = "";
     renderPlayersError(playersRoot, error.message);
   }
 }

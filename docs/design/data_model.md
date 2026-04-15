@@ -3,7 +3,10 @@
 ## School
 - id
 - name
+- prefecture
 - play_style
+- start_year
+- current_year
 - memo
 - is_archived
 - created_at
@@ -95,6 +98,7 @@
 
 ## 補足
 - `play_style` は `three_year` または `continuous` を取る。
+- `School.name` は本体名のみ保持し、`高校` の表示付与はフロントエンド helper で行う。
 - `player_type` は `normal`、`genius`、`reincarnated` を取る。
 - `snapshot_label` は `entrance` または `post_tournament` を取る。
 - `ability_category` は投手特能、野手特能、緑特などの区分を保持する。

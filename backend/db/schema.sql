@@ -12,7 +12,10 @@ DROP TABLE IF EXISTS schools;
 CREATE TABLE schools (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
+  prefecture TEXT,
   play_style TEXT NOT NULL CHECK (play_style IN ('three_year', 'continuous')),
+  start_year INTEGER,
+  current_year INTEGER,
   memo TEXT,
   is_archived INTEGER NOT NULL DEFAULT 0 CHECK (is_archived IN (0, 1)),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

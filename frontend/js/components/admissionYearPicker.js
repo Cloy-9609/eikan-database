@@ -1,9 +1,13 @@
-export const ADMISSION_YEAR_MIN = 1932;
-export const ADMISSION_YEAR_MAX = 2039;
+export const YEAR_MIN = 1932;
+export const YEAR_MAX = 2039;
+export const ADMISSION_YEAR_MIN = YEAR_MIN;
+export const ADMISSION_YEAR_MAX = YEAR_MAX;
 
 const DIGIT_PLACES = ["千の位", "百の位", "十の位", "一の位"];
 const DIGIT_COUNT = DIGIT_PLACES.length;
 const DIGIT_CYCLE_LENGTH = 10;
+const DEFAULT_YEAR_ERROR_MESSAGE =
+  "この操作では有効な年度にならないため、値は変更されません。1932〜2039年から選択してください。";
 const ADMISSION_YEAR_ERROR_MESSAGE =
   "この操作では有効な入学年にならないため、値は変更されません。1932〜2039年から選択してください。";
 
@@ -16,10 +20,10 @@ function escapeAttribute(value) {
 }
 
 export function isValidYear(year) {
-  return Number.isInteger(year) && year >= ADMISSION_YEAR_MIN && year <= ADMISSION_YEAR_MAX;
+  return Number.isInteger(year) && year >= YEAR_MIN && year <= YEAR_MAX;
 }
 
-export function getSafeAdmissionYear(value, fallbackYear = new Date().getFullYear()) {
+export function getSafeYear(value, fallbackYear = new Date().getFullYear()) {
   const hasValue = value !== undefined && value !== null && value !== "";
   const numericValue = hasValue ? Number(value) : NaN;
   const numericFallback = Number(fallbackYear);
@@ -27,21 +31,25 @@ export function getSafeAdmissionYear(value, fallbackYear = new Date().getFullYea
     ? numericValue
     : Number.isInteger(numericFallback)
       ? numericFallback
-      : ADMISSION_YEAR_MIN;
+      : YEAR_MIN;
 
-  if (baseYear < ADMISSION_YEAR_MIN) {
-    return ADMISSION_YEAR_MIN;
+  if (baseYear < YEAR_MIN) {
+    return YEAR_MIN;
   }
 
-  if (baseYear > ADMISSION_YEAR_MAX) {
-    return ADMISSION_YEAR_MAX;
+  if (baseYear > YEAR_MAX) {
+    return YEAR_MAX;
   }
 
   return baseYear;
 }
 
+export function getSafeAdmissionYear(value, fallbackYear = new Date().getFullYear()) {
+  return getSafeYear(value, fallbackYear);
+}
+
 function getYearDigits(year) {
-  return String(getSafeAdmissionYear(year))
+  return String(getSafeYear(year))
     .padStart(4, "0")
     .slice(-4)
     .split("")
@@ -84,11 +92,11 @@ function findFirstValidYear(candidateFactory, currentYear) {
   return getRejectedResult(currentYear);
 }
 
-function getThousandsDigitAdjustedAdmissionYear(currentYear) {
-  return buildResult(currentYear, currentYear < 2000 ? ADMISSION_YEAR_MAX : ADMISSION_YEAR_MIN);
+function getThousandsDigitAdjustedYear(currentYear) {
+  return buildResult(currentYear, currentYear < 2000 ? YEAR_MAX : YEAR_MIN);
 }
 
-function getHundredsDigitAdjustedAdmissionYear(currentYear) {
+function getHundredsDigitAdjustedYear(currentYear) {
   const lowerDigits = currentYear % 100;
   const candidateYear = currentYear < 2000 ? 2000 + lowerDigits : 1900 + lowerDigits;
 
@@ -96,10 +104,10 @@ function getHundredsDigitAdjustedAdmissionYear(currentYear) {
     return buildResult(currentYear, candidateYear);
   }
 
-  return buildResult(currentYear, currentYear < 2000 ? ADMISSION_YEAR_MAX : ADMISSION_YEAR_MIN);
+  return buildResult(currentYear, currentYear < 2000 ? YEAR_MAX : YEAR_MIN);
 }
 
-function getOnesDigitAdjustedAdmissionYear(currentYear, step) {
+function getOnesDigitAdjustedYear(currentYear, step) {
   const digits = getYearDigits(currentYear);
   const direction = getSearchDirection(step);
 
@@ -141,18 +149,15 @@ function getTensDigitCandidateYear(digits, direction, attempt) {
   return null;
 }
 
-function getTensDigitAdjustedAdmissionYear(currentYear, step) {
+function getTensDigitAdjustedYear(currentYear, step) {
   const digits = getYearDigits(currentYear);
   const direction = getSearchDirection(step);
 
-  return findFirstValidYear(
-    (attempt) => getTensDigitCandidateYear(digits, direction, attempt),
-    currentYear
-  );
+  return findFirstValidYear((attempt) => getTensDigitCandidateYear(digits, direction, attempt), currentYear);
 }
 
-export function getNextAdmissionYear(currentYear, digitIndex, step) {
-  const safeCurrentYear = getSafeAdmissionYear(currentYear);
+export function getNextYear(currentYear, digitIndex, step) {
+  const safeCurrentYear = getSafeYear(currentYear);
   const index = Number(digitIndex);
   const amount = Number(step);
 
@@ -165,44 +170,48 @@ export function getNextAdmissionYear(currentYear, digitIndex, step) {
   }
 
   if (index === 0) {
-    return getThousandsDigitAdjustedAdmissionYear(safeCurrentYear);
+    return getThousandsDigitAdjustedYear(safeCurrentYear);
   }
 
   if (index === 1) {
-    return getHundredsDigitAdjustedAdmissionYear(safeCurrentYear);
+    return getHundredsDigitAdjustedYear(safeCurrentYear);
   }
 
   if (index === 2) {
-    return getTensDigitAdjustedAdmissionYear(safeCurrentYear, amount);
+    return getTensDigitAdjustedYear(safeCurrentYear, amount);
   }
 
   if (index === 3) {
-    return getOnesDigitAdjustedAdmissionYear(safeCurrentYear, amount);
+    return getOnesDigitAdjustedYear(safeCurrentYear, amount);
   }
+}
+
+export function getNextAdmissionYear(currentYear, digitIndex, step) {
+  return getNextYear(currentYear, digitIndex, step);
 }
 
 function renderDigits(year) {
   return getYearDigits(year)
     .map(
       (digit, index) => `
-        <div class="admission-year-digit" data-admission-year-digit-box="${index}">
+        <div class="admission-year-digit" data-year-digit-box="${index}">
           <button
             type="button"
             class="admission-year-button admission-year-button-up"
-            data-admission-year-step="1"
-            data-admission-year-digit-index="${index}"
+            data-year-step="1"
+            data-year-digit-index="${index}"
             aria-label="${DIGIT_PLACES[index]}を増やす"
           >▲</button>
           <output
             class="admission-year-number"
-            data-admission-year-digit="${index}"
+            data-year-digit="${index}"
             aria-label="${DIGIT_PLACES[index]}"
           >${digit}</output>
           <button
             type="button"
             class="admission-year-button admission-year-button-down"
-            data-admission-year-step="-1"
-            data-admission-year-digit-index="${index}"
+            data-year-step="-1"
+            data-year-digit-index="${index}"
             aria-label="${DIGIT_PLACES[index]}を減らす"
           >▼</button>
         </div>
@@ -212,18 +221,18 @@ function renderDigits(year) {
 }
 
 function updatePicker(picker, year) {
-  const safeYear = getSafeAdmissionYear(year);
+  const safeYear = getSafeYear(year);
   const digits = getYearDigits(safeYear);
-  const input = picker.querySelector("[data-admission-year-input]");
-  const label = picker.querySelector("[data-admission-year-label]");
-  const error = picker.querySelector("[data-admission-year-error]");
+  const input = picker.querySelector("[data-year-input]");
+  const label = picker.querySelector("[data-year-label]");
+  const error = picker.querySelector("[data-year-error]");
 
   if (input) {
     input.value = String(safeYear);
   }
 
   digits.forEach((digit, index) => {
-    const digitElement = picker.querySelector(`[data-admission-year-digit="${index}"]`);
+    const digitElement = picker.querySelector(`[data-year-digit="${index}"]`);
 
     if (digitElement) {
       digitElement.textContent = String(digit);
@@ -239,31 +248,39 @@ function updatePicker(picker, year) {
   }
 }
 
+export function setYearPickerValue(picker, year) {
+  if (!picker) {
+    return;
+  }
+
+  updatePicker(picker, year);
+}
+
 function handlePickerClick(event) {
-  const button = event.target.closest("[data-admission-year-step]");
+  const button = event.target.closest("[data-year-step]");
 
   if (!button) {
     return;
   }
 
-  const picker = button.closest("[data-admission-year-picker]");
-  const input = picker?.querySelector("[data-admission-year-input]");
+  const picker = button.closest("[data-year-picker]");
+  const input = picker?.querySelector("[data-year-input]");
 
   if (!picker || !input) {
     return;
   }
 
-  const result = getNextAdmissionYear(
+  const result = getNextYear(
     Number(input.value),
-    Number(button.dataset.admissionYearDigitIndex),
-    Number(button.dataset.admissionYearStep)
+    Number(button.dataset.yearDigitIndex),
+    Number(button.dataset.yearStep)
   );
 
   if (!result.changed) {
-    const error = picker.querySelector("[data-admission-year-error]");
+    const error = picker.querySelector("[data-year-error]");
 
     if (error) {
-      error.textContent = result.rejected ? ADMISSION_YEAR_ERROR_MESSAGE : "";
+      error.textContent = result.rejected ? picker.dataset.yearErrorMessage : "";
     }
 
     return;
@@ -272,47 +289,67 @@ function handlePickerClick(event) {
   updatePicker(picker, result.year);
 }
 
-export function buildAdmissionYearPicker({
+export function buildYearPicker({
+  inputName = "year",
+  inputId = inputName,
   selectedYear = null,
   currentYear = new Date().getFullYear(),
+  groupLabel = "年度",
+  selectionLabel = "選択中",
+  errorMessage = DEFAULT_YEAR_ERROR_MESSAGE,
 } = {}) {
-  const year = getSafeAdmissionYear(selectedYear ?? currentYear, currentYear);
+  const year = getSafeYear(selectedYear ?? currentYear, currentYear);
 
   return `
     <div
       class="admission-year-picker"
-      data-admission-year-picker
-      data-min-year="${ADMISSION_YEAR_MIN}"
-      data-max-year="${ADMISSION_YEAR_MAX}"
+      data-year-picker
+      data-min-year="${YEAR_MIN}"
+      data-max-year="${YEAR_MAX}"
+      data-year-error-message="${escapeAttribute(errorMessage)}"
       role="group"
-      aria-label="入学年"
+      aria-label="${escapeAttribute(groupLabel)}"
     >
       <input
-        id="admission_year"
+        id="${escapeAttribute(inputId)}"
         type="hidden"
-        name="admission_year"
+        name="${escapeAttribute(inputName)}"
         value="${escapeAttribute(year)}"
-        data-admission-year-input
+        data-year-input
       >
-      <div class="admission-year-digits" aria-label="入学年 ${escapeAttribute(year)}年">
+      <div class="admission-year-digits" aria-label="${escapeAttribute(groupLabel)} ${escapeAttribute(year)}年">
         ${renderDigits(year)}
       </div>
       <p class="admission-year-current">
-        選択中: <output data-admission-year-label>${escapeAttribute(year)}年</output>
+        ${escapeAttribute(selectionLabel)}: <output data-year-label>${escapeAttribute(year)}年</output>
       </p>
-      <p class="admission-year-error" data-admission-year-error role="alert"></p>
+      <p class="admission-year-error" data-year-error role="alert"></p>
     </div>
   `;
 }
 
-export function setupAdmissionYearPickers(root = document) {
-  root.querySelectorAll("[data-admission-year-picker]").forEach((picker) => {
-    if (picker.dataset.admissionYearReady === "true") {
+export function buildAdmissionYearPicker(options = {}) {
+  return buildYearPicker({
+    inputName: "admission_year",
+    inputId: "admission_year",
+    groupLabel: "入学年",
+    errorMessage: ADMISSION_YEAR_ERROR_MESSAGE,
+    ...options,
+  });
+}
+
+export function setupYearPickers(root = document) {
+  root.querySelectorAll("[data-year-picker]").forEach((picker) => {
+    if (picker.dataset.yearReady === "true") {
       return;
     }
 
-    picker.dataset.admissionYearReady = "true";
+    picker.dataset.yearReady = "true";
     picker.addEventListener("click", handlePickerClick);
-    updatePicker(picker, picker.querySelector("[data-admission-year-input]")?.value);
+    updatePicker(picker, picker.querySelector("[data-year-input]")?.value);
   });
+}
+
+export function setupAdmissionYearPickers(root = document) {
+  setupYearPickers(root);
 }

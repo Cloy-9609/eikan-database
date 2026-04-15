@@ -25,7 +25,7 @@
 | GET | `/api/schools` | `200` | 論理削除されていない学校一覧を取得する |
 | GET | `/api/schools/:id` | `200`, `404` | 有効な学校詳細を取得する |
 | POST | `/api/schools` | `201`, `400` | 学校を新規登録する |
-| PATCH | `/api/schools/:id` | `200`, `400`, `404` | 学校名、プレイ方針、メモを更新する |
+| PATCH | `/api/schools/:id` | `200`, `400`, `404` | 学校名、都道府県、プレイ方針、開始年度、メモを更新する |
 | DELETE | `/api/schools/:id` | `200`, `404` | 学校を論理削除する（`is_archived = 1` に更新） |
 | GET | `/api/players` | `200`, `404` | 有効学校に属する選手一覧を取得する。`school_id` 指定時は対象学校が有効であることを前提にする |
 | GET | `/api/players/:id` | `200`, `404` | 選手詳細を取得する。削除済み学校に属する選手も取得可能 |
@@ -65,6 +65,8 @@
 
 ## レスポンス形式
 - Schools / Players ともに `success`, `data`, `error` を持つ共通形式を返す。
+- Schools 系レスポンスは `prefecture`, `start_year`, `current_year` を含む。
+- Schools 系レスポンスの `name` は本体名のみとし、`高校` の表示付与はフロントエンド helper が担う。
 - `GET /api/players/:id` は画面制御用に `school_name` と `school_is_archived` を含む。
 
 ## バリデーション方針
@@ -74,6 +76,9 @@
 - 想定外エラーは共通エラーハンドラで 500 として返却する。
 
 ## 補足
+- `POST /api/schools` / `PATCH /api/schools/:id` の入力項目は `name`, `prefecture`, `play_style`, `start_year`, `memo` とする。
+- `current_year` はクライアント入力では受け取らず、Phase 1 ではサーバー側で `start_year` と同じ値に揃える。
+- `name` は保存前に trim し、末尾が正確に `高校` の場合のみ取り除いて本体名として保存する。
 - `DELETE /api/schools/:id` は物理削除ではなく、学校をアーカイブ状態へ変更する API として扱う。
 - 削除済み学校は `GET /api/schools/:id` の通常利用対象外とし、404 相当で扱う。
 - 削除済み学校の配下選手は通常一覧から除外するが、`GET /api/players/:id` では保持データとして取得できる。

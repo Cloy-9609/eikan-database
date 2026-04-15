@@ -1,5 +1,7 @@
 ﻿import { fetchPlayerById } from "../api/playerApi.js";
 
+import { formatSchoolName } from "../utils/formatter.js";
+
 const PLAYER_TYPE_LABELS = {
   normal: "通常",
   genius: "天才",
@@ -137,8 +139,8 @@ function renderError(root, messageElement, titleElement, contextElement, actions
 
 function renderPlayer(root, messageElement, titleElement, contextElement, actionsElement, player) {
   const archivedSchool = isArchivedSchool(player);
-  const schoolNameText = player.school_name ?? "不明";
-  const schoolName = formatValue(player.school_name, "不明");
+  const schoolNameText = formatSchoolName(player.school_name, "不明");
+  const schoolName = escapeHtml(formatSchoolName(player.school_name, "不明"));
 
   document.title = `${player.name} | 選手詳細`;
   titleElement.textContent = formatValue(player.name, "名称未設定");
