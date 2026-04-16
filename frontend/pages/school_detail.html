@@ -11,22 +11,45 @@
 </head>
 <body>
   <main class="page">
-    <h1>学校詳細</h1>
+    <div class="detail-page-header">
+      <a class="back-link" href="./schools.html">学校一覧へ戻る</a>
+      <div class="detail-page-copy">
+        <h1>学校詳細</h1>
+        <p class="page-description">確認用のサマリーと編集内容を分けて表示します。</p>
+      </div>
+    </div>
     <div id="school-detail-root" class="school-detail">
-      <section class="detail-section">
-        <h2 class="section-title">学校サマリー</h2>
+      <section class="detail-section detail-section--summary">
+        <div class="section-header section-header--stack">
+          <div>
+            <h2 class="section-title">学校サマリー</h2>
+            <p class="section-description">現在登録されている学校情報を確認します。</p>
+          </div>
+        </div>
         <div id="school-summary-root"></div>
       </section>
 
-      <section class="detail-section">
-        <h2 class="section-title">学校情報を編集</h2>
+      <section class="detail-section detail-section--edit">
+        <div class="section-header section-header--stack">
+          <div>
+            <h2 class="section-title">学校情報を編集</h2>
+            <p class="section-description">
+              学校名・都道府県・プレイ方針・開始年度・メモを更新できます。現在年度はこの画面で直接変更しません。
+            </p>
+          </div>
+        </div>
         <div id="school-edit-root"></div>
       </section>
 
-      <section class="detail-section">
-        <div class="section-header">
-          <h2 class="section-title">所属選手一覧</h2>
-          <a class="action-link" id="player-register-link" href="./player_register.html">選手登録</a>
+      <section class="detail-section detail-section--players">
+        <div class="section-header section-header--players">
+          <div>
+            <h2 class="section-title">所属選手一覧</h2>
+            <p class="section-description">この学校に所属する選手を確認します。</p>
+          </div>
+          <a class="school-button school-button-secondary" id="player-register-link" href="./player_register.html">
+            選手登録
+          </a>
         </div>
         <div id="school-players-root"></div>
       </section>

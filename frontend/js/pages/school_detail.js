@@ -3,7 +3,7 @@ import { fetchPlayers } from "../api/playerApi.js";
 import { deleteSchool, updateSchool } from "../api/schoolApi.js";
 import { buildYearPicker, setupYearPickers } from "../components/admissionYearPicker.js";
 import { PREFECTURE_GROUPS } from "../constants/prefectures.js";
-import { formatDate, formatSchoolName, formatSchoolPlayStyle } from "../utils/formatter.js";
+import { formatDate, formatSchoolName } from "../utils/formatter.js";
 
 const CURRENT_CALENDAR_YEAR = new Date().getFullYear();
 const PLAY_STYLE_OPTIONS = [
@@ -60,6 +60,11 @@ function formatElapsedYears(startYear, currentYear) {
   }
 
   return `${numericCurrentYear - numericStartYear}年`;
+}
+
+function formatPlayerGrade(value) {
+  const numericValue = Number(value);
+  return Number.isInteger(numericValue) ? `${numericValue}年` : formatOptionalValue(value);
 }
 
 function getPlayerTypeLabel(playerType) {
@@ -122,7 +127,9 @@ function renderSchoolError(root, message) {
     <div class="message-box error-message">
       <p>学校情報の取得に失敗しました。</p>
       <p>${escapeHtml(message)}</p>
-      <p><a href="./schools.html">学校一覧へ戻る</a></p>
+      <p>
+        <a class="school-button school-button-secondary" href="./schools.html">学校一覧へ戻る</a>
+      </p>
     </div>
   `;
 }
@@ -136,45 +143,57 @@ function renderPlayersError(root, message) {
   `;
 }
 
+function renderSummaryRow({ label, value, classes = "school-summary-row", valueClass = "" }) {
+  return `
+    <div class="${classes}">
+      <dt>${escapeHtml(label)}</dt>
+      <dd class="${valueClass}">${escapeHtml(value)}</dd>
+    </div>
+  `;
+}
+
 function renderSchoolSummary(root, school) {
+  const summaryRows = [
+    {
+      label: "学校名",
+      value: formatSchoolName(school.name),
+      classes: "school-summary-row school-summary-row--name",
+    },
+    {
+      label: "都道府県",
+      value: formatOptionalValue(school.prefecture),
+    },
+    {
+      label: "開始年度",
+      value: formatYearValue(school.start_year),
+    },
+    {
+      label: "現在年度",
+      value: formatYearValue(school.current_year),
+    },
+    {
+      label: "経過年数",
+      value: formatElapsedYears(school.start_year, school.current_year),
+    },
+    {
+      label: "作成日時",
+      value: formatDate(school.created_at),
+    },
+    {
+      label: "更新日時",
+      value: formatDate(school.updated_at),
+    },
+    {
+      label: "メモ",
+      value: formatOptionalValue(school.memo),
+      classes: "school-summary-row school-summary-row-full",
+      valueClass: "school-summary-value--memo",
+    },
+  ];
+
   root.innerHTML = `
     <dl class="school-summary-grid">
-      <div class="school-summary-row">
-        <dt>学校名</dt>
-        <dd>${escapeHtml(formatSchoolName(school.name))}</dd>
-      </div>
-      <div class="school-summary-row">
-        <dt>都道府県</dt>
-        <dd>${escapeHtml(formatOptionalValue(school.prefecture))}</dd>
-      </div>
-      <div class="school-summary-row">
-        <dt>開始年度</dt>
-        <dd>${escapeHtml(formatYearValue(school.start_year))}</dd>
-      </div>
-      <div class="school-summary-row">
-        <dt>現在年度</dt>
-        <dd>${escapeHtml(formatYearValue(school.current_year))}</dd>
-      </div>
-      <div class="school-summary-row">
-        <dt>経過年数</dt>
-        <dd>${escapeHtml(formatElapsedYears(school.start_year, school.current_year))}</dd>
-      </div>
-      <div class="school-summary-row">
-        <dt>プレイ方針</dt>
-        <dd>${escapeHtml(formatSchoolPlayStyle(school.play_style))}</dd>
-      </div>
-      <div class="school-summary-row">
-        <dt>作成日時</dt>
-        <dd>${escapeHtml(formatDate(school.created_at))}</dd>
-      </div>
-      <div class="school-summary-row">
-        <dt>更新日時</dt>
-        <dd>${escapeHtml(formatDate(school.updated_at))}</dd>
-      </div>
-      <div class="school-summary-row school-summary-row-full">
-        <dt>メモ</dt>
-        <dd>${escapeHtml(formatOptionalValue(school.memo))}</dd>
-      </div>
+      ${summaryRows.map((row) => renderSummaryRow(row)).join("")}
     </dl>
   `;
 }
@@ -215,7 +234,7 @@ function renderSchoolEditor(root, school, message = null) {
           </select>
         </div>
       </div>
-      <div class="school-form-row">
+      <div class="school-form-row school-form-row--year">
         <span class="school-form-label">開始年度</span>
         <div class="school-form-control school-form-control--year">
           ${buildYearPicker({
@@ -227,23 +246,30 @@ function renderSchoolEditor(root, school, message = null) {
             variant: "compact",
           })}
         </div>
+        <p class="field-help">現在年度はここでは直接変更せず、開始年度の保存時にサーバー側で同期します。</p>
       </div>
       ${
         startYearIsLegacy
           ? '<p class="form-note">開始年度が未設定だったため、今年を初期表示しています。必要に応じて変更して保存してください。</p>'
           : ""
       }
-      <div class="school-form-row">
+      <div class="school-form-row school-form-row--memo">
         <label for="school-memo">メモ</label>
         <textarea id="school-memo" name="memo" rows="4">${escapeHtml(school.memo ?? "")}</textarea>
       </div>
-      <p class="form-help">
-        学校を削除すると学校は一覧から非表示になります。配下の選手データは保持され、将来機能から参照できる状態のまま残ります。
-      </p>
       <div class="school-form-actions">
         <button type="submit" class="school-button school-button-primary">保存する</button>
-        <button type="button" id="school-delete-button" class="school-button school-button-danger">学校を削除する</button>
-        <a class="school-button school-button-secondary" href="./schools.html">学校一覧へ戻る</a>
+      </div>
+      <div class="school-danger-zone">
+        <div class="school-danger-copy">
+          <h3 class="danger-title">学校を削除する</h3>
+          <p class="danger-description">
+            学校を削除すると学校は一覧から非表示になります。配下の選手データは保持されます。内容を確認してから実行してください。
+          </p>
+        </div>
+        <button type="button" id="school-delete-button" class="school-button school-button-danger">
+          この学校を削除する
+        </button>
       </div>
     </form>
   `;
@@ -257,41 +283,51 @@ function renderSchoolEditor(root, school, message = null) {
 }
 
 function renderPlayers(root, players) {
-  if (!Array.isArray(players) || players.length === 0) {
+  const safePlayers = Array.isArray(players) ? players : [];
+  const playerCountText = `所属選手 ${safePlayers.length}人`;
+
+  if (safePlayers.length === 0) {
     root.innerHTML = `
-      <div class="message-box empty-message">
-        <p>登録された選手はいません</p>
+      <div class="players-list-meta">
+        <p class="players-count" aria-live="polite">${playerCountText}</p>
+      </div>
+      <div class="message-box empty-message players-empty-state">
+        <p class="players-empty-title">所属選手はまだ登録されていません。</p>
+        <p>この学校の選手は「選手登録」から追加できます。</p>
       </div>
     `;
     return;
   }
 
-  const rows = players
+  const rows = safePlayers
     .map(
       (player) => `
-        <tr>
-          <td>
+        <tr class="players-table-row">
+          <td class="players-table-cell players-table-cell--name">
             <a class="player-link" href="./player_detail.html?id=${encodeURIComponent(player.id)}">
               ${escapeHtml(player.name)}
             </a>
           </td>
-          <td>${escapeHtml(player.grade)}</td>
-          <td>${escapeHtml(player.main_position ?? "未設定")}</td>
-          <td>${escapeHtml(getPlayerTypeLabel(player.player_type))}</td>
+          <td class="players-table-cell players-table-cell--grade">${escapeHtml(formatPlayerGrade(player.grade))}</td>
+          <td class="players-table-cell">${escapeHtml(formatOptionalValue(player.main_position))}</td>
+          <td class="players-table-cell">${escapeHtml(getPlayerTypeLabel(player.player_type))}</td>
         </tr>
       `
     )
     .join("");
 
   root.innerHTML = `
+    <div class="players-list-meta">
+      <p class="players-count" aria-live="polite">${playerCountText}</p>
+    </div>
     <div class="table-wrap">
       <table class="players-table">
         <thead>
           <tr>
-            <th>名前</th>
-            <th>学年</th>
-            <th>メインポジション</th>
-            <th>選手種別</th>
+            <th scope="col">名前</th>
+            <th scope="col">学年</th>
+            <th scope="col">メインポジション</th>
+            <th scope="col">選手種別</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>

@@ -319,13 +319,29 @@ function buildResultCountText(count, { hasFilters = false } = {}) {
   return hasFilters ? `検索結果 ${count}件` : `表示中: ${count}件`;
 }
 
+function buildMemoPreviewText(value) {
+  const normalizedMemo = String(value).replaceAll("\r\n", "\n").replaceAll("\r", "\n");
+  const lines = normalizedMemo.split("\n");
+  const firstLine = lines[0] ?? "";
+  const hasAdditionalContent = lines
+    .slice(1)
+    .some((line) => line.trim() !== "");
+
+  return hasAdditionalContent ? `${firstLine}…` : firstLine;
+}
+
 function renderMemoPreview(value) {
   if (value === undefined || value === null || value === "") {
     return '<span class="schools-table-note schools-table-note--empty">未設定</span>';
   }
 
   const memo = String(value);
-  return `<span class="schools-table-note" title="${escapeAttribute(memo)}">${escapeHtml(memo)}</span>`;
+  const previewText = buildMemoPreviewText(memo);
+  return `
+    <span class="schools-table-note" title="${escapeAttribute(memo)}">
+      <span class="schools-table-note-text">${escapeHtml(previewText)}</span>
+    </span>
+  `;
 }
 
 function renderSchoolList(root, schools, { hasFilters = false } = {}) {

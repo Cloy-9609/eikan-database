@@ -378,6 +378,7 @@
 
 .schools-table-cell--memo {
   width: 32%;
+  min-width: 0;
 }
 
 .schools-table-link {
@@ -396,15 +397,19 @@
 }
 
 .schools-table-note {
-  display: -webkit-box;
-  max-width: min(32rem, 100%);
-  max-height: calc(1.55em * 2);
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.schools-table-note-text {
+  display: block;
   overflow: hidden;
   color: #4b5d70;
   line-height: 1.55;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .schools-table-note--empty {
