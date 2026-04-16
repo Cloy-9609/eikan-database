@@ -315,9 +315,28 @@ function formatStartYear(value) {
   return Number.isInteger(year) ? `${year}年` : "未設定";
 }
 
+function buildResultCountText(count, { hasFilters = false } = {}) {
+  return hasFilters ? `検索結果 ${count}件` : `表示中: ${count}件`;
+}
+
+function renderMemoPreview(value) {
+  if (value === undefined || value === null || value === "") {
+    return '<span class="schools-table-note schools-table-note--empty">未設定</span>';
+  }
+
+  const memo = String(value);
+  return `<span class="schools-table-note" title="${escapeAttribute(memo)}">${escapeHtml(memo)}</span>`;
+}
+
 function renderSchoolList(root, schools, { hasFilters = false } = {}) {
-  if (!Array.isArray(schools) || schools.length === 0) {
+  const safeSchools = Array.isArray(schools) ? schools : [];
+  const resultCountText = buildResultCountText(safeSchools.length, { hasFilters });
+
+  if (safeSchools.length === 0) {
     root.innerHTML = `
+      <div class="schools-list-meta">
+        <p class="schools-list-count" aria-live="polite">${resultCountText}</p>
+      </div>
       <div class="message-box empty-message">
         <p>${hasFilters ? "条件に一致する学校はありません。" : "登録された学校はありません。"}</p>
       </div>
@@ -325,34 +344,37 @@ function renderSchoolList(root, schools, { hasFilters = false } = {}) {
     return;
   }
 
-  const rows = schools
+  const rows = safeSchools
     .map(
       (school) => `
-        <tr>
-          <td>
-            <a href="./school_detail.html?id=${encodeURIComponent(school.id)}">
+        <tr class="schools-table-row">
+          <td class="schools-table-cell schools-table-cell--name">
+            <a class="schools-table-link" href="./school_detail.html?id=${encodeURIComponent(school.id)}">
               ${escapeHtml(formatSchoolName(school.name))}
             </a>
           </td>
-          <td>${escapeHtml(formatOptionalValue(school.prefecture))}</td>
-          <td>${escapeHtml(formatStartYear(school.start_year))}</td>
-          <td>${escapeHtml(formatSchoolPlayStyle(school.play_style))}</td>
-          <td>${escapeHtml(formatOptionalValue(school.memo))}</td>
+          <td class="schools-table-cell">${escapeHtml(formatOptionalValue(school.prefecture))}</td>
+          <td class="schools-table-cell schools-table-cell--year">${escapeHtml(formatStartYear(school.start_year))}</td>
+          <td class="schools-table-cell schools-table-cell--play-style">${escapeHtml(formatSchoolPlayStyle(school.play_style))}</td>
+          <td class="schools-table-cell schools-table-cell--memo">${renderMemoPreview(school.memo)}</td>
         </tr>
       `
     )
     .join("");
 
   root.innerHTML = `
+    <div class="schools-list-meta">
+      <p class="schools-list-count" aria-live="polite">${resultCountText}</p>
+    </div>
     <div class="table-wrap">
       <table class="schools-table">
         <thead>
           <tr>
-            <th>学校名</th>
-            <th>都道府県</th>
-            <th>開始年度</th>
-            <th>プレイ方針</th>
-            <th>メモ</th>
+            <th scope="col">学校名</th>
+            <th scope="col">都道府県</th>
+            <th scope="col">開始年度</th>
+            <th scope="col">プレイ方針</th>
+            <th scope="col">メモ</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>

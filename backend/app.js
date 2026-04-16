@@ -4,20 +4,19 @@ const schoolRoutes = require("./routes/schoolRoutes");
 const playerRoutes = require("./routes/playerRoutes");
 const errorHandler = require("./middleware/errorHandler");
 const { initializeDatabase, databasePath } = require("./db/database");
+const { createHtmlMiddleware, registerHotReload } = require("./dev/hotReload");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const frontendPath = path.join(__dirname, "..", "frontend");
+const frontendHtmlMiddleware = createHtmlMiddleware(frontendPath);
+const cleanupHotReload = registerHotReload(app, { frontendPath });
 
 app.use(express.json());
 
 app.use("/api/schools", schoolRoutes);
 app.use("/api/players", playerRoutes);
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(frontendPath, "pages", "index.html"));
-});
-
+app.use(frontendHtmlMiddleware);
 app.use(express.static(frontendPath));
 
 app.use(errorHandler);
@@ -47,3 +46,4 @@ if (require.main === module) {
 
 module.exports = app;
 module.exports.startServer = startServer;
+module.exports.cleanupHotReload = cleanupHotReload;

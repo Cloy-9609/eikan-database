@@ -224,6 +224,8 @@
 }
 
 .school-search-actions {
+  align-items: center;
+  justify-content: flex-start;
   padding-top: 2px;
 }
 
@@ -308,8 +310,26 @@
   margin: 0;
 }
 
+.schools-list-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
+
+.schools-list-count {
+  margin: 0;
+  color: #617488;
+  font-size: 0.94rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
 .table-wrap {
   overflow-x: auto;
+  border: 1px solid #d7dee8;
+  border-radius: 14px;
+  background: #ffffff;
 }
 
 .schools-table {
@@ -320,7 +340,7 @@
 
 .schools-table th,
 .schools-table td {
-  padding: 12px;
+  padding: 14px 16px;
   border-bottom: 1px solid #d7dee8;
   text-align: left;
   vertical-align: top;
@@ -328,19 +348,67 @@
 }
 
 .schools-table th {
-  background: #f5f8fb;
+  background: #f4f8fb;
+  border-bottom-color: #ccd7e3;
   color: #243447;
+  font-size: 0.94rem;
   font-weight: 700;
 }
 
-.schools-table a {
+.schools-table td {
+  color: #314559;
+}
+
+.schools-table tbody tr {
+  transition: background-color 0.18s ease;
+}
+
+.schools-table tbody tr:hover {
+  background: #f8fbfe;
+}
+
+.schools-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.schools-table-cell--year,
+.schools-table-cell--play-style {
+  white-space: nowrap;
+}
+
+.schools-table-cell--memo {
+  width: 32%;
+}
+
+.schools-table-link {
   color: #0b63c9;
   font-weight: 700;
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-color: rgba(11, 99, 201, 0.28);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.16em;
 }
 
-.schools-table a:hover {
-  text-decoration: underline;
+.schools-table-link:hover,
+.schools-table-link:focus-visible {
+  color: #084f9f;
+  text-decoration-color: currentColor;
+}
+
+.schools-table-note {
+  display: -webkit-box;
+  max-width: min(32rem, 100%);
+  max-height: calc(1.55em * 2);
+  overflow: hidden;
+  color: #4b5d70;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.schools-table-note--empty {
+  color: #6a7c90;
 }
 
 @media (min-width: 860px) {
@@ -433,12 +501,16 @@
     width: 100%;
   }
 
+  .schools-list-meta {
+    margin-bottom: 10px;
+  }
+
   .schools-table {
     min-width: 560px;
   }
 
   .schools-table th,
   .schools-table td {
-    padding: 10px;
+    padding: 10px 12px;
   }
 }
