@@ -15,15 +15,15 @@
 - 守備位置図 UI は Phase2 後半の別拡張とし、本画面の責務は当面「情報表示 + 編集入口」に留める。
 
 ### `player_edit`
-- 現在の役割は「基本情報の一括編集」。
-- 現行 UI で編集できるのは、名前、選手種別、都道府県、学年、入学年、スナップショット種別、メインポジション、投打。
-- 能力値、変化球、特殊能力、サブポジションは未編集。
-- 今後も `player_edit` を 1 画面で広げることは可能だが、現状の `PUT /api/players/:id` と UI 構造を踏まえると、当面は「基本情報編集画面」として責務を固定し、能力値系は別画面または別セクション編集で増やす方が安全。
+- 現在の役割は「基本情報 + 投手能力 + 野手能力」の一括編集。
+- 現行 UI で編集できるのは、名前、選手種別、都道府県、学年、入学年、スナップショット種別、メインポジション、投打、投手能力、野手能力。
+- 変化球、特殊能力、サブポジションは未編集。
+- `player_detail` から `basic / pitcher / batter` の各セクションへアンカー付きで遷移できるため、当面は 1 画面編集を維持しつつ、将来的なセクション単位保存へも伸ばしやすい。
 
 ## 現在の保存導線
 1. `frontend/js/pages/player_edit.js`
    - `fetchPlayerById(id)` で初期値を取得
-   - フォーム送信時に基本情報 payload を組み立てる
+   - フォーム送信時に基本情報 + 能力値 payload を組み立てる
 2. `frontend/js/api/playerApi.js`
    - `updatePlayer(id, payload)` が `PUT /api/players/:id` を送る
 3. `backend/controllers/playerController.js`
@@ -52,16 +52,16 @@
 | 選手種別 `player_type` | あり | あり | あり | あり | `players.player_type` | 高 | `is_reincarnated` / `is_genius` との扱い整理は未完 |
 | 投打 `throwing_hand` / `batting_hand` | あり | あり | あり | あり | `players.throwing_hand`, `players.batting_hand` | 高 | detail では合成表示、edit では別入力 |
 | スナップショット種別 `snapshot_label` | あり | あり | あり | あり | `players.snapshot_label` | 高 | 将来拡張時は frontend/service/schema の同時更新が必要 |
-| 球速 `velocity` | あり | なし | なし | あり | `players.velocity` | 高 | DB/API は対応済み、UI 未着手 |
-| コントロール `control` | あり | なし | なし | あり | `players.control` | 高 | DB/API は対応済み、UI 未着手 |
-| スタミナ `stamina` | あり | なし | なし | あり | `players.stamina` | 高 | DB/API は対応済み、UI 未着手 |
-| 弾道 `trajectory` | あり | なし | なし | あり | `players.trajectory` | 高 | DB/API は対応済み、UI 未着手 |
-| ミート `meat` | あり | なし | なし | あり | `players.meat` | 高 | DB/API は対応済み、UI 未着手 |
-| パワー `power` | あり | なし | なし | あり | `players.power` | 高 | DB/API は対応済み、UI 未着手 |
-| 走力 `run_speed` | あり | なし | なし | あり | `players.run_speed` | 高 | DB/API は対応済み、UI 未着手 |
-| 肩力 `arm_strength` | あり | なし | なし | あり | `players.arm_strength` | 高 | DB/API は対応済み、UI 未着手 |
-| 守備 `fielding` | あり | なし | なし | あり | `players.fielding` | 高 | DB/API は対応済み、UI 未着手 |
-| 捕球 `catching` | あり | なし | なし | あり | `players.catching` | 高 | DB/API は対応済み、UI 未着手 |
+| 球速 `velocity` | あり | あり | あり | あり | `players.velocity` | 高 | `player_detail` / `player_edit` 対応済み |
+| コントロール `control` | あり | あり | あり | あり | `players.control` | 高 | `player_detail` / `player_edit` 対応済み |
+| スタミナ `stamina` | あり | あり | あり | あり | `players.stamina` | 高 | `player_detail` / `player_edit` 対応済み |
+| 弾道 `trajectory` | あり | あり | あり | あり | `players.trajectory` | 高 | `player_detail` / `player_edit` 対応済み |
+| ミート `meat` | あり | あり | あり | あり | `players.meat` | 高 | `player_detail` / `player_edit` 対応済み |
+| パワー `power` | あり | あり | あり | あり | `players.power` | 高 | `player_detail` / `player_edit` 対応済み |
+| 走力 `run_speed` | あり | あり | あり | あり | `players.run_speed` | 高 | `player_detail` / `player_edit` 対応済み |
+| 肩力 `arm_strength` | あり | あり | あり | あり | `players.arm_strength` | 高 | `player_detail` / `player_edit` 対応済み |
+| 守備 `fielding` | あり | あり | あり | あり | `players.fielding` | 高 | `player_detail` / `player_edit` 対応済み |
+| 捕球 `catching` | あり | あり | あり | あり | `players.catching` | 高 | `player_detail` / `player_edit` 対応済み |
 | 変化球一覧 `pitch_types` | あり | なし | なし | あり | `player_pitch_types` | 中 | API 更新時は relation 全置換 |
 | 特殊能力 `special_abilities` | あり | なし | なし | あり | `player_special_abilities` | 中 | API 更新時は relation 全置換 |
 | サブポジション `sub_positions` | あり | なし | なし | あり | `player_sub_positions` | 中 | 守備位置図 UI の前提データでもある |
@@ -75,10 +75,10 @@
 
 ## フロントエンド / API / DB のズレ
 
-### 1. UI は基本情報だけ、API/DB は能力値と relation まで受けられる
-- `player_edit` は基本情報しか送っていない。
-- ただし service/model は能力値、変化球、特殊能力、サブポジションまで更新可能。
-- そのため「保存できない」のではなく「UI が未提供」という状態。
+### 1. UI は基本情報 + 能力値まで対応、relation 系は引き続き未対応
+- `player_edit` は基本情報、投手能力、野手能力を送る。
+- service/model は引き続き変化球、特殊能力、サブポジションも更新可能。
+- 現時点で UI が未提供なのは relation 系と補助管理項目。
 
 ### 2. 更新 API は section 編集向きではなく、実質フル payload 前提
 - `PUT /api/players/:id` は基本情報の必須項目を毎回要求する。
@@ -104,14 +104,14 @@
 ## 今後の実装優先候補
 
 ### 優先度 高
-1. `player_edit` の次段として「能力値編集 UI」を追加する
-2. `player_detail` に各能力カード単位の編集導線を追加する
-3. 基本情報編集と能力編集の保存対象を docs とコードで一致させる
+1. `pitch_types` / `special_abilities` / `sub_positions` の編集 UI を追加する
+2. `player_detail` の relation 系カードにも編集導線を追加する
+3. 基本情報編集と能力編集の保存対象を docs とコードで一致させ続ける
 
 ### 優先度 中
-1. `pitch_types` / `special_abilities` / `sub_positions` の編集 UI を検討する
-2. section 単位編集を見据えて update API の責務を `PUT` か `PATCH` かで再整理する
-3. スナップショット種別の拡張方針を先に定義する
+1. section 単位編集を見据えて update API の責務を `PUT` か `PATCH` かで再整理する
+2. スナップショット種別の拡張方針を先に定義する
+3. `player_type` に応じた能力セクションの表示補助を検討する
 
 ### 優先度 低
 1. `total_stars`、`player_type_note`、`evidence_image_path` の露出方針を決める
@@ -119,6 +119,6 @@
 
 ## 今回の判断
 - `player_detail` は表示責務を維持し、編集の入口だけを持つ
-- `player_edit` は当面「基本情報編集画面」と明示する
-- 能力値編集は次段で追加する
-- relation 系編集はさらにその次の段階で扱う
+- `player_edit` は「基本情報 + 投手能力 + 野手能力」の編集画面とする
+- `player_detail` から各能力カード単位で編集画面へ入れる導線を持つ
+- relation 系編集は次段の対象として残す

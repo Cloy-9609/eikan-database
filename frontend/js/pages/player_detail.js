@@ -74,7 +74,22 @@ function formatThrowBat(player) {
   return escapeHtml(`${throwing || "-"}/${batting || "-"}`);
 }
 
-function renderDetailCard({ title, sectionKey, content, bodyClass = "" }) {
+function isPitcherMainPosition(value) {
+  return value === "投手";
+}
+
+function buildEditSectionLink(playerId, sectionKey, label = "編集") {
+  return `
+    <a
+      class="player-button player-button-secondary player-button-inline"
+      href="./player_edit.html?id=${encodeURIComponent(playerId)}#player-edit-section-${encodeURIComponent(sectionKey)}"
+    >
+      ${label}
+    </a>
+  `;
+}
+
+function renderDetailCard({ title, sectionKey, content, bodyClass = "", headerActionHtml = "" }) {
   const safeSectionKey = sectionKey ? escapeHtml(sectionKey) : "";
   const bodyClassName = bodyClass ? `detail-card-body ${bodyClass}` : "detail-card-body";
 
@@ -82,6 +97,7 @@ function renderDetailCard({ title, sectionKey, content, bodyClass = "" }) {
     <section class="detail-card" data-detail-section="${safeSectionKey}">
       <div class="detail-card-header">
         <h2 class="detail-title">${title}</h2>
+        ${headerActionHtml ? `<div class="detail-card-actions">${headerActionHtml}</div>` : ""}
       </div>
       <div class="${bodyClassName}">
         ${content}
@@ -182,6 +198,7 @@ function renderPlayer(root, messageElement, titleElement, contextElement, action
   const archivedSchool = isArchivedSchool(player);
   const schoolNameText = formatSchoolName(player.school_name, "不明");
   const schoolName = escapeHtml(formatSchoolName(player.school_name, "不明"));
+  const shouldShowPitcherSection = isPitcherMainPosition(player.main_position);
 
   document.title = `${player.name} | 選手詳細`;
   titleElement.textContent = formatValue(player.name, "名称未設定");
@@ -200,7 +217,7 @@ function renderPlayer(root, messageElement, titleElement, contextElement, action
           },
           {
             href: `./player_edit.html?id=${encodeURIComponent(player.id)}`,
-            label: "基本情報を編集",
+            label: "選手情報を編集",
             primary: true,
           },
         ]
@@ -281,12 +298,26 @@ function renderPlayer(root, messageElement, titleElement, contextElement, action
     `
     : "";
 
+  const pitcherSection = shouldShowPitcherSection
+    ? renderDetailCard({
+        title: "投手能力",
+        sectionKey: "pitcher",
+        headerActionHtml: archivedSchool ? "" : buildEditSectionLink(player.id, "pitcher"),
+        content: `
+          <dl class="detail-grid compact-grid" data-detail-grid="pitcher">
+            ${pitcherInfo}
+          </dl>
+        `,
+      })
+    : "";
+
   root.innerHTML = `
     ${archivedNotice}
 
     ${renderDetailCard({
       title: "基本情報",
       sectionKey: "basic",
+      headerActionHtml: archivedSchool ? "" : buildEditSectionLink(player.id, "basic"),
       content: `
         <dl class="detail-grid detail-grid--basic" data-detail-grid="basic">
           ${basicInfo}
@@ -294,19 +325,12 @@ function renderPlayer(root, messageElement, titleElement, contextElement, action
       `,
     })}
 
-    ${renderDetailCard({
-      title: "投手能力",
-      sectionKey: "pitcher",
-      content: `
-        <dl class="detail-grid compact-grid" data-detail-grid="pitcher">
-          ${pitcherInfo}
-        </dl>
-      `,
-    })}
+    ${pitcherSection}
 
     ${renderDetailCard({
       title: "野手能力",
       sectionKey: "batter",
+      headerActionHtml: archivedSchool ? "" : buildEditSectionLink(player.id, "batter"),
       content: `
         <dl class="detail-grid compact-grid" data-detail-grid="batter">
           ${batterInfo}
