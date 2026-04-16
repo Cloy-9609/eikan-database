@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>選手編集</title>
+  <title>選手基本情報編集</title>
   <link rel="stylesheet" href="../css/base.css">
   <link rel="stylesheet" href="../css/layout.css">
   <link rel="stylesheet" href="../css/components/admission_year_picker.css">
@@ -14,8 +14,8 @@
     <section class="player-page-panel player-form-card">
       <header class="player-page-header">
         <p class="player-page-kicker">Player Form</p>
-        <h1 class="player-page-title">選手編集</h1>
-        <p class="player-page-context">登録済みの選手情報を編集します。</p>
+        <h1 id="player-edit-title" class="player-page-title">選手基本情報編集</h1>
+        <p id="player-edit-context" class="player-page-context">登録済みの選手の基本情報を編集します。</p>
       </header>
       <div
         id="player-edit-message"
@@ -23,7 +23,7 @@
         role="alert"
         aria-live="polite"
       ></div>
-      <form id="player-edit-form" class="player-form"></form>
+      <form id="player-edit-form" class="player-form" data-edit-scope="basic"></form>
     </section>
   </main>
   <script type="module" src="../js/pages/player_edit.js"></script>

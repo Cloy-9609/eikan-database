@@ -248,6 +248,28 @@
   gap: var(--player-space-2xl);
 }
 
+.player-form-section {
+  display: grid;
+  gap: var(--player-space-xl);
+}
+
+.player-form-section-header {
+  display: grid;
+  gap: var(--player-space-sm);
+}
+
+.player-form-section-title {
+  margin: 0;
+  color: var(--player-color-text);
+  font-size: var(--player-font-size-lg);
+}
+
+.player-form-section-description {
+  margin: 0;
+  color: var(--player-color-text-subtle);
+  line-height: var(--player-line-height-relaxed);
+}
+
 .player-form-row {
   display: grid;
   gap: var(--player-space-xs);
@@ -376,6 +398,19 @@
   background: var(--player-color-surface-solid);
 }
 
+.detail-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--player-space-lg);
+  margin-bottom: var(--player-space-xl);
+}
+
+.detail-card-body {
+  display: grid;
+  gap: var(--player-space-lg);
+}
+
 .detail-title {
   margin-top: 0;
   margin-bottom: var(--player-space-xl);
@@ -383,11 +418,19 @@
   color: var(--player-color-text);
 }
 
+.detail-card-header .detail-title {
+  margin-bottom: 0;
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(var(--player-detail-grid-min), 1fr));
   gap: var(--player-space-md) var(--player-space-3xl);
   margin: 0;
+}
+
+.detail-grid--basic {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .compact-grid {
@@ -399,6 +442,10 @@
   border-bottom: 1px solid var(--player-color-border-soft);
 }
 
+.detail-row--full {
+  grid-column: 1 / -1;
+}
+
 .detail-row dt {
   margin: 0 0 var(--player-space-2xs);
   color: var(--player-color-text-subtle);
@@ -408,6 +455,39 @@
 .detail-row dd {
   margin: 0;
   font-weight: 600;
+}
+
+.detail-value {
+  display: block;
+  min-height: 1.4em;
+}
+
+.detail-row--snapshot dd {
+  width: 100%;
+}
+
+.snapshot-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--player-space-sm);
+}
+
+.snapshot-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: var(--player-space-xs) var(--player-space-lg);
+  border: 1px solid var(--player-color-border-strong);
+  border-radius: 999px;
+  background: var(--player-color-surface-muted);
+  color: var(--player-color-text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.snapshot-chip--active {
+  border-color: var(--player-color-accent);
+  background: rgba(11, 101, 220, 0.12);
 }
 
 .detail-list {
@@ -455,6 +535,10 @@
 
   .player-page-actions {
     display: grid;
+  }
+
+  .detail-grid--basic {
+    grid-template-columns: 1fr;
   }
 
 }

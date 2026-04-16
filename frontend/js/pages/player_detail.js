@@ -74,17 +74,59 @@ function formatThrowBat(player) {
   return escapeHtml(`${throwing || "-"}/${batting || "-"}`);
 }
 
+function renderDetailCard({ title, sectionKey, content, bodyClass = "" }) {
+  const safeSectionKey = sectionKey ? escapeHtml(sectionKey) : "";
+  const bodyClassName = bodyClass ? `detail-card-body ${bodyClass}` : "detail-card-body";
+
+  return `
+    <section class="detail-card" data-detail-section="${safeSectionKey}">
+      <div class="detail-card-header">
+        <h2 class="detail-title">${title}</h2>
+      </div>
+      <div class="${bodyClassName}">
+        ${content}
+      </div>
+    </section>
+  `;
+}
+
+function renderSnapshotValue(value) {
+  return `
+    <div class="snapshot-chip-list" data-snapshot-list>
+      <span class="snapshot-chip snapshot-chip--active" data-snapshot-value>${formatSnapshotLabel(value)}</span>
+    </div>
+  `;
+}
+
+function renderDetailRow(item) {
+  const rowClasses = ["detail-row", item.rowClass].filter(Boolean).join(" ");
+  const safeField = item.field ? escapeHtml(item.field) : "";
+  const dataFieldAttribute = safeField ? ` data-field="${safeField}"` : "";
+
+  if (item.useRawValue) {
+    return `
+      <div class="${rowClasses}"${dataFieldAttribute}>
+        <dt>${item.label}</dt>
+        <dd>${item.valueHtml}</dd>
+      </div>
+    `;
+  }
+
+  const valueClassName = ["detail-value", item.valueClass].filter(Boolean).join(" ");
+  const dataValueAttribute = safeField ? ` data-field-value="${safeField}"` : "";
+
+  return `
+    <div class="${rowClasses}"${dataFieldAttribute}>
+      <dt>${item.label}</dt>
+      <dd>
+        <span class="${valueClassName}"${dataValueAttribute}>${item.valueHtml}</span>
+      </dd>
+    </div>
+  `;
+}
+
 function renderDefinitionRows(items) {
-  return items
-    .map(
-      (item) => `
-        <div class="detail-row">
-          <dt>${item.label}</dt>
-          <dd>${item.value}</dd>
-        </div>
-      `
-    )
-    .join("");
+  return items.map((item) => renderDetailRow(item)).join("");
 }
 
 function renderListSection(title, items, formatter) {
@@ -92,12 +134,11 @@ function renderListSection(title, items, formatter) {
     ? `<ul class="detail-list">${items.map((item) => `<li>${formatter(item)}</li>`).join("")}</ul>`
     : '<p class="empty-value">なし</p>';
 
-  return `
-    <section class="detail-card">
-      <h2 class="detail-title">${title}</h2>
-      ${content}
-    </section>
-  `;
+  return renderDetailCard({
+    title,
+    sectionKey: title,
+    content,
+  });
 }
 
 function setMessage(messageElement, message, isError = false) {
@@ -159,7 +200,7 @@ function renderPlayer(root, messageElement, titleElement, contextElement, action
           },
           {
             href: `./player_edit.html?id=${encodeURIComponent(player.id)}`,
-            label: "編集",
+            label: "基本情報を編集",
             primary: true,
           },
         ]
@@ -167,31 +208,35 @@ function renderPlayer(root, messageElement, titleElement, contextElement, action
   setMessage(messageElement, "");
 
   const basicInfo = renderDefinitionRows([
-    { label: "名前", value: formatValue(player.name) },
-    { label: "所属学校", value: schoolName },
-    { label: "選手種別", value: formatPlayerType(player.player_type) },
-    { label: "出身都道府県", value: formatValue(player.prefecture) },
-    { label: "学年", value: formatValue(player.grade) },
-    { label: "入学年", value: formatValue(player.admission_year) },
-    { label: "スナップショット種別", value: formatSnapshotLabel(player.snapshot_label) },
-    { label: "メインポジション", value: formatValue(player.main_position) },
-    { label: "投打", value: formatThrowBat(player) },
+    { field: "grade", label: "学年", valueHtml: formatValue(player.grade) },
+    { field: "admission_year", label: "入学年", valueHtml: formatValue(player.admission_year) },
+    { field: "prefecture", label: "出身都道府県", valueHtml: formatValue(player.prefecture) },
+    { field: "main_position", label: "メインポジション", valueHtml: formatValue(player.main_position) },
+    { field: "player_type", label: "選手種別", valueHtml: formatPlayerType(player.player_type) },
+    { field: "throw_bat", label: "投打", valueHtml: formatThrowBat(player) },
+    {
+      field: "snapshot_label",
+      label: "スナップショット種別",
+      valueHtml: renderSnapshotValue(player.snapshot_label),
+      rowClass: "detail-row--full detail-row--snapshot",
+      useRawValue: true,
+    },
   ]);
 
   const pitcherInfo = renderDefinitionRows([
-    { label: "球速", value: formatValue(player.velocity) },
-    { label: "コントロール", value: formatValue(player.control) },
-    { label: "スタミナ", value: formatValue(player.stamina) },
+    { field: "velocity", label: "球速", valueHtml: formatValue(player.velocity) },
+    { field: "control", label: "コントロール", valueHtml: formatValue(player.control) },
+    { field: "stamina", label: "スタミナ", valueHtml: formatValue(player.stamina) },
   ]);
 
   const batterInfo = renderDefinitionRows([
-    { label: "弾道", value: formatValue(player.trajectory) },
-    { label: "ミート", value: formatValue(player.meat) },
-    { label: "パワー", value: formatValue(player.power) },
-    { label: "走力", value: formatValue(player.run_speed) },
-    { label: "肩力", value: formatValue(player.arm_strength) },
-    { label: "守備", value: formatValue(player.fielding) },
-    { label: "捕球", value: formatValue(player.catching) },
+    { field: "trajectory", label: "弾道", valueHtml: formatValue(player.trajectory) },
+    { field: "meat", label: "ミート", valueHtml: formatValue(player.meat) },
+    { field: "power", label: "パワー", valueHtml: formatValue(player.power) },
+    { field: "run_speed", label: "走力", valueHtml: formatValue(player.run_speed) },
+    { field: "arm_strength", label: "肩力", valueHtml: formatValue(player.arm_strength) },
+    { field: "fielding", label: "守備", valueHtml: formatValue(player.fielding) },
+    { field: "catching", label: "捕球", valueHtml: formatValue(player.catching) },
   ]);
 
   const pitchTypesSection = renderListSection("変化球一覧", player.pitch_types, (item) => {
@@ -239,26 +284,35 @@ function renderPlayer(root, messageElement, titleElement, contextElement, action
   root.innerHTML = `
     ${archivedNotice}
 
-    <section class="detail-card">
-      <h2 class="detail-title">基本情報</h2>
-      <dl class="detail-grid">
-        ${basicInfo}
-      </dl>
-    </section>
+    ${renderDetailCard({
+      title: "基本情報",
+      sectionKey: "basic",
+      content: `
+        <dl class="detail-grid detail-grid--basic" data-detail-grid="basic">
+          ${basicInfo}
+        </dl>
+      `,
+    })}
 
-    <section class="detail-card">
-      <h2 class="detail-title">投手能力</h2>
-      <dl class="detail-grid compact-grid">
-        ${pitcherInfo}
-      </dl>
-    </section>
+    ${renderDetailCard({
+      title: "投手能力",
+      sectionKey: "pitcher",
+      content: `
+        <dl class="detail-grid compact-grid" data-detail-grid="pitcher">
+          ${pitcherInfo}
+        </dl>
+      `,
+    })}
 
-    <section class="detail-card">
-      <h2 class="detail-title">野手能力</h2>
-      <dl class="detail-grid compact-grid">
-        ${batterInfo}
-      </dl>
-    </section>
+    ${renderDetailCard({
+      title: "野手能力",
+      sectionKey: "batter",
+      content: `
+        <dl class="detail-grid compact-grid" data-detail-grid="batter">
+          ${batterInfo}
+        </dl>
+      `,
+    })}
 
     ${pitchTypesSection}
     ${specialAbilitiesSection}
