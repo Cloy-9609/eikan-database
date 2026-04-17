@@ -15,7 +15,14 @@ const PLAYER_TYPE_OPTIONS = [
 
 const SNAPSHOT_LABEL_OPTIONS = [
   { value: "entrance", label: "入学時" },
-  { value: "post_tournament", label: "大会後" },
+  { value: "y1_summer", label: "1年夏大会後" },
+  { value: "y1_autumn", label: "1年秋大会後" },
+  { value: "y1_spring", label: "1年春大会後" },
+  { value: "y2_summer", label: "2年夏大会後" },
+  { value: "y2_autumn", label: "2年秋大会後" },
+  { value: "y2_spring", label: "2年春大会後" },
+  { value: "y3_summer", label: "3年夏大会後" },
+  { value: "graduation", label: "卒業時" },
 ];
 
 const POSITION_OPTIONS = ["投手", "捕手", "一塁手", "二塁手", "三塁手", "遊撃手", "外野手"];

@@ -20,7 +20,32 @@ INSERT INTO schools (
   0
 );
 
+INSERT INTO player_series (
+  id,
+  school_id,
+  name,
+  prefecture,
+  player_type,
+  player_type_note,
+  admission_year,
+  throwing_hand,
+  batting_hand,
+  note
+) VALUES (
+  1,
+  1,
+  'サンプル太郎',
+  '東京都',
+  'normal',
+  NULL,
+  2025,
+  'right',
+  'right',
+  'Phase2 snapshot seed'
+);
+
 INSERT INTO players (
+  player_series_id,
   school_id,
   name,
   player_type,
@@ -30,6 +55,7 @@ INSERT INTO players (
   grade,
   admission_year,
   snapshot_label,
+  snapshot_note,
   main_position,
   throwing_hand,
   batting_hand,
@@ -48,6 +74,7 @@ INSERT INTO players (
   evidence_image_path
 ) VALUES (
   1,
+  1,
   'サンプル太郎',
   'normal',
   NULL,
@@ -56,6 +83,7 @@ INSERT INTO players (
   2,
   2025,
   'entrance',
+  NULL,
   '投手',
   'right',
   'right',

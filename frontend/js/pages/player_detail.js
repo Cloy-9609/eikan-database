@@ -1,4 +1,4 @@
-import { fetchPlayerById, updatePlayer } from "../api/playerApi.js";
+import { addSnapshotToSeries, fetchPlayerDetailById, updatePlayer } from "../api/playerApi.js";
 import {
   buildAdmissionYearPicker,
   setupAdmissionYearPickers,
@@ -20,20 +20,23 @@ const PLAYER_TYPE_OPTIONS = [
 
 const SNAPSHOT_LABEL_OPTIONS = [
   { value: "entrance", label: "入学時" },
-  { value: "post_tournament", label: "大会後" },
-  { value: "after_1st_summer", label: "1年夏大会後" },
-  { value: "after_1st_autumn", label: "1年秋大会後" },
-  { value: "after_1st_spring", label: "1年春大会後" },
-  { value: "after_2nd_summer", label: "2年夏大会後" },
-  { value: "after_2nd_autumn", label: "2年秋大会後" },
-  { value: "after_2nd_spring", label: "2年春大会後" },
-  { value: "after_3rd_summer", label: "3年夏大会後" },
+  { value: "y1_summer", label: "1年夏大会後" },
+  { value: "y1_autumn", label: "1年秋大会後" },
+  { value: "y1_spring", label: "1年春大会後" },
+  { value: "y2_summer", label: "2年夏大会後" },
+  { value: "y2_autumn", label: "2年秋大会後" },
+  { value: "y2_spring", label: "2年春大会後" },
+  { value: "y3_summer", label: "3年夏大会後" },
   { value: "graduation", label: "卒業時" },
 ];
+const LEGACY_SNAPSHOT_LABELS = {
+  post_tournament: "大会後",
+};
 
 const SNAPSHOT_LABELS = Object.fromEntries(
   SNAPSHOT_LABEL_OPTIONS.map(({ value, label }) => [value, label])
 );
+Object.assign(SNAPSHOT_LABELS, LEGACY_SNAPSHOT_LABELS);
 
 const THROWING_HAND_OPTIONS = [
   { value: "right", label: "右" },
@@ -103,11 +106,26 @@ const SECTION_EDIT_META = {
   },
 };
 
+const SNAPSHOT_CREATE_CONFIRM_STORAGE_KEY = "player_detail_confirm_create_snapshot";
+const TOAST_TRANSITION_MS = 220;
+const TOAST_DEFAULT_DURATION_MS = 2200;
+const TOAST_SUCCESS_DURATION_MS = 1800;
+const TOAST_ERROR_DURATION_MS = 3200;
+const TOAST_LOADING_MIN_VISIBLE_MS = 900;
+
 const DETAIL_STATE = {
+  playerId: "",
   player: null,
+  playerSeries: null,
+  snapshots: [],
+  currentSnapshot: null,
+  pendingCreateSnapshotKey: "",
+  confirmBeforeCreateSnapshot: true,
+  isBusy: false,
   refs: null,
   activeModalScope: "",
   lastFocusedElement: null,
+  nextToastId: 0,
 };
 
 function isArchivedSchool(player) {
@@ -123,6 +141,23 @@ function getPlayerIdFromQuery() {
   }
 
   return playerId;
+}
+
+function getSnapshotFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("snapshot") ?? "";
+}
+
+function syncSnapshotQuery(snapshotKey) {
+  const url = new URL(window.location.href);
+
+  if (snapshotKey) {
+    url.searchParams.set("snapshot", snapshotKey);
+  } else {
+    url.searchParams.delete("snapshot");
+  }
+
+  window.history.replaceState({}, "", url);
 }
 
 function escapeHtml(value) {
@@ -158,6 +193,29 @@ function formatSnapshotLabel(value) {
   return formatValue(SNAPSHOT_LABELS[value] ?? value);
 }
 
+function getOfficialSnapshotDefinitions() {
+  return SNAPSHOT_LABEL_OPTIONS.map(({ value, label }) => ({
+    key: value,
+    label,
+  }));
+}
+
+function getSnapshotOptionDefinitions(currentSnapshotLabel = "") {
+  const options = [...SNAPSHOT_LABEL_OPTIONS];
+
+  if (
+    currentSnapshotLabel &&
+    !options.some((option) => option.value === currentSnapshotLabel)
+  ) {
+    options.push({
+      value: currentSnapshotLabel,
+      label: `${SNAPSHOT_LABELS[currentSnapshotLabel] ?? currentSnapshotLabel} (旧データ)`,
+    });
+  }
+
+  return options;
+}
+
 function formatHand(value) {
   return value === undefined || value === null || value === ""
     ? ""
@@ -176,6 +234,68 @@ function formatThrowBat(player) {
   }
 
   return `${throwing || "-"} / ${batting || "-"}`;
+}
+
+function readSnapshotCreateConfirmationPreference() {
+  try {
+    return sessionStorage.getItem(SNAPSHOT_CREATE_CONFIRM_STORAGE_KEY) !== "false";
+  } catch (error) {
+    return true;
+  }
+}
+
+function setSnapshotCreateConfirmationPreference(shouldConfirm) {
+  DETAIL_STATE.confirmBeforeCreateSnapshot = shouldConfirm;
+
+  try {
+    sessionStorage.setItem(SNAPSHOT_CREATE_CONFIRM_STORAGE_KEY, shouldConfirm ? "true" : "false");
+  } catch (error) {
+    // Ignore storage failures and keep the in-memory preference.
+  }
+}
+
+function isSnapshotRegistered(snapshotKey, snapshots) {
+  return Array.isArray(snapshots)
+    ? snapshots.some((snapshot) => snapshot.snapshot_label === snapshotKey)
+    : false;
+}
+
+function isCurrentSnapshot(snapshotKey, currentSnapshot) {
+  return Boolean(currentSnapshot && currentSnapshot.snapshot_label === snapshotKey);
+}
+
+function getCurrentSeriesResponse() {
+  return {
+    playerSeries: DETAIL_STATE.playerSeries,
+    snapshots: DETAIL_STATE.snapshots,
+    currentSnapshot: DETAIL_STATE.currentSnapshot,
+  };
+}
+
+function buildPlayerViewModel(seriesResponse) {
+  const playerSeries = seriesResponse?.playerSeries ?? null;
+  const currentSnapshot = seriesResponse?.currentSnapshot ?? null;
+
+  if (!playerSeries && !currentSnapshot) {
+    return null;
+  }
+
+  return {
+    ...currentSnapshot,
+    player_series_id: currentSnapshot?.player_series_id ?? playerSeries?.id ?? null,
+    school_id: playerSeries?.school_id ?? currentSnapshot?.school_id ?? null,
+    school_name: playerSeries?.school_name ?? currentSnapshot?.school_name ?? "",
+    school_is_archived:
+      playerSeries?.school_is_archived ?? currentSnapshot?.school_is_archived ?? 0,
+    name: playerSeries?.name ?? currentSnapshot?.name ?? "",
+    prefecture: playerSeries?.prefecture ?? currentSnapshot?.prefecture ?? "",
+    player_type: playerSeries?.player_type ?? currentSnapshot?.player_type ?? "",
+    player_type_note: playerSeries?.player_type_note ?? currentSnapshot?.player_type_note ?? "",
+    admission_year: playerSeries?.admission_year ?? currentSnapshot?.admission_year ?? "",
+    throwing_hand: playerSeries?.throwing_hand ?? currentSnapshot?.throwing_hand ?? "",
+    batting_hand: playerSeries?.batting_hand ?? currentSnapshot?.batting_hand ?? "",
+    player_series_note: playerSeries?.note ?? currentSnapshot?.player_series_note ?? "",
+  };
 }
 
 function isPitcherPosition(value) {
@@ -291,6 +411,127 @@ function renderSnapshotValue(value) {
   `;
 }
 
+function buildSnapshotCreatePrompt(snapshotKey) {
+  if (!snapshotKey) {
+    return "";
+  }
+
+  const snapshotDefinition = getOfficialSnapshotDefinitions().find((definition) => definition.key === snapshotKey);
+  const snapshotLabel = snapshotDefinition?.label ?? SNAPSHOT_LABELS[snapshotKey] ?? snapshotKey;
+
+  return `
+    <div class="snapshot-create-prompt" data-create-snapshot-prompt>
+      <p class="snapshot-create-prompt-text">「${escapeHtml(snapshotLabel)}」の時点を作成しますか？</p>
+      <div class="snapshot-create-prompt-actions">
+        <button
+          type="button"
+          class="player-button player-button-primary player-button-inline"
+          data-create-snapshot-confirm="${escapeAttribute(snapshotKey)}"
+        >
+          作成する
+        </button>
+        <button
+          type="button"
+          class="player-button player-button-secondary player-button-inline"
+          data-create-snapshot-cancel
+        >
+          キャンセル
+        </button>
+      </div>
+      <label class="snapshot-create-prompt-toggle">
+        <input
+          type="checkbox"
+          data-snapshot-confirm-toggle
+          ${DETAIL_STATE.confirmBeforeCreateSnapshot ? "" : "checked"}
+        >
+        <span>次回から確認しない</span>
+      </label>
+    </div>
+  `;
+}
+
+function buildLegacySnapshotNotice(seriesResponse) {
+  const currentSnapshot = seriesResponse?.currentSnapshot ?? null;
+  const hasLegacySnapshots =
+    Boolean(seriesResponse?.playerSeries?.has_legacy_snapshot_labels) ||
+    (Array.isArray(seriesResponse?.snapshots) &&
+      seriesResponse.snapshots.some((snapshot) => snapshot.is_legacy_snapshot_label));
+
+  if (!hasLegacySnapshots) {
+    return "";
+  }
+
+  if (currentSnapshot?.is_legacy_snapshot_label) {
+    return `
+      <div class="snapshot-legacy-note">
+        旧データの時点「${formatSnapshotLabel(currentSnapshot.snapshot_label)}」を表示中です。正式9時点のボタンには割り当てていません。
+      </div>
+    `;
+  }
+
+  return `
+    <div class="snapshot-legacy-note">
+      この選手には正式9時点以外の旧データ時点も含まれています。
+    </div>
+  `;
+}
+
+function buildSnapshotTimelineButtons(seriesResponse) {
+  const snapshots = Array.isArray(seriesResponse?.snapshots) ? seriesResponse.snapshots : [];
+  const currentSnapshot = seriesResponse?.currentSnapshot ?? null;
+
+  const buttonsHtml = getOfficialSnapshotDefinitions()
+    .map(({ key, label }) => {
+      const registered = isSnapshotRegistered(key, snapshots);
+      const current = isCurrentSnapshot(key, currentSnapshot);
+      const stateLabel = current ? "表示中" : registered ? "登録済み" : "未登録";
+      const className = [
+        "snapshot-timeline-button",
+        registered ? "is-registered" : "is-unregistered",
+        current ? "is-current" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      return `
+        <button
+          type="button"
+          class="${className}"
+          data-snapshot-button="${escapeAttribute(key)}"
+          data-snapshot-registered="${registered ? "true" : "false"}"
+          aria-pressed="${current ? "true" : "false"}"
+        >
+          <span class="snapshot-timeline-button-label">${label}</span>
+          <span class="snapshot-timeline-button-state">${stateLabel}</span>
+        </button>
+      `;
+    })
+    .join("");
+
+  const promptHtml =
+    DETAIL_STATE.pendingCreateSnapshotKey && DETAIL_STATE.confirmBeforeCreateSnapshot
+      ? buildSnapshotCreatePrompt(DETAIL_STATE.pendingCreateSnapshotKey)
+      : "";
+
+  return `
+    <section class="snapshot-timeline" aria-labelledby="snapshot-timeline-title">
+      <div class="snapshot-timeline-header">
+        <div>
+          <h3 id="snapshot-timeline-title" class="snapshot-timeline-title">時点切替</h3>
+          <p class="snapshot-timeline-caption">
+            登録済みの時点は切り替え、未登録の時点は追加できます。
+          </p>
+        </div>
+      </div>
+      <div class="snapshot-timeline-buttons">
+        ${buttonsHtml}
+      </div>
+      ${promptHtml}
+      ${buildLegacySnapshotNotice(seriesResponse)}
+    </section>
+  `;
+}
+
 function renderDetailRow(item) {
   const rowClasses = ["detail-row", item.rowClass].filter(Boolean).join(" ");
   const safeField = item.field ? escapeHtml(item.field) : "";
@@ -342,6 +583,130 @@ function setMessage(messageElement, message, isError = false) {
   messageElement.classList.toggle("is-success", Boolean(message) && !isError);
 }
 
+function getToastRegion() {
+  if (DETAIL_STATE.refs?.toastRegionElement) {
+    return DETAIL_STATE.refs.toastRegionElement;
+  }
+
+  return document.getElementById("player-detail-toast-region");
+}
+
+function showToast(message, options = {}) {
+  const toastRegion = getToastRegion();
+
+  if (!toastRegion) {
+    return {
+      close: async () => {},
+      closed: Promise.resolve(),
+    };
+  }
+
+  const {
+    variant = "info",
+    duration = TOAST_DEFAULT_DURATION_MS,
+    minVisibleMs = 0,
+    persistent = false,
+    role = variant === "error" ? "alert" : "status",
+  } = options;
+  const toastId = `player-toast-${DETAIL_STATE.nextToastId++}`;
+  const toastElement = document.createElement("div");
+
+  toastElement.className = `player-toast player-toast--${variant}`;
+  toastElement.dataset.toastId = toastId;
+  toastElement.setAttribute("role", role);
+  toastElement.setAttribute("aria-live", role === "alert" ? "assertive" : "polite");
+  toastElement.innerHTML = `
+    <div class="player-toast-copy">
+      <p class="player-toast-text">${escapeHtml(message)}</p>
+    </div>
+  `;
+
+  toastRegion.appendChild(toastElement);
+  window.requestAnimationFrame(() => {
+    toastElement.classList.add("is-visible");
+  });
+
+  const shownAt = Date.now();
+  let closeTimerId = null;
+  let isClosed = false;
+  let finishClose;
+  const closed = new Promise((resolve) => {
+    finishClose = resolve;
+  });
+
+  function finalizeClose() {
+    if (isClosed) {
+      return;
+    }
+
+    isClosed = true;
+    toastElement.classList.remove("is-visible");
+    toastElement.classList.add("is-exiting");
+    window.setTimeout(() => {
+      toastElement.remove();
+      finishClose();
+    }, TOAST_TRANSITION_MS);
+  }
+
+  async function close() {
+    if (isClosed) {
+      return closed;
+    }
+
+    if (closeTimerId) {
+      window.clearTimeout(closeTimerId);
+      closeTimerId = null;
+    }
+
+    const elapsedMs = Date.now() - shownAt;
+    const remainingMs = Math.max(0, minVisibleMs - elapsedMs);
+
+    if (remainingMs > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, remainingMs));
+    }
+
+    finalizeClose();
+    return closed;
+  }
+
+  if (!persistent) {
+    closeTimerId = window.setTimeout(() => {
+      close().catch(() => {});
+    }, Math.max(duration, minVisibleMs));
+  }
+
+  return {
+    close,
+    closed,
+    element: toastElement,
+  };
+}
+
+function showLoadingToast(message, options = {}) {
+  return showToast(message, {
+    variant: "loading",
+    persistent: true,
+    minVisibleMs: options.minVisibleMs ?? TOAST_LOADING_MIN_VISIBLE_MS,
+  });
+}
+
+function showSuccessToast(message, options = {}) {
+  return showToast(message, {
+    variant: "success",
+    duration: options.duration ?? TOAST_SUCCESS_DURATION_MS,
+    minVisibleMs: options.minVisibleMs ?? 700,
+  });
+}
+
+function showErrorToast(message, options = {}) {
+  return showToast(message, {
+    variant: "error",
+    duration: options.duration ?? TOAST_ERROR_DURATION_MS,
+    minVisibleMs: options.minVisibleMs ?? 1000,
+    role: "alert",
+  });
+}
+
 function renderActions(container, actions) {
   container.innerHTML = actions
     .map(
@@ -352,6 +717,67 @@ function renderActions(container, actions) {
       `
     )
     .join("");
+}
+
+function syncDetailState(seriesResponse) {
+  DETAIL_STATE.playerSeries = seriesResponse?.playerSeries ?? null;
+  DETAIL_STATE.snapshots = Array.isArray(seriesResponse?.snapshots) ? seriesResponse.snapshots : [];
+  DETAIL_STATE.currentSnapshot = seriesResponse?.currentSnapshot ?? null;
+  DETAIL_STATE.player = DETAIL_STATE.currentSnapshot;
+}
+
+function renderCurrentPlayerDetail() {
+  if (!DETAIL_STATE.refs) {
+    return;
+  }
+
+  renderPlayer(DETAIL_STATE.refs, getCurrentSeriesResponse());
+}
+
+async function loadPlayerDetail({
+  snapshot = "",
+  syncUrl = false,
+  successMessage = "",
+  loadingMessage = "",
+} = {}) {
+  const playerId = DETAIL_STATE.playerId || getPlayerIdFromQuery();
+  const loadingToast = loadingMessage ? showLoadingToast(loadingMessage) : null;
+
+  try {
+    const seriesResponse = await fetchPlayerDetailById(playerId, snapshot ? { snapshot } : {});
+
+    DETAIL_STATE.pendingCreateSnapshotKey = "";
+    syncDetailState(seriesResponse);
+    renderCurrentPlayerDetail();
+
+    if (syncUrl) {
+      syncSnapshotQuery(seriesResponse?.currentSnapshot?.snapshot_label ?? snapshot);
+    }
+
+    if (DETAIL_STATE.refs?.messageElement) {
+      setMessage(DETAIL_STATE.refs.messageElement, "");
+    }
+
+    if (loadingToast) {
+      loadingToast.close().catch(() => {});
+    }
+
+    if (successMessage) {
+      if (loadingToast) {
+        loadingToast.closed.then(() => showSuccessToast(successMessage));
+      } else {
+        showSuccessToast(successMessage);
+      }
+    }
+
+    return seriesResponse;
+  } catch (error) {
+    if (loadingToast) {
+      loadingToast.close().catch(() => {});
+    }
+
+    throw error;
+  }
 }
 
 function renderError(refs, message) {
@@ -374,7 +800,225 @@ function renderError(refs, message) {
   `;
 }
 
-function renderPlayer(refs, player) {
+function renderPlayerLegacy(refs, seriesResponse) {
+  return (() => {
+    const player = buildPlayerViewModel(seriesResponse);
+    const playerSeries = seriesResponse?.playerSeries ?? null;
+    const currentSnapshot = seriesResponse?.currentSnapshot ?? null;
+
+    if (!player || !playerSeries || !currentSnapshot) {
+      renderError(refs, "選手情報の読み込みに失敗しました。");
+      return;
+    }
+
+    const archivedSchool = isArchivedSchool(player);
+    const schoolNameText = formatSchoolName(player.school_name, "不明");
+    const schoolNameHtml = escapeHtml(schoolNameText);
+    const shouldShowPitcherSection = isPitcherPosition(player.main_position);
+    const displayName = playerSeries.name || player.name || "選手名未設定";
+    const snapshotDisplayLabel =
+      currentSnapshot.snapshot_label_display ??
+      SNAPSHOT_LABELS[currentSnapshot.snapshot_label] ??
+      currentSnapshot.snapshot_label;
+    const contextParts = [
+      `表示中: ${snapshotDisplayLabel}`,
+      `スナップショットID: ${currentSnapshot.id}`,
+    ];
+
+    if (currentSnapshot.is_legacy_snapshot_label) {
+      contextParts.push("旧データ時点");
+    }
+
+    if (archivedSchool) {
+      contextParts.push("凍結データ");
+    }
+
+    document.title = `${displayName} | 選手詳細`;
+    refs.titleElement.textContent = displayName;
+    refs.contextElement.textContent = contextParts.join(" / ");
+    refs.schoolNameElement.textContent = schoolNameText;
+    refs.schoolMetaElement.textContent = archivedSchool ? "削除済み学校の凍結データ" : "";
+
+    renderActions(
+      refs.actionsElement,
+      archivedSchool
+        ? [{ href: "./schools.html", label: "学校一覧へ戻る", primary: false }]
+        : [
+            {
+              href: `./school_detail.html?id=${encodeURIComponent(player.school_id)}`,
+              label: "学校詳細へ戻る",
+              primary: false,
+            },
+            {
+              href: `./player_edit.html?id=${encodeURIComponent(currentSnapshot.id)}`,
+              label: "選手情報を編集",
+              primary: true,
+            },
+          ]
+    );
+
+    const basicInfo = renderDefinitionRows([
+      { field: "grade", label: "学年", valueHtml: formatValue(currentSnapshot.grade) },
+      { field: "admission_year", label: "入学年", valueHtml: formatValue(playerSeries.admission_year) },
+      { field: "prefecture", label: "出身都道府県", valueHtml: formatValue(playerSeries.prefecture) },
+      {
+        field: "main_position",
+        label: "メインポジション",
+        valueHtml: formatValue(currentSnapshot.main_position),
+      },
+      { field: "player_type", label: "選手種別", valueHtml: formatPlayerType(playerSeries.player_type) },
+      { field: "throw_bat", label: "投打", valueHtml: formatThrowBat(player) },
+      {
+        field: "snapshot_label",
+        label: "現在の時点",
+        valueHtml: renderSnapshotValue(currentSnapshot.snapshot_label),
+        rowClass: "detail-row--full detail-row--snapshot",
+        useRawValue: true,
+      },
+    ]);
+
+    const pitcherInfo = renderDefinitionRows([
+      { field: "velocity", label: "球速", valueHtml: formatValue(currentSnapshot.velocity) },
+      {
+        field: "control",
+        label: "コントロール",
+        valueHtml: renderRankedAbilityValue(currentSnapshot.control),
+      },
+      {
+        field: "stamina",
+        label: "スタミナ",
+        valueHtml: renderRankedAbilityValue(currentSnapshot.stamina),
+      },
+    ]);
+
+    const batterInfo = renderDefinitionRows([
+      { field: "trajectory", label: "弾道", valueHtml: formatValue(currentSnapshot.trajectory) },
+      { field: "meat", label: "ミート", valueHtml: renderRankedAbilityValue(currentSnapshot.meat) },
+      { field: "power", label: "パワー", valueHtml: renderRankedAbilityValue(currentSnapshot.power) },
+      {
+        field: "run_speed",
+        label: "走力",
+        valueHtml: renderRankedAbilityValue(currentSnapshot.run_speed),
+      },
+      {
+        field: "arm_strength",
+        label: "肩力",
+        valueHtml: renderRankedAbilityValue(currentSnapshot.arm_strength),
+      },
+      {
+        field: "fielding",
+        label: "守備",
+        valueHtml: renderRankedAbilityValue(currentSnapshot.fielding),
+      },
+      {
+        field: "catching",
+        label: "捕球",
+        valueHtml: renderRankedAbilityValue(currentSnapshot.catching),
+      },
+    ]);
+
+    const pitchTypesSection = shouldShowPitcherSection
+      ? renderListSection({
+          title: "変化球一覧",
+          sectionKey: "pitch-types",
+          items: currentSnapshot.pitch_types,
+          formatter: (item) => {
+            const pitchName = escapeHtml(item.pitch_name ?? "不明");
+            const level =
+              item.level !== undefined && item.level !== null ? ` Lv${escapeHtml(item.level)}` : "";
+            const original = item.is_original ? " (オリジナル)" : "";
+            const originalName = item.original_pitch_name
+              ? ` / ${escapeHtml(item.original_pitch_name)}`
+              : "";
+
+            return `${pitchName}${level}${original}${originalName}`;
+          },
+        })
+      : "";
+
+    const specialAbilitiesSection = renderListSection({
+      title: "特殊能力一覧",
+      sectionKey: "special",
+      items: currentSnapshot.special_abilities,
+      formatter: (item) => {
+        const name = escapeHtml(item.ability_name ?? "不明");
+        const rank = item.rank_value ? ` (${escapeHtml(item.rank_value)})` : "";
+        const category = item.ability_category ? ` [${escapeHtml(item.ability_category)}]` : "";
+
+        return `${name}${rank}${category}`;
+      },
+    });
+
+    const subPositionsSection = renderListSection({
+      title: "サブポジ一覧",
+      sectionKey: "sub-positions",
+      items: currentSnapshot.sub_positions,
+      formatter: (item) => {
+        const name = escapeHtml(item.position_name ?? "不明");
+        const suitability = item.suitability_value ? ` (${escapeHtml(item.suitability_value)})` : "";
+
+        return `${name}${suitability}`;
+      },
+    });
+
+    const archivedNotice = archivedSchool
+      ? `
+        <section class="detail-card">
+          <div class="player-empty-state">
+            <p class="player-empty-text">
+              この選手は削除済み学校「${schoolNameHtml}」に紐づいていた凍結データです。通常の一覧には表示されませんが、履歴参照では閲覧できます。
+            </p>
+          </div>
+        </section>
+      `
+      : "";
+
+    const basicSection = renderDetailCard({
+      title: "基本情報",
+      sectionKey: "basic",
+      headerActionHtml: archivedSchool ? "" : buildSectionEditButton("basic"),
+      content: `
+        <dl class="detail-grid detail-grid--basic" data-detail-grid="basic">
+          ${basicInfo}
+        </dl>
+        ${buildSnapshotTimelineButtons(seriesResponse)}
+      `,
+    });
+
+    const pitcherSection = shouldShowPitcherSection
+      ? renderDetailCard({
+          title: "投手能力",
+          sectionKey: "pitcher",
+          headerActionHtml: archivedSchool ? "" : buildSectionEditButton("pitcher"),
+          content: `
+            <dl class="detail-grid compact-grid" data-detail-grid="pitcher">
+              ${pitcherInfo}
+            </dl>
+          `,
+        })
+      : "";
+
+    const batterSection = renderDetailCard({
+      title: "野手能力",
+      sectionKey: "batter",
+      headerActionHtml: archivedSchool ? "" : buildSectionEditButton("batter"),
+      content: `
+        <dl class="detail-grid compact-grid" data-detail-grid="batter">
+          ${batterInfo}
+        </dl>
+      `,
+    });
+
+    refs.root.innerHTML = `
+      ${archivedNotice}
+      ${basicSection}
+      ${pitcherSection}
+      ${pitchTypesSection}
+      ${batterSection}
+      ${specialAbilitiesSection}
+      ${subPositionsSection}
+    `;
+  })();
   const archivedSchool = isArchivedSchool(player);
   const schoolNameText = formatSchoolName(player.school_name, "不明");
   const schoolNameHtml = escapeHtml(schoolNameText);
@@ -502,6 +1146,212 @@ function renderPlayer(refs, player) {
       <dl class="detail-grid detail-grid--basic" data-detail-grid="basic">
         ${basicInfo}
       </dl>
+    `,
+  });
+
+  const pitcherSection = shouldShowPitcherSection
+    ? renderDetailCard({
+        title: "投手能力",
+        sectionKey: "pitcher",
+        headerActionHtml: archivedSchool ? "" : buildSectionEditButton("pitcher"),
+        content: `
+          <dl class="detail-grid compact-grid" data-detail-grid="pitcher">
+            ${pitcherInfo}
+          </dl>
+        `,
+      })
+    : "";
+
+  const batterSection = renderDetailCard({
+    title: "野手能力",
+    sectionKey: "batter",
+    headerActionHtml: archivedSchool ? "" : buildSectionEditButton("batter"),
+    content: `
+      <dl class="detail-grid compact-grid" data-detail-grid="batter">
+        ${batterInfo}
+      </dl>
+    `,
+  });
+
+  refs.root.innerHTML = `
+    ${archivedNotice}
+    ${basicSection}
+    ${pitcherSection}
+    ${pitchTypesSection}
+    ${batterSection}
+    ${specialAbilitiesSection}
+    ${subPositionsSection}
+  `;
+}
+
+function renderPlayer(refs, seriesResponse) {
+  const player = buildPlayerViewModel(seriesResponse);
+  const playerSeries = seriesResponse?.playerSeries ?? null;
+  const currentSnapshot = seriesResponse?.currentSnapshot ?? null;
+
+  if (!player || !playerSeries || !currentSnapshot) {
+    renderError(refs, "選手情報の読み込みに失敗しました。");
+    return;
+  }
+
+  const archivedSchool = isArchivedSchool(player);
+  const schoolNameText = formatSchoolName(player.school_name, "不明");
+  const schoolNameHtml = escapeHtml(schoolNameText);
+  const shouldShowPitcherSection = isPitcherPosition(player.main_position);
+  const displayName = playerSeries.name || player.name || "選手名未設定";
+  const snapshotDisplayLabel =
+    currentSnapshot.snapshot_label_display ??
+    SNAPSHOT_LABELS[currentSnapshot.snapshot_label] ??
+    currentSnapshot.snapshot_label;
+  const contextParts = [
+    `表示中: ${snapshotDisplayLabel}`,
+    `スナップショットID: ${currentSnapshot.id}`,
+  ];
+
+  if (currentSnapshot.is_legacy_snapshot_label) {
+    contextParts.push("旧データ時点");
+  }
+
+  if (archivedSchool) {
+    contextParts.push("凍結データ");
+  }
+
+  document.title = `${displayName} | 選手詳細`;
+  refs.titleElement.textContent = displayName;
+  refs.contextElement.textContent = contextParts.join(" / ");
+  refs.schoolNameElement.textContent = schoolNameText;
+  refs.schoolMetaElement.textContent = archivedSchool ? "削除済み学校の凍結データ" : "";
+
+  renderActions(
+    refs.actionsElement,
+    archivedSchool
+      ? [{ href: "./schools.html", label: "学校一覧へ戻る", primary: false }]
+      : [
+          {
+            href: `./school_detail.html?id=${encodeURIComponent(player.school_id)}`,
+            label: "学校詳細へ戻る",
+            primary: false,
+          },
+          {
+            href: `./player_edit.html?id=${encodeURIComponent(currentSnapshot.id)}`,
+            label: "選手情報を編集",
+            primary: true,
+          },
+        ]
+  );
+
+  const basicInfo = renderDefinitionRows([
+    { field: "grade", label: "学年", valueHtml: formatValue(currentSnapshot.grade) },
+    { field: "admission_year", label: "入学年", valueHtml: formatValue(playerSeries.admission_year) },
+    { field: "prefecture", label: "出身都道府県", valueHtml: formatValue(playerSeries.prefecture) },
+    {
+      field: "main_position",
+      label: "メインポジション",
+      valueHtml: formatValue(currentSnapshot.main_position),
+    },
+    { field: "player_type", label: "選手種別", valueHtml: formatPlayerType(playerSeries.player_type) },
+    { field: "throw_bat", label: "投打", valueHtml: formatThrowBat(player) },
+    {
+      field: "snapshot_label",
+      label: "現在の時点",
+      valueHtml: renderSnapshotValue(currentSnapshot.snapshot_label),
+      rowClass: "detail-row--full detail-row--snapshot",
+      useRawValue: true,
+    },
+  ]);
+
+  const pitcherInfo = renderDefinitionRows([
+    { field: "velocity", label: "球速", valueHtml: formatValue(currentSnapshot.velocity) },
+    {
+      field: "control",
+      label: "コントロール",
+      valueHtml: renderRankedAbilityValue(currentSnapshot.control),
+    },
+    {
+      field: "stamina",
+      label: "スタミナ",
+      valueHtml: renderRankedAbilityValue(currentSnapshot.stamina),
+    },
+  ]);
+
+  const batterInfo = renderDefinitionRows([
+    { field: "trajectory", label: "弾道", valueHtml: formatValue(currentSnapshot.trajectory) },
+    { field: "meat", label: "ミート", valueHtml: renderRankedAbilityValue(currentSnapshot.meat) },
+    { field: "power", label: "パワー", valueHtml: renderRankedAbilityValue(currentSnapshot.power) },
+    { field: "run_speed", label: "走力", valueHtml: renderRankedAbilityValue(currentSnapshot.run_speed) },
+    {
+      field: "arm_strength",
+      label: "肩力",
+      valueHtml: renderRankedAbilityValue(currentSnapshot.arm_strength),
+    },
+    { field: "fielding", label: "守備", valueHtml: renderRankedAbilityValue(currentSnapshot.fielding) },
+    { field: "catching", label: "捕球", valueHtml: renderRankedAbilityValue(currentSnapshot.catching) },
+  ]);
+
+  const pitchTypesSection = shouldShowPitcherSection
+    ? renderListSection({
+        title: "変化球一覧",
+        sectionKey: "pitch-types",
+        items: currentSnapshot.pitch_types,
+        formatter: (item) => {
+          const pitchName = escapeHtml(item.pitch_name ?? "不明");
+          const level = item.level !== undefined && item.level !== null ? ` Lv${escapeHtml(item.level)}` : "";
+          const original = item.is_original ? " (オリジナル)" : "";
+          const originalName = item.original_pitch_name
+            ? ` / ${escapeHtml(item.original_pitch_name)}`
+            : "";
+
+          return `${pitchName}${level}${original}${originalName}`;
+        },
+      })
+    : "";
+
+  const specialAbilitiesSection = renderListSection({
+    title: "特殊能力一覧",
+    sectionKey: "special",
+    items: currentSnapshot.special_abilities,
+    formatter: (item) => {
+      const name = escapeHtml(item.ability_name ?? "不明");
+      const rank = item.rank_value ? ` (${escapeHtml(item.rank_value)})` : "";
+      const category = item.ability_category ? ` [${escapeHtml(item.ability_category)}]` : "";
+
+      return `${name}${rank}${category}`;
+    },
+  });
+
+  const subPositionsSection = renderListSection({
+    title: "サブポジ一覧",
+    sectionKey: "sub-positions",
+    items: currentSnapshot.sub_positions,
+    formatter: (item) => {
+      const name = escapeHtml(item.position_name ?? "不明");
+      const suitability = item.suitability_value ? ` (${escapeHtml(item.suitability_value)})` : "";
+
+      return `${name}${suitability}`;
+    },
+  });
+
+  const archivedNotice = archivedSchool
+    ? `
+      <section class="detail-card">
+        <div class="player-empty-state">
+          <p class="player-empty-text">
+            この選手は削除済み学校「${schoolNameHtml}」に紐づいていた凍結データです。通常の一覧には表示されませんが、履歴参照では閲覧できます。
+          </p>
+        </div>
+      </section>
+    `
+    : "";
+
+  const basicSection = renderDetailCard({
+    title: "基本情報",
+    sectionKey: "basic",
+    headerActionHtml: archivedSchool ? "" : buildSectionEditButton("basic"),
+    content: `
+      <dl class="detail-grid detail-grid--basic" data-detail-grid="basic">
+        ${basicInfo}
+      </dl>
+      ${buildSnapshotTimelineButtons(seriesResponse)}
     `,
   });
 
@@ -909,7 +1759,7 @@ function buildSectionEditForm(scope, player) {
         renderSelectControlRow({
           field: "snapshot_label",
           label: "スナップショット種別",
-          options: SNAPSHOT_LABEL_OPTIONS,
+          options: getSnapshotOptionDefinitions(player.snapshot_label),
           value: player.snapshot_label,
           required: true,
         }),
@@ -1117,7 +1967,117 @@ async function saveSectionEdit(scope, formData) {
   return updatePlayer(currentPlayer.id, payload);
 }
 
-function handleDetailRootClick(event) {
+function openCreateSnapshotPrompt(snapshotKey) {
+  DETAIL_STATE.pendingCreateSnapshotKey = snapshotKey;
+  renderCurrentPlayerDetail();
+}
+
+function closeCreateSnapshotPrompt() {
+  if (!DETAIL_STATE.pendingCreateSnapshotKey) {
+    return;
+  }
+
+  DETAIL_STATE.pendingCreateSnapshotKey = "";
+  renderCurrentPlayerDetail();
+}
+
+async function createSnapshotAndReloadLegacy(snapshotKey) {
+  const playerSeriesId = DETAIL_STATE.playerSeries?.id;
+
+  if (!playerSeriesId) {
+    throw new Error("選手シリーズ情報が取得できませんでした。");
+  }
+
+  const snapshotLabel = SNAPSHOT_LABELS[snapshotKey] ?? snapshotKey;
+
+  DETAIL_STATE.pendingCreateSnapshotKey = "";
+  DETAIL_STATE.isBusy = true;
+  renderCurrentPlayerDetail();
+
+  try {
+    await addSnapshotToSeries(playerSeriesId, { snapshot_label: snapshotKey });
+    await loadPlayerDetail({
+      snapshot: snapshotKey,
+      syncUrl: true,
+      successMessage: `「${snapshotLabel}」の時点を作成しました。`,
+    });
+  } finally {
+    DETAIL_STATE.isBusy = false;
+  }
+}
+
+async function handleSnapshotButtonClickLegacy(snapshotKey) {
+  if (!snapshotKey || DETAIL_STATE.isBusy) {
+    return;
+  }
+
+  if (isCurrentSnapshot(snapshotKey, DETAIL_STATE.currentSnapshot)) {
+    return;
+  }
+
+  if (isSnapshotRegistered(snapshotKey, DETAIL_STATE.snapshots)) {
+    DETAIL_STATE.isBusy = true;
+
+    try {
+      await loadPlayerDetail({
+        snapshot: snapshotKey,
+        syncUrl: true,
+        loadingMessage: `${SNAPSHOT_LABELS[snapshotKey] ?? snapshotKey} を読み込み中です...`,
+      });
+    } finally {
+      DETAIL_STATE.isBusy = false;
+    }
+
+    return;
+  }
+
+  if (DETAIL_STATE.confirmBeforeCreateSnapshot) {
+    openCreateSnapshotPrompt(snapshotKey);
+    return;
+  }
+
+  await createSnapshotAndReload(snapshotKey);
+}
+
+function handleDetailRootClickLegacy(event) {
+  const createConfirmButton = event.target.closest("[data-create-snapshot-confirm]");
+
+  if (createConfirmButton) {
+    event.preventDefault();
+
+    createSnapshotAndReload(createConfirmButton.dataset.createSnapshotConfirm).catch((error) => {
+      setMessage(
+        DETAIL_STATE.refs.messageElement,
+        error instanceof Error ? error.message : "時点の作成に失敗しました。",
+        true
+      );
+    });
+    return;
+  }
+
+  const createCancelButton = event.target.closest("[data-create-snapshot-cancel]");
+
+  if (createCancelButton) {
+    event.preventDefault();
+    closeCreateSnapshotPrompt();
+    return;
+  }
+
+  const snapshotButton = event.target.closest("[data-snapshot-button]");
+
+  if (snapshotButton) {
+    event.preventDefault();
+
+    handleSnapshotButtonClick(snapshotButton.dataset.snapshotButton).catch((error) => {
+      setMessage(
+        DETAIL_STATE.refs.messageElement,
+        error instanceof Error ? error.message : "時点の切り替えに失敗しました。",
+        true
+      );
+    });
+    return;
+  }
+
   const button = event.target.closest("[data-open-section-edit]");
 
   if (!button) {
@@ -1134,6 +2094,16 @@ function handleDetailRootClick(event) {
   openSectionEditModal(scope, DETAIL_STATE.player);
 }
 
+function handleDetailRootChange(event) {
+  const confirmToggle = event.target.closest("[data-snapshot-confirm-toggle]");
+
+  if (!confirmToggle) {
+    return;
+  }
+
+  setSnapshotCreateConfirmationPreference(!confirmToggle.checked);
+}
+
 function handleModalClick(event) {
   const closeTrigger = event.target.closest("[data-modal-close]");
 
@@ -1145,7 +2115,7 @@ function handleModalClick(event) {
   closeSectionEditModal();
 }
 
-async function handleModalSubmit(event) {
+async function handleModalSubmitOld(event) {
   const form = event.target.closest("[data-section-edit-form]");
 
   if (!form) {
@@ -1168,13 +2138,10 @@ async function handleModalSubmit(event) {
   try {
     const updatedPlayer = await saveSectionEdit(scope, formData);
     setMessage(DETAIL_STATE.refs.modalMessageElement, `${meta.title}を更新しました。`);
-    DETAIL_STATE.player = updatedPlayer;
-    renderPlayer(DETAIL_STATE.refs, updatedPlayer);
-
-    await new Promise((resolve) => {
-      window.requestAnimationFrame(() => resolve());
+    await loadPlayerDetail({
+      snapshot: updatedPlayer.snapshot_label,
+      syncUrl: true,
     });
-
     closeSectionEditModal();
     setMessage(DETAIL_STATE.refs.messageElement, `${meta.title}を更新しました。`);
   } catch (error) {
@@ -1205,12 +2172,13 @@ function handleDocumentKeydown(event) {
 
 function setupInteractions(refs) {
   refs.root.addEventListener("click", handleDetailRootClick);
+  refs.root.addEventListener("change", handleDetailRootChange);
   refs.modalElement.addEventListener("click", handleModalClick);
   refs.modalBodyElement.addEventListener("submit", handleModalSubmit);
   document.addEventListener("keydown", handleDocumentKeydown);
 }
 
-async function init() {
+async function initOld() {
   const refs = {
     root: document.getElementById("player-detail-root"),
     titleElement: document.getElementById("player-detail-title"),
@@ -1219,6 +2187,7 @@ async function init() {
     schoolMetaElement: document.getElementById("player-detail-school-meta"),
     actionsElement: document.getElementById("player-detail-actions"),
     messageElement: document.getElementById("player-detail-message"),
+    toastRegionElement: document.getElementById("player-detail-toast-region"),
     modalElement: document.getElementById("player-detail-modal"),
     modalKickerElement: document.getElementById("player-detail-modal-kicker"),
     modalTitleElement: document.getElementById("player-detail-modal-title"),
@@ -1231,13 +2200,223 @@ async function init() {
   }
 
   DETAIL_STATE.refs = refs;
+  DETAIL_STATE.playerId = getPlayerIdFromQuery();
+  DETAIL_STATE.confirmBeforeCreateSnapshot = readSnapshotCreateConfirmationPreference();
   setupInteractions(refs);
 
   try {
-    const playerId = getPlayerIdFromQuery();
-    const player = await fetchPlayerById(playerId);
-    DETAIL_STATE.player = player;
-    renderPlayer(refs, player);
+    await loadPlayerDetail({
+      snapshot: getSnapshotFromQuery(),
+      syncUrl: false,
+      loadingMessage: "選手情報を読み込み中です...",
+    });
+  } catch (error) {
+    renderError(
+      refs,
+      error instanceof Error ? error.message : "選手情報の読み込みに失敗しました。"
+    );
+  }
+}
+
+// Keep transient notifications out of the main layout by routing them through toast helpers.
+async function createSnapshotAndReload(snapshotKey) {
+  const playerSeriesId = DETAIL_STATE.playerSeries?.id;
+
+  if (!playerSeriesId) {
+    throw new Error("選手シリーズ情報を読み込めていません。");
+  }
+
+  const snapshotLabel = SNAPSHOT_LABELS[snapshotKey] ?? snapshotKey;
+  const loadingToast = showLoadingToast(`「${snapshotLabel}」の時点を作成中です...`);
+
+  DETAIL_STATE.pendingCreateSnapshotKey = "";
+  DETAIL_STATE.isBusy = true;
+  renderCurrentPlayerDetail();
+
+  try {
+    await addSnapshotToSeries(playerSeriesId, { snapshot_label: snapshotKey });
+    await loadPlayerDetail({
+      snapshot: snapshotKey,
+      syncUrl: true,
+    });
+    loadingToast.close().then(() => showSuccessToast(`「${snapshotLabel}」の時点を作成しました。`));
+  } catch (error) {
+    loadingToast.close().catch(() => {});
+    throw error;
+  } finally {
+    DETAIL_STATE.isBusy = false;
+  }
+}
+
+async function handleSnapshotButtonClick(snapshotKey) {
+  if (!snapshotKey || DETAIL_STATE.isBusy) {
+    return;
+  }
+
+  if (isCurrentSnapshot(snapshotKey, DETAIL_STATE.currentSnapshot)) {
+    return;
+  }
+
+  if (isSnapshotRegistered(snapshotKey, DETAIL_STATE.snapshots)) {
+    DETAIL_STATE.isBusy = true;
+
+    try {
+      await loadPlayerDetail({
+        snapshot: snapshotKey,
+        syncUrl: true,
+        loadingMessage: `「${SNAPSHOT_LABELS[snapshotKey] ?? snapshotKey}」を読み込み中です...`,
+      });
+    } finally {
+      DETAIL_STATE.isBusy = false;
+    }
+
+    return;
+  }
+
+  if (DETAIL_STATE.confirmBeforeCreateSnapshot) {
+    openCreateSnapshotPrompt(snapshotKey);
+    return;
+  }
+
+  await createSnapshotAndReload(snapshotKey);
+}
+
+function handleDetailRootClick(event) {
+  const createConfirmButton = event.target.closest("[data-create-snapshot-confirm]");
+
+  if (createConfirmButton) {
+    event.preventDefault();
+
+    createSnapshotAndReload(createConfirmButton.dataset.createSnapshotConfirm).catch((error) => {
+      const message = error instanceof Error ? error.message : "時点の作成に失敗しました。";
+      showErrorToast(message);
+      setMessage(DETAIL_STATE.refs.messageElement, message, true);
+    });
+    return;
+  }
+
+  const createCancelButton = event.target.closest("[data-create-snapshot-cancel]");
+
+  if (createCancelButton) {
+    event.preventDefault();
+    closeCreateSnapshotPrompt();
+    return;
+  }
+
+  const snapshotButton = event.target.closest("[data-snapshot-button]");
+
+  if (snapshotButton) {
+    event.preventDefault();
+
+    handleSnapshotButtonClick(snapshotButton.dataset.snapshotButton).catch((error) => {
+      const message = error instanceof Error ? error.message : "時点の切り替えに失敗しました。";
+      showErrorToast(message);
+      setMessage(DETAIL_STATE.refs.messageElement, message, true);
+    });
+    return;
+  }
+
+  const button = event.target.closest("[data-open-section-edit]");
+
+  if (!button) {
+    return;
+  }
+
+  const scope = button.dataset.openSectionEdit;
+
+  if (!scope || !DETAIL_STATE.player) {
+    return;
+  }
+
+  event.preventDefault();
+  openSectionEditModal(scope, DETAIL_STATE.player);
+}
+
+async function handleModalSubmit(event) {
+  const form = event.target.closest("[data-section-edit-form]");
+
+  if (!form) {
+    return;
+  }
+
+  event.preventDefault();
+
+  const scope = form.dataset.sectionEditScope;
+  const meta = SECTION_EDIT_META[scope] ?? SECTION_EDIT_META.basic;
+  const submitButton = form.querySelector('button[type="submit"]');
+  const controls = Array.from(form.querySelectorAll("input, select, textarea, button"));
+  const formData = new FormData(form);
+  const loadingToast = showLoadingToast(`${meta.title}を保存中です...`);
+
+  controls.forEach((control) => {
+    control.disabled = true;
+  });
+  setMessage(DETAIL_STATE.refs.modalMessageElement, "");
+
+  try {
+    const updatedPlayer = await saveSectionEdit(scope, formData);
+    await loadPlayerDetail({
+      snapshot: updatedPlayer.snapshot_label,
+      syncUrl: true,
+    });
+    closeSectionEditModal();
+    loadingToast.close().then(() => showSuccessToast(`${meta.title}を更新しました。`));
+  } catch (error) {
+    loadingToast
+      .close()
+      .then(() => {
+        showErrorToast(error instanceof Error ? error.message : "セクションの更新に失敗しました。");
+      })
+      .catch(() => {});
+
+    controls.forEach((control) => {
+      control.disabled = false;
+    });
+
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
+
+    setMessage(
+      DETAIL_STATE.refs.modalMessageElement,
+      error instanceof Error ? error.message : "セクションの更新に失敗しました。",
+      true
+    );
+  }
+}
+
+async function init() {
+  const refs = {
+    root: document.getElementById("player-detail-root"),
+    titleElement: document.getElementById("player-detail-title"),
+    contextElement: document.getElementById("player-detail-context"),
+    schoolNameElement: document.getElementById("player-detail-school-name"),
+    schoolMetaElement: document.getElementById("player-detail-school-meta"),
+    actionsElement: document.getElementById("player-detail-actions"),
+    messageElement: document.getElementById("player-detail-message"),
+    toastRegionElement: document.getElementById("player-detail-toast-region"),
+    modalElement: document.getElementById("player-detail-modal"),
+    modalKickerElement: document.getElementById("player-detail-modal-kicker"),
+    modalTitleElement: document.getElementById("player-detail-modal-title"),
+    modalMessageElement: document.getElementById("player-detail-modal-message"),
+    modalBodyElement: document.getElementById("player-detail-modal-body"),
+  };
+
+  if (!refs.root || !refs.titleElement || !refs.contextElement) {
+    return;
+  }
+
+  DETAIL_STATE.refs = refs;
+  DETAIL_STATE.playerId = getPlayerIdFromQuery();
+  DETAIL_STATE.confirmBeforeCreateSnapshot = readSnapshotCreateConfirmationPreference();
+  setupInteractions(refs);
+
+  try {
+    await loadPlayerDetail({
+      snapshot: getSnapshotFromQuery(),
+      syncUrl: false,
+      loadingMessage: "選手情報を読み込み中です...",
+    });
   } catch (error) {
     renderError(
       refs,
@@ -1251,10 +2430,17 @@ if (typeof document !== "undefined" && document.getElementById("player-detail-ro
 }
 
 export {
+  buildSnapshotTimelineButtons,
   buildSectionEditForm,
   closeSectionEditModal,
+  createSnapshotAndReload,
+  getOfficialSnapshotDefinitions,
   getAbilityRank,
+  handleSnapshotButtonClick,
+  isCurrentSnapshot,
+  isSnapshotRegistered,
   isPitcherPosition,
+  openCreateSnapshotPrompt,
   openSectionEditModal,
   saveSectionEdit,
 };

@@ -38,6 +38,11 @@ export async function fetchSchoolById(id) {
   return parseResponse(response);
 }
 
+export async function fetchSchoolPlayerSeriesSummaries(id) {
+  const response = await fetch(`${SCHOOL_API_BASE}/${id}/player-series`);
+  return parseResponse(response);
+}
+
 export async function createSchool(schoolPayload) {
   const response = await fetch(SCHOOL_API_BASE, {
     method: "POST",

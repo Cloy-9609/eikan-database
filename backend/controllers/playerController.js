@@ -26,12 +26,51 @@ async function getPlayerById(req, res, next) {
   }
 }
 
+async function getPlayerDetailById(req, res, next) {
+  try {
+    const playerDetail = await playerService.getPlayerDetailByPlayerId(req.params.id, req.query);
+    res.json({
+      success: true,
+      data: playerDetail,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getPlayerSeriesById(req, res, next) {
+  try {
+    const playerSeries = await playerService.getPlayerSeriesById(req.params.id, req.query);
+    res.json({
+      success: true,
+      data: playerSeries,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function createPlayer(req, res, next) {
   try {
     const player = await playerService.createPlayer(req.body);
     res.status(201).json({
       success: true,
       data: player,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function addSnapshotToSeries(req, res, next) {
+  try {
+    const snapshot = await playerService.addSnapshotToSeries(req.params.id, req.body);
+    res.status(201).json({
+      success: true,
+      data: snapshot,
       error: null,
     });
   } catch (error) {
@@ -55,6 +94,9 @@ async function updatePlayer(req, res, next) {
 module.exports = {
   getPlayers,
   getPlayerById,
+  getPlayerDetailById,
+  getPlayerSeriesById,
   createPlayer,
+  addSnapshotToSeries,
   updatePlayer,
 };

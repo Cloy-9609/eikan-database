@@ -1,6 +1,5 @@
 ﻿import { fetchSchoolById } from "../api/schoolApi.js";
-import { fetchPlayers } from "../api/playerApi.js";
-import { deleteSchool, updateSchool } from "../api/schoolApi.js";
+import { deleteSchool, fetchSchoolPlayerSeriesSummaries, updateSchool } from "../api/schoolApi.js";
 import { buildYearPicker, setupYearPickers } from "../components/admissionYearPicker.js";
 import { PREFECTURE_GROUPS } from "../constants/prefectures.js";
 import { formatDate, formatSchoolName } from "../utils/formatter.js";
@@ -282,11 +281,11 @@ function renderSchoolEditor(root, school, message = null) {
   setupYearPickers(root);
 }
 
-function renderPlayers(root, players) {
-  const safePlayers = Array.isArray(players) ? players : [];
-  const playerCountText = `所属選手 ${safePlayers.length}人`;
+function renderPlayerSeriesSummaries(root, playerSeriesSummaries) {
+  const safeSummaries = Array.isArray(playerSeriesSummaries) ? playerSeriesSummaries : [];
+  const playerCountText = `所属選手 ${safeSummaries.length}人`;
 
-  if (safePlayers.length === 0) {
+  if (safeSummaries.length === 0) {
     root.innerHTML = `
       <div class="players-list-meta">
         <p class="players-count" aria-live="polite">${playerCountText}</p>
@@ -299,18 +298,33 @@ function renderPlayers(root, players) {
     return;
   }
 
-  const rows = safePlayers
+  const rows = safeSummaries
     .map(
-      (player) => `
+      (playerSeriesSummary) => `
         <tr class="players-table-row">
           <td class="players-table-cell players-table-cell--name">
-            <a class="player-link" href="./player_detail.html?id=${encodeURIComponent(player.id)}">
-              ${escapeHtml(player.name)}
-            </a>
+            ${
+              playerSeriesSummary.latestSnapshotId
+                ? `
+                  <a
+                    class="player-link"
+                    href="./player_detail.html?id=${encodeURIComponent(playerSeriesSummary.latestSnapshotId)}"
+                  >
+                    ${escapeHtml(playerSeriesSummary.name)}
+                  </a>
+                `
+                : escapeHtml(playerSeriesSummary.name)
+            }
           </td>
-          <td class="players-table-cell players-table-cell--grade">${escapeHtml(formatPlayerGrade(player.grade))}</td>
-          <td class="players-table-cell">${escapeHtml(formatOptionalValue(player.main_position))}</td>
-          <td class="players-table-cell">${escapeHtml(getPlayerTypeLabel(player.player_type))}</td>
+          <td class="players-table-cell players-table-cell--grade">
+            ${escapeHtml(formatPlayerGrade(playerSeriesSummary.grade))}
+          </td>
+          <td class="players-table-cell">
+            ${escapeHtml(formatOptionalValue(playerSeriesSummary.mainPosition))}
+          </td>
+          <td class="players-table-cell">
+            ${escapeHtml(getPlayerTypeLabel(playerSeriesSummary.playerType))}
+          </td>
         </tr>
       `
     )
@@ -424,8 +438,8 @@ async function init() {
     playerRegisterLink.hidden = false;
 
     try {
-      const players = await fetchPlayers({ schoolId });
-      renderPlayers(playersRoot, players);
+      const schoolPlayerSeries = await fetchSchoolPlayerSeriesSummaries(schoolId);
+      renderPlayerSeriesSummaries(playersRoot, schoolPlayerSeries.playerSeriesSummaries);
     } catch (error) {
       renderPlayersError(playersRoot, error.message);
     }

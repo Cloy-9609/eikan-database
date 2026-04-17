@@ -1,5 +1,12 @@
 const schoolModel = require("../models/schoolModel");
+const playerModel = require("../models/playerModel");
 const { ALLOWED_PREFECTURE_VALUES } = require("../constants/prefectures");
+const {
+  SNAPSHOT_LABELS,
+  getSnapshotOrder,
+  isLegacySnapshotLabel,
+  isOfficialSnapshotLabel,
+} = require("../constants/playerSnapshots");
 
 const ALLOWED_PLAY_STYLES = ["three_year", "continuous"];
 const ALLOWED_SCHOOL_SORT_BY = ["name", "start_year", "updated_at"];
@@ -68,6 +75,65 @@ function normalizeSchoolSearchName(value) {
     : text;
 
   return normalizedName || null;
+}
+
+function getSnapshotTimeValue(snapshot) {
+  return new Date(snapshot.updated_at || snapshot.created_at || 0).getTime();
+}
+
+function compareSnapshotRecencyDesc(left, right) {
+  const leftTime = getSnapshotTimeValue(left);
+  const rightTime = getSnapshotTimeValue(right);
+
+  if (leftTime !== rightTime) {
+    return rightTime - leftTime;
+  }
+
+  return Number(right.id) - Number(left.id);
+}
+
+function selectLatestSnapshotForSchoolRoster(snapshots) {
+  const officialSnapshots = snapshots.filter((snapshot) =>
+    isOfficialSnapshotLabel(snapshot.snapshot_label)
+  );
+
+  if (officialSnapshots.length > 0) {
+    return [...officialSnapshots].sort((left, right) => {
+      const leftOrder = getSnapshotOrder(left.snapshot_label) ?? -1;
+      const rightOrder = getSnapshotOrder(right.snapshot_label) ?? -1;
+
+      if (leftOrder !== rightOrder) {
+        return rightOrder - leftOrder;
+      }
+
+      return compareSnapshotRecencyDesc(left, right);
+    })[0];
+  }
+
+  return [...snapshots].sort(compareSnapshotRecencyDesc)[0] ?? null;
+}
+
+function buildPlayerSeriesSummary(seriesSnapshots) {
+  const latestSnapshot = selectLatestSnapshotForSchoolRoster(seriesSnapshots);
+  const anchorSnapshot = latestSnapshot ?? seriesSnapshots[0] ?? null;
+
+  if (!anchorSnapshot) {
+    return null;
+  }
+
+  const latestSnapshotLabel = latestSnapshot?.snapshot_label ?? anchorSnapshot.snapshot_label;
+
+  return {
+    playerSeriesId: anchorSnapshot.player_series_id,
+    latestSnapshotId: latestSnapshot?.id ?? anchorSnapshot.id,
+    latestSnapshotLabel,
+    latestSnapshotLabelDisplay: SNAPSHOT_LABELS[latestSnapshotLabel] ?? latestSnapshotLabel,
+    latestSnapshotIsLegacy: isLegacySnapshotLabel(latestSnapshotLabel),
+    name: latestSnapshot?.name ?? anchorSnapshot.name,
+    grade: latestSnapshot?.grade ?? anchorSnapshot.grade,
+    mainPosition: latestSnapshot?.main_position ?? anchorSnapshot.main_position,
+    playerType: latestSnapshot?.player_type ?? anchorSnapshot.player_type,
+  };
 }
 
 function validatePlayStyle(value) {
@@ -171,6 +237,31 @@ async function getSchools(query = {}) {
   return schoolModel.findAllActive(normalizedQuery);
 }
 
+async function getSchoolPlayerSeriesSummaries(id) {
+  const school = await getSchoolById(id);
+  const playerSnapshots = await playerModel.findBySchoolId(school.id);
+  const seriesSnapshotsMap = new Map();
+
+  for (const snapshot of playerSnapshots) {
+    const seriesId = Number(snapshot.player_series_id);
+
+    if (!seriesSnapshotsMap.has(seriesId)) {
+      seriesSnapshotsMap.set(seriesId, []);
+    }
+
+    seriesSnapshotsMap.get(seriesId).push(snapshot);
+  }
+
+  const playerSeriesSummaries = Array.from(seriesSnapshotsMap.values())
+    .map((seriesSnapshots) => buildPlayerSeriesSummary(seriesSnapshots))
+    .filter(Boolean);
+
+  return {
+    school,
+    playerSeriesSummaries,
+  };
+}
+
 async function createSchool(payload) {
   const validatedPayload = validateSchoolPayload(payload);
   return schoolModel.createSchool(validatedPayload);
@@ -202,6 +293,7 @@ async function deleteSchool(id) {
 module.exports = {
   getSchools,
   getSchoolById,
+  getSchoolPlayerSeriesSummaries,
   createSchool,
   updateSchool,
   deleteSchool,

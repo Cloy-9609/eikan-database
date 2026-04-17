@@ -1,5 +1,7 @@
 ﻿const PLAYER_API_BASE = "/api/players";
 
+const PLAYER_SERIES_API_BASE = "/api/player-series";
+
 async function parseResponse(response) {
   let payload = null;
 
@@ -34,6 +36,34 @@ export async function fetchPlayerById(id) {
   return parseResponse(response);
 }
 
+export async function fetchPlayerDetailById(id, { snapshot } = {}) {
+  const params = new URLSearchParams();
+
+  if (snapshot) {
+    params.set("snapshot", snapshot);
+  }
+
+  const query = params.toString();
+  const response = await fetch(
+    query ? `${PLAYER_API_BASE}/${id}/detail?${query}` : `${PLAYER_API_BASE}/${id}/detail`
+  );
+  return parseResponse(response);
+}
+
+export async function fetchPlayerSeriesById(id, { snapshot } = {}) {
+  const params = new URLSearchParams();
+
+  if (snapshot) {
+    params.set("snapshot", snapshot);
+  }
+
+  const query = params.toString();
+  const response = await fetch(
+    query ? `${PLAYER_SERIES_API_BASE}/${id}?${query}` : `${PLAYER_SERIES_API_BASE}/${id}`
+  );
+  return parseResponse(response);
+}
+
 export async function createPlayer(playerPayload) {
   const response = await fetch(PLAYER_API_BASE, {
     method: "POST",
@@ -41,6 +71,18 @@ export async function createPlayer(playerPayload) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(playerPayload),
+  });
+
+  return parseResponse(response);
+}
+
+export async function addSnapshotToSeries(id, snapshotPayload) {
+  const response = await fetch(`${PLAYER_SERIES_API_BASE}/${id}/snapshots`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(snapshotPayload),
   });
 
   return parseResponse(response);

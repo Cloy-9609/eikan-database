@@ -2,6 +2,7 @@ const express = require("express");
 const path = require("path");
 const schoolRoutes = require("./routes/schoolRoutes");
 const playerRoutes = require("./routes/playerRoutes");
+const playerSeriesRoutes = require("./routes/playerSeriesRoutes");
 const errorHandler = require("./middleware/errorHandler");
 const { initializeDatabase, databasePath } = require("./db/database");
 const { createHtmlMiddleware, registerHotReload } = require("./dev/hotReload");
@@ -16,6 +17,7 @@ app.use(express.json());
 
 app.use("/api/schools", schoolRoutes);
 app.use("/api/players", playerRoutes);
+app.use("/api/player-series", playerSeriesRoutes);
 app.use(frontendHtmlMiddleware);
 app.use(express.static(frontendPath));
 

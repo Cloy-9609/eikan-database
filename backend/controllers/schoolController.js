@@ -26,6 +26,19 @@ async function getSchoolById(req, res, next) {
   }
 }
 
+async function getSchoolPlayerSeriesSummaries(req, res, next) {
+  try {
+    const schoolPlayerSeries = await schoolService.getSchoolPlayerSeriesSummaries(req.params.id);
+    res.json({
+      success: true,
+      data: schoolPlayerSeries,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function createSchool(req, res, next) {
   try {
     const school = await schoolService.createSchool(req.body);
@@ -68,6 +81,7 @@ async function deleteSchool(req, res, next) {
 module.exports = {
   getSchools,
   getSchoolById,
+  getSchoolPlayerSeriesSummaries,
   createSchool,
   updateSchool,
   deleteSchool,

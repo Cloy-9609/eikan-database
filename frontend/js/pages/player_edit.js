@@ -13,13 +13,13 @@ const PLAYER_TYPE_OPTIONS = [
 
 const SNAPSHOT_LABEL_OPTIONS = [
   { value: "entrance", label: "入学時" },
-  { value: "after_1st_summer", label: "1年夏大会後" },
-  { value: "after_1st_autumn", label: "1年秋大会後" },
-  { value: "after_1st_spring", label: "1年春大会後" },
-  { value: "after_2nd_summer", label: "2年夏大会後" },
-  { value: "after_2nd_autumn", label: "2年秋大会後" },
-  { value: "after_2nd_spring", label: "2年春大会後" },
-  { value: "after_3rd_summer", label: "3年夏大会後" },
+  { value: "y1_summer", label: "1年夏大会後" },
+  { value: "y1_autumn", label: "1年秋大会後" },
+  { value: "y1_spring", label: "1年春大会後" },
+  { value: "y2_summer", label: "2年夏大会後" },
+  { value: "y2_autumn", label: "2年秋大会後" },
+  { value: "y2_spring", label: "2年春大会後" },
+  { value: "y3_summer", label: "3年夏大会後" },
   { value: "graduation", label: "卒業時" },
 ];
 const LEGACY_SNAPSHOT_LABELS = {

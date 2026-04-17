@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS player_sub_positions;
 DROP TABLE IF EXISTS player_special_abilities;
 DROP TABLE IF EXISTS player_pitch_types;
 DROP TABLE IF EXISTS players;
+DROP TABLE IF EXISTS player_series;
 DROP TABLE IF EXISTS schools;
 
 CREATE TABLE schools (
@@ -22,8 +23,25 @@ CREATE TABLE schools (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE player_series (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  school_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  prefecture TEXT NOT NULL,
+  player_type TEXT NOT NULL CHECK (player_type IN ('normal', 'genius', 'reincarnated')),
+  player_type_note TEXT,
+  admission_year INTEGER NOT NULL,
+  throwing_hand TEXT NOT NULL CHECK (throwing_hand IN ('right', 'left')),
+  batting_hand TEXT NOT NULL CHECK (batting_hand IN ('right', 'left', 'both')),
+  note TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (school_id) REFERENCES schools(id) ON UPDATE CASCADE ON DELETE RESTRICT
+);
+
 CREATE TABLE players (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  player_series_id INTEGER NOT NULL,
   school_id INTEGER NOT NULL,
   name TEXT NOT NULL,
   player_type TEXT NOT NULL CHECK (player_type IN ('normal', 'genius', 'reincarnated')),
@@ -32,7 +50,21 @@ CREATE TABLE players (
   prefecture TEXT NOT NULL,
   grade INTEGER NOT NULL CHECK (grade BETWEEN 1 AND 3),
   admission_year INTEGER NOT NULL,
-  snapshot_label TEXT NOT NULL CHECK (snapshot_label IN ('entrance', 'post_tournament')),
+  snapshot_label TEXT NOT NULL CHECK (
+    snapshot_label IN (
+      'entrance',
+      'y1_summer',
+      'y1_autumn',
+      'y1_spring',
+      'y2_summer',
+      'y2_autumn',
+      'y2_spring',
+      'y3_summer',
+      'graduation',
+      'post_tournament'
+    )
+  ),
+  snapshot_note TEXT,
   main_position TEXT NOT NULL,
   throwing_hand TEXT NOT NULL CHECK (throwing_hand IN ('right', 'left')),
   batting_hand TEXT NOT NULL CHECK (batting_hand IN ('right', 'left', 'both')),
@@ -51,6 +83,7 @@ CREATE TABLE players (
   evidence_image_path TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (player_series_id) REFERENCES player_series(id) ON UPDATE CASCADE ON DELETE CASCADE,
   FOREIGN KEY (school_id) REFERENCES schools(id) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
@@ -114,9 +147,12 @@ CREATE TABLE player_results (
 );
 
 CREATE INDEX idx_schools_is_archived ON schools(is_archived);
+CREATE INDEX idx_player_series_school_id ON player_series(school_id);
 CREATE INDEX idx_players_school_id ON players(school_id);
+CREATE INDEX idx_players_player_series_id ON players(player_series_id);
 CREATE INDEX idx_players_player_type ON players(player_type);
 CREATE INDEX idx_players_admission_year ON players(admission_year);
+CREATE UNIQUE INDEX idx_players_series_snapshot_unique ON players(player_series_id, snapshot_label);
 CREATE INDEX idx_player_pitch_types_player_id ON player_pitch_types(player_id);
 CREATE INDEX idx_player_special_abilities_player_id ON player_special_abilities(player_id);
 CREATE INDEX idx_player_sub_positions_player_id ON player_sub_positions(player_id);

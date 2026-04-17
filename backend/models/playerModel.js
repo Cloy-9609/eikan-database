@@ -1,19 +1,28 @@
-const { get, all, run, transaction } = require("../db/database");
+const { get, all, run } = require("../db/database");
+const {
+  SNAPSHOT_TIMELINE,
+} = require("../constants/playerSnapshots");
+
+const snapshotOrderSql = SNAPSHOT_TIMELINE.map(
+  ({ value }, index) => `WHEN '${value}' THEN ${index + 1}`
+).join(" ");
 
 const PLAYER_SELECT_COLUMNS = `
   players.id,
-  players.school_id,
-  players.name,
-  players.player_type,
-  players.player_type_note,
+  players.player_series_id,
+  player_series.school_id AS school_id,
+  player_series.name AS name,
+  player_series.player_type AS player_type,
+  player_series.player_type_note AS player_type_note,
   players.total_stars,
-  players.prefecture,
+  player_series.prefecture AS prefecture,
   players.grade,
-  players.admission_year,
+  player_series.admission_year AS admission_year,
   players.snapshot_label,
+  players.snapshot_note,
   players.main_position,
-  players.throwing_hand,
-  players.batting_hand,
+  player_series.throwing_hand AS throwing_hand,
+  player_series.batting_hand AS batting_hand,
   players.is_reincarnated,
   players.is_genius,
   players.velocity,
@@ -29,51 +38,18 @@ const PLAYER_SELECT_COLUMNS = `
   players.evidence_image_path,
   players.created_at,
   players.updated_at,
+  player_series.note AS player_series_note,
+  player_series.created_at AS player_series_created_at,
+  player_series.updated_at AS player_series_updated_at,
   schools.name AS school_name,
-  schools.is_archived AS school_is_archived
+  schools.is_archived AS school_is_archived,
+  CASE players.snapshot_label
+    ${snapshotOrderSql}
+    ELSE NULL
+  END AS snapshot_order
 `;
 
-async function findAll() {
-  const sql = `
-    SELECT
-      ${PLAYER_SELECT_COLUMNS}
-    FROM players
-    INNER JOIN schools ON schools.id = players.school_id
-    WHERE schools.is_archived = 0
-    ORDER BY players.id DESC
-  `;
-
-  return all(sql);
-}
-
-async function findBySchoolId(schoolId) {
-  const sql = `
-    SELECT
-      ${PLAYER_SELECT_COLUMNS}
-    FROM players
-    INNER JOIN schools ON schools.id = players.school_id
-    WHERE players.school_id = ? AND schools.is_archived = 0
-    ORDER BY players.id DESC
-  `;
-
-  return all(sql, [schoolId]);
-}
-
-async function findById(id) {
-  const playerSql = `
-    SELECT
-      ${PLAYER_SELECT_COLUMNS}
-    FROM players
-    INNER JOIN schools ON schools.id = players.school_id
-    WHERE players.id = ?
-  `;
-
-  const player = await get(playerSql, [id]);
-
-  if (!player) {
-    return null;
-  }
-
+async function getRelationsByPlayerId(playerId) {
   const [pitchTypes, specialAbilities, subPositions] = await Promise.all([
     all(
       `
@@ -90,7 +66,7 @@ async function findById(id) {
         WHERE player_id = ?
         ORDER BY id ASC
       `,
-      [id]
+      [playerId]
     ),
     all(
       `
@@ -106,7 +82,7 @@ async function findById(id) {
         WHERE player_id = ?
         ORDER BY id ASC
       `,
-      [id]
+      [playerId]
     ),
     all(
       `
@@ -121,86 +97,103 @@ async function findById(id) {
         WHERE player_id = ?
         ORDER BY id ASC
       `,
-      [id]
+      [playerId]
     ),
   ]);
 
   return {
-    ...player,
     pitch_types: pitchTypes,
     special_abilities: specialAbilities,
     sub_positions: subPositions,
   };
 }
 
-async function createPlayer(player) {
-  const playerId = await transaction(async () => {
-    const playerInsertSql = `
-      INSERT INTO players (
-        school_id,
-        name,
-        player_type,
-        player_type_note,
-        total_stars,
-        prefecture,
-        grade,
-        admission_year,
-        snapshot_label,
-        main_position,
-        throwing_hand,
-        batting_hand,
-        is_reincarnated,
-        is_genius,
-        velocity,
-        control,
-        stamina,
-        trajectory,
-        meat,
-        power,
-        run_speed,
-        arm_strength,
-        fielding,
-        catching,
-        evidence_image_path
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+async function attachRelations(player) {
+  if (!player) {
+    return null;
+  }
 
-    const playerResult = await run(playerInsertSql, [
-      player.school_id,
-      player.name,
-      player.player_type,
-      player.player_type_note,
-      player.total_stars,
-      player.prefecture,
-      player.grade,
-      player.admission_year,
-      player.snapshot_label,
-      player.main_position,
-      player.throwing_hand,
-      player.batting_hand,
-      player.is_reincarnated,
-      player.is_genius,
-      player.velocity,
-      player.control,
-      player.stamina,
-      player.trajectory,
-      player.meat,
-      player.power,
-      player.run_speed,
-      player.arm_strength,
-      player.fielding,
-      player.catching,
-      player.evidence_image_path,
-    ]);
+  const relations = await getRelationsByPlayerId(player.id);
 
-    const createdPlayerId = playerResult.lastID;
+  return {
+    ...player,
+    ...relations,
+  };
+}
 
-    await insertPlayerRelations(createdPlayerId, player);
+async function findAll() {
+  const sql = `
+    SELECT
+      ${PLAYER_SELECT_COLUMNS}
+    FROM players
+    INNER JOIN player_series ON player_series.id = players.player_series_id
+    INNER JOIN schools ON schools.id = player_series.school_id
+    WHERE schools.is_archived = 0
+    ORDER BY players.id DESC
+  `;
 
-    return createdPlayerId;
-  });
+  return all(sql);
+}
 
-  return findById(playerId);
+async function findBySchoolId(schoolId) {
+  const sql = `
+    SELECT
+      ${PLAYER_SELECT_COLUMNS}
+    FROM players
+    INNER JOIN player_series ON player_series.id = players.player_series_id
+    INNER JOIN schools ON schools.id = player_series.school_id
+    WHERE player_series.school_id = ? AND schools.is_archived = 0
+    ORDER BY players.id DESC
+  `;
+
+  return all(sql, [schoolId]);
+}
+
+async function findById(id) {
+  const playerSql = `
+    SELECT
+      ${PLAYER_SELECT_COLUMNS}
+    FROM players
+    INNER JOIN player_series ON player_series.id = players.player_series_id
+    INNER JOIN schools ON schools.id = player_series.school_id
+    WHERE players.id = ?
+  `;
+
+  const player = await get(playerSql, [id]);
+  return attachRelations(player);
+}
+
+async function findSnapshotsBySeriesId(playerSeriesId) {
+  const sql = `
+    SELECT
+      ${PLAYER_SELECT_COLUMNS}
+    FROM players
+    INNER JOIN player_series ON player_series.id = players.player_series_id
+    INNER JOIN schools ON schools.id = player_series.school_id
+    WHERE players.player_series_id = ?
+    ORDER BY
+      CASE players.snapshot_label
+        ${snapshotOrderSql}
+        ELSE 999
+      END ASC,
+      players.id ASC
+  `;
+
+  return all(sql, [playerSeriesId]);
+}
+
+async function findSnapshotBySeriesIdAndLabel(playerSeriesId, snapshotLabel) {
+  const sql = `
+    SELECT
+      ${PLAYER_SELECT_COLUMNS}
+    FROM players
+    INNER JOIN player_series ON player_series.id = players.player_series_id
+    INNER JOIN schools ON schools.id = player_series.school_id
+    WHERE players.player_series_id = ? AND players.snapshot_label = ?
+  `;
+
+  const player = await get(sql, [playerSeriesId, snapshotLabel]);
+  return attachRelations(player);
 }
 
 async function insertPlayerRelations(playerId, player) {
@@ -235,12 +228,7 @@ async function insertPlayerRelations(playerId, player) {
           rank_value
         ) VALUES (?, ?, ?, ?)
       `,
-      [
-        playerId,
-        ability.ability_name,
-        ability.ability_category,
-        ability.rank_value,
-      ]
+      [playerId, ability.ability_name, ability.ability_category, ability.rank_value]
     );
   }
 
@@ -253,20 +241,91 @@ async function insertPlayerRelations(playerId, player) {
           suitability_value
         ) VALUES (?, ?, ?)
       `,
-      [
-        playerId,
-        subPosition.position_name,
-        subPosition.suitability_value,
-      ]
+      [playerId, subPosition.position_name, subPosition.suitability_value]
     );
   }
 }
 
-async function updatePlayer(playerId, player) {
-  const updatedPlayerId = await transaction(async () => {
-    const playerUpdateSql = `
+async function deletePlayerRelations(playerId) {
+  await run("DELETE FROM player_pitch_types WHERE player_id = ?", [playerId]);
+  await run("DELETE FROM player_special_abilities WHERE player_id = ?", [playerId]);
+  await run("DELETE FROM player_sub_positions WHERE player_id = ?", [playerId]);
+}
+
+async function createSnapshot(player) {
+  const playerInsertSql = `
+    INSERT INTO players (
+      player_series_id,
+      school_id,
+      name,
+      player_type,
+      player_type_note,
+      total_stars,
+      prefecture,
+      grade,
+      admission_year,
+      snapshot_label,
+      snapshot_note,
+      main_position,
+      throwing_hand,
+      batting_hand,
+      is_reincarnated,
+      is_genius,
+      velocity,
+      control,
+      stamina,
+      trajectory,
+      meat,
+      power,
+      run_speed,
+      arm_strength,
+      fielding,
+      catching,
+      evidence_image_path
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  const playerResult = await run(playerInsertSql, [
+    player.player_series_id,
+    player.school_id,
+    player.name,
+    player.player_type,
+    player.player_type_note,
+    player.total_stars,
+    player.prefecture,
+    player.grade,
+    player.admission_year,
+    player.snapshot_label,
+    player.snapshot_note,
+    player.main_position,
+    player.throwing_hand,
+    player.batting_hand,
+    player.is_reincarnated,
+    player.is_genius,
+    player.velocity,
+    player.control,
+    player.stamina,
+    player.trajectory,
+    player.meat,
+    player.power,
+    player.run_speed,
+    player.arm_strength,
+    player.fielding,
+    player.catching,
+    player.evidence_image_path,
+  ]);
+
+  const createdPlayerId = playerResult.lastID;
+  await insertPlayerRelations(createdPlayerId, player);
+  return createdPlayerId;
+}
+
+async function updateSnapshot(playerId, player) {
+  const result = await run(
+    `
       UPDATE players
       SET
+        player_series_id = ?,
         school_id = ?,
         name = ?,
         player_type = ?,
@@ -276,6 +335,7 @@ async function updatePlayer(playerId, player) {
         grade = ?,
         admission_year = ?,
         snapshot_label = ?,
+        snapshot_note = ?,
         main_position = ?,
         throwing_hand = ?,
         batting_hand = ?,
@@ -294,9 +354,9 @@ async function updatePlayer(playerId, player) {
         evidence_image_path = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `;
-
-    const result = await run(playerUpdateSql, [
+    `,
+    [
+      player.player_series_id,
       player.school_id,
       player.name,
       player.player_type,
@@ -306,6 +366,7 @@ async function updatePlayer(playerId, player) {
       player.grade,
       player.admission_year,
       player.snapshot_label,
+      player.snapshot_note,
       player.main_position,
       player.throwing_hand,
       player.batting_hand,
@@ -323,31 +384,25 @@ async function updatePlayer(playerId, player) {
       player.catching,
       player.evidence_image_path,
       playerId,
-    ]);
+    ]
+  );
 
-    if (result.changes === 0) {
-      return null;
-    }
-
-    await run("DELETE FROM player_pitch_types WHERE player_id = ?", [playerId]);
-    await run("DELETE FROM player_special_abilities WHERE player_id = ?", [playerId]);
-    await run("DELETE FROM player_sub_positions WHERE player_id = ?", [playerId]);
-    await insertPlayerRelations(playerId, player);
-
-    return playerId;
-  });
-
-  if (updatedPlayerId === null) {
+  if (result.changes === 0) {
     return null;
   }
 
-  return findById(updatedPlayerId);
+  await deletePlayerRelations(playerId);
+  await insertPlayerRelations(playerId, player);
+
+  return playerId;
 }
 
 module.exports = {
   findAll,
   findBySchoolId,
   findById,
-  createPlayer,
-  updatePlayer,
+  findSnapshotsBySeriesId,
+  findSnapshotBySeriesIdAndLabel,
+  createSnapshot,
+  updateSnapshot,
 };
