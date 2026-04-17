@@ -3,7 +3,18 @@ const schoolModel = require("../models/schoolModel");
 const { ALLOWED_PREFECTURE_VALUES } = require("../constants/prefectures");
 
 const ALLOWED_PLAYER_TYPES = ["normal", "genius", "reincarnated"];
-const ALLOWED_SNAPSHOT_LABELS = ["entrance", "post_tournament"];
+const ALLOWED_SNAPSHOT_LABELS = [
+  "entrance",
+  "post_tournament",
+  "after_1st_summer",
+  "after_1st_autumn",
+  "after_1st_spring",
+  "after_2nd_summer",
+  "after_2nd_autumn",
+  "after_2nd_spring",
+  "after_3rd_summer",
+  "graduation",
+];
 const ALLOWED_THROWING_HANDS = ["right", "left"];
 const ALLOWED_BATTING_HANDS = ["right", "left", "both"];
 const ALLOWED_POSITIONS = [

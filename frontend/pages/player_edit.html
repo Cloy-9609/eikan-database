@@ -9,9 +9,9 @@
   <link rel="stylesheet" href="../css/components/admission_year_picker.css">
   <link rel="stylesheet" href="../css/player.css">
 </head>
-<body class="player-page">
+<body class="player-page player-page--edit">
   <main class="page">
-    <section class="player-page-panel player-form-card">
+    <section class="player-page-panel player-form-card player-form-card--edit">
       <header class="player-page-header">
         <p class="player-page-kicker">Player Form</p>
         <h1 id="player-edit-title" class="player-page-title">選手情報編集</h1>
@@ -23,7 +23,7 @@
         role="alert"
         aria-live="polite"
       ></div>
-      <form id="player-edit-form" class="player-form" data-edit-scope="core"></form>
+      <form id="player-edit-form" class="player-form player-form--edit" data-edit-scope="full"></form>
     </section>
   </main>
   <script type="module" src="../js/pages/player_edit.js"></script>

@@ -13,10 +13,28 @@ const PLAYER_TYPE_OPTIONS = [
 
 const SNAPSHOT_LABEL_OPTIONS = [
   { value: "entrance", label: "入学時" },
-  { value: "post_tournament", label: "大会後" },
+  { value: "after_1st_summer", label: "1年夏大会後" },
+  { value: "after_1st_autumn", label: "1年秋大会後" },
+  { value: "after_1st_spring", label: "1年春大会後" },
+  { value: "after_2nd_summer", label: "2年夏大会後" },
+  { value: "after_2nd_autumn", label: "2年秋大会後" },
+  { value: "after_2nd_spring", label: "2年春大会後" },
+  { value: "after_3rd_summer", label: "3年夏大会後" },
+  { value: "graduation", label: "卒業時" },
 ];
+const LEGACY_SNAPSHOT_LABELS = {
+  post_tournament: "大会後",
+};
+
+const SNAPSHOT_LABELS = Object.fromEntries(
+  SNAPSHOT_LABEL_OPTIONS.map(({ value, label }) => [value, label])
+);
+Object.assign(SNAPSHOT_LABELS, LEGACY_SNAPSHOT_LABELS);
 
 const POSITION_OPTIONS = ["投手", "捕手", "一塁手", "二塁手", "三塁手", "遊撃手", "外野手"];
+const PITCHER_MAIN_POSITION = "投手";
+const DEFAULT_EDIT_SCOPE = "full";
+const FOCUSABLE_EDIT_SCOPES = new Set(["basic", "pitcher", "batter", "special"]);
 
 const THROWING_HAND_OPTIONS = [
   { value: "right", label: "右" },
@@ -56,6 +74,9 @@ const BATTER_ABILITY_FIELDS = [
   { field: "catching", label: "捕球", inputType: "ranked" },
 ];
 
+const PITCHER_ABILITY_FIELD_NAMES = PITCHER_ABILITY_FIELDS.map(({ field }) => field);
+const BATTER_ABILITY_FIELD_NAMES = BATTER_ABILITY_FIELDS.map(({ field }) => field);
+
 function getPlayerIdFromQuery() {
   const params = new URLSearchParams(window.location.search);
   const playerId = params.get("id");
@@ -65,6 +86,17 @@ function getPlayerIdFromQuery() {
   }
 
   return playerId;
+}
+
+function getRequestedEditScope() {
+  const params = new URLSearchParams(window.location.search);
+  const scope = params.get("scope");
+
+  if (!scope) {
+    return "";
+  }
+
+  return scope.trim();
 }
 
 function escapeAttribute(value) {
@@ -120,8 +152,20 @@ function buildAttributeString(attributes) {
     .join(" ");
 }
 
-function isPitcherMainPosition(value) {
-  return value === "投手";
+function getSnapshotOptionsForRender(selectedValue) {
+  if (!selectedValue || !LEGACY_SNAPSHOT_LABELS[selectedValue]) {
+    return SNAPSHOT_LABEL_OPTIONS;
+  }
+
+  return [...SNAPSHOT_LABEL_OPTIONS, { value: selectedValue, label: LEGACY_SNAPSHOT_LABELS[selectedValue] }];
+}
+
+function getSnapshotLabel(value) {
+  return SNAPSHOT_LABELS[value] ?? value ?? "";
+}
+
+function isPitcherPosition(value) {
+  return value === PITCHER_MAIN_POSITION;
 }
 
 function getAbilityRankForValue(value) {
@@ -198,7 +242,7 @@ function renderFormSection({
   `;
 }
 
-function renderTextInputRow({ field, label, value, required = false }) {
+function renderTextInputRow({ field, label, value, required = false, rowClass = "", helpText = "" }) {
   const inputAttributes = buildAttributeString({
     id: field,
     name: field,
@@ -206,44 +250,131 @@ function renderTextInputRow({ field, label, value, required = false }) {
     value: value ?? "",
     required,
   });
+  const rowClassName = ["player-form-row", rowClass].filter(Boolean).join(" ");
 
   return `
-    <div class="player-form-row" data-field="${field}">
+    <div class="${rowClassName}" data-field="${field}">
       <label class="player-form-label" for="${field}">${label}</label>
       <div class="player-form-control">
         <input ${inputAttributes}>
+        ${helpText ? `<p class="player-form-help">${helpText}</p>` : ""}
       </div>
     </div>
   `;
 }
 
-function renderSelectRow({ field, label, options, value, required = false, grouped = false }) {
+function renderSelectRow({
+  field,
+  label,
+  options,
+  value,
+  required = false,
+  grouped = false,
+  rowClass = "",
+  helpText = "",
+}) {
   const selectAttributes = buildAttributeString({
     id: field,
     name: field,
     required,
   });
+  const rowClassName = ["player-form-row", rowClass].filter(Boolean).join(" ");
 
   const optionHtml = grouped ? buildGroupedOptions(options, value) : buildOptions(options, value);
 
   return `
-    <div class="player-form-row" data-field="${field}">
+    <div class="${rowClassName}" data-field="${field}">
       <label class="player-form-label" for="${field}">${label}</label>
       <div class="player-form-control">
         <select ${selectAttributes}>
           ${optionHtml}
         </select>
+        ${helpText ? `<p class="player-form-help">${helpText}</p>` : ""}
       </div>
     </div>
   `;
 }
 
-function renderYearRow(value) {
+function renderSnapshotOptionButtons(selectedValue, surface) {
+  return getSnapshotOptionsForRender(selectedValue).map(({ value, label }) => {
+    const isSelected = value === selectedValue;
+
+    return `
+      <button
+        type="button"
+        class="player-snapshot-option${isSelected ? " is-selected" : ""}"
+        data-snapshot-option-value="${escapeAttribute(value)}"
+        data-snapshot-option-surface="${escapeAttribute(surface)}"
+        role="option"
+        aria-selected="${isSelected ? "true" : "false"}"
+      >
+        <span class="player-snapshot-option-label">${label}</span>
+      </button>
+    `;
+  }).join("");
+}
+
+function renderSnapshotSelector(value) {
+  const fallbackValue = SNAPSHOT_LABEL_OPTIONS[0]?.value ?? "";
+  const selectedValue = SNAPSHOT_LABELS[value] ? value : fallbackValue;
+  const selectedLabel = getSnapshotLabel(selectedValue);
+
   return `
-    <div class="player-form-row" data-field="admission_year">
-      <span class="player-form-label">入学年</span>
-      <div class="player-form-control player-form-control--year">
-        ${buildAdmissionYearPicker({ selectedYear: value })}
+    <div class="player-snapshot-selector" data-snapshot-selector>
+      <input
+        id="snapshot_label"
+        type="hidden"
+        name="snapshot_label"
+        value="${escapeAttribute(selectedValue)}"
+        data-snapshot-input
+      >
+      <div class="player-snapshot-selector-desktop" data-snapshot-desktop>
+        <div class="player-snapshot-option-list" data-snapshot-option-list role="listbox" aria-label="スナップショット種別">
+          ${renderSnapshotOptionButtons(selectedValue, "desktop")}
+        </div>
+      </div>
+      <details class="player-snapshot-selector-mobile" data-snapshot-mobile>
+        <summary class="player-snapshot-mobile-summary">
+          <span class="player-snapshot-mobile-summary-copy">
+            <span class="player-snapshot-mobile-summary-label">選択中の時点</span>
+            <span class="player-snapshot-mobile-summary-value" data-snapshot-current-label>${selectedLabel}</span>
+          </span>
+          <span class="player-snapshot-mobile-summary-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="player-snapshot-mobile-body" data-snapshot-mobile-body role="listbox" aria-label="スナップショット種別">
+          ${renderSnapshotOptionButtons(selectedValue, "mobile")}
+        </div>
+      </details>
+    </div>
+  `;
+}
+
+function renderTimelineEditorRow({ admissionYear, snapshotLabel }) {
+  return `
+    <div class="player-form-row player-form-row--full player-form-row--timeline" data-field="record_timeline">
+      <div class="player-form-row-intro">
+        <span class="player-form-label">記録時点</span>
+        <p class="player-form-help">入学年とスナップショット種別を並べて確認しながら編集できます。</p>
+      </div>
+      <div class="player-timeline-editor">
+        <section class="player-timeline-panel player-timeline-panel--year" aria-labelledby="player-edit-timeline-year-title">
+          <div class="player-timeline-panel-header">
+            <h3 id="player-edit-timeline-year-title" class="player-timeline-panel-title">入学年</h3>
+            <p class="player-timeline-panel-description">西暦を上下ボタンで調整します。</p>
+          </div>
+          <div class="player-timeline-panel-body player-form-control player-form-control--year">
+            ${buildAdmissionYearPicker({ selectedYear: admissionYear })}
+          </div>
+        </section>
+        <section class="player-timeline-panel player-timeline-panel--snapshot" aria-labelledby="player-edit-timeline-snapshot-title">
+          <div class="player-timeline-panel-header">
+            <h3 id="player-edit-timeline-snapshot-title" class="player-timeline-panel-title">スナップショット種別</h3>
+            <p class="player-timeline-panel-description">PCは一覧、モバイルは開閉で選択します。</p>
+          </div>
+          <div class="player-timeline-panel-body player-timeline-panel-body--snapshot">
+            ${renderSnapshotSelector(snapshotLabel)}
+          </div>
+        </section>
       </div>
     </div>
   `;
@@ -450,28 +581,166 @@ function setupRankedAbilityInputs(form) {
   });
 }
 
-function syncPitcherSectionVisibility(form) {
-  const positionSelect = form.querySelector("#main_position");
-  const pitcherSection = form.querySelector('[data-edit-section="pitcher"]');
+function setupSnapshotSelector(form) {
+  form.querySelectorAll("[data-snapshot-selector]").forEach((selector) => {
+    const hiddenInput = selector.querySelector("[data-snapshot-input]");
+    const mobilePanel = selector.querySelector("[data-snapshot-mobile]");
+    const currentLabelTargets = selector.querySelectorAll("[data-snapshot-current-label]");
+    const optionButtons = Array.from(selector.querySelectorAll("[data-snapshot-option-value]"));
 
-  if (!positionSelect || !pitcherSection) {
-    return;
+    if (!hiddenInput || optionButtons.length === 0) {
+      return;
+    }
+
+    const allowedValues = new Set(optionButtons.map((button) => button.dataset.snapshotOptionValue));
+    const initialValue = allowedValues.has(hiddenInput.value)
+      ? hiddenInput.value
+      : SNAPSHOT_LABEL_OPTIONS[0]?.value ?? "";
+
+    const syncSelection = (nextValue) => {
+      const safeValue = allowedValues.has(nextValue) ? nextValue : initialValue;
+      hiddenInput.value = safeValue;
+      selector.dataset.snapshotValue = safeValue;
+
+      currentLabelTargets.forEach((target) => {
+        target.textContent = getSnapshotLabel(safeValue);
+      });
+
+      optionButtons.forEach((button) => {
+        const isSelected = button.dataset.snapshotOptionValue === safeValue;
+        button.classList.toggle("is-selected", isSelected);
+        button.setAttribute("aria-selected", isSelected ? "true" : "false");
+      });
+    };
+
+    optionButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        syncSelection(button.dataset.snapshotOptionValue);
+
+        if (mobilePanel && button.dataset.snapshotOptionSurface === "mobile") {
+          mobilePanel.open = false;
+        }
+      });
+    });
+
+    syncSelection(initialValue);
+  });
+}
+
+function syncTimelineSnapshotListHeight(form) {
+  const isMobileViewport = window.matchMedia("(max-width: 640px)").matches;
+
+  form.querySelectorAll(".player-timeline-editor").forEach((editor) => {
+    const yearPicker = editor.querySelector(".player-timeline-panel--year .admission-year-picker");
+    const snapshotDesktop = editor.querySelector(".player-snapshot-selector-desktop");
+    const snapshotList = editor.querySelector(".player-snapshot-option-list");
+
+    if (!snapshotList) {
+      return;
+    }
+
+    if (isMobileViewport || !yearPicker) {
+      snapshotList.style.height = "";
+      snapshotList.style.maxHeight = "";
+
+      if (snapshotDesktop) {
+        snapshotDesktop.style.height = "";
+        snapshotDesktop.style.maxHeight = "";
+      }
+
+      return;
+    }
+
+    const pickerHeight = Math.ceil(yearPicker.getBoundingClientRect().height);
+
+    if (pickerHeight <= 0) {
+      return;
+    }
+
+    snapshotList.style.height = "100%";
+    snapshotList.style.maxHeight = "100%";
+
+    if (snapshotDesktop) {
+      snapshotDesktop.style.height = `${pickerHeight}px`;
+      snapshotDesktop.style.maxHeight = `${pickerHeight}px`;
+    }
+  });
+}
+
+function getPitcherAbilityElements(form) {
+  const mainPositionSelect = form.querySelector("#main_position");
+  const pitcherSection = form.querySelector('[data-edit-section="pitcher"]');
+  const pitcherControls = pitcherSection
+    ? Array.from(pitcherSection.querySelectorAll("input, select, textarea, button"))
+    : [];
+
+  return {
+    mainPositionSelect,
+    pitcherSection,
+    pitcherControls,
+  };
+}
+
+function updateAbilitySectionVisibility(form) {
+  const { mainPositionSelect, pitcherSection, pitcherControls } = getPitcherAbilityElements(form);
+
+  if (!mainPositionSelect || !pitcherSection) {
+    return false;
   }
 
-  const applyVisibility = () => {
-    const shouldShowPitcherSection = isPitcherMainPosition(positionSelect.value);
-    pitcherSection.hidden = !shouldShowPitcherSection;
-    pitcherSection.setAttribute("aria-hidden", shouldShowPitcherSection ? "false" : "true");
+  const shouldShowPitcherSection = isPitcherPosition(mainPositionSelect.value);
+  pitcherSection.hidden = !shouldShowPitcherSection;
+  pitcherSection.setAttribute("aria-hidden", shouldShowPitcherSection ? "false" : "true");
 
-    pitcherSection
-      .querySelectorAll("input, select, textarea, button")
-      .forEach((control) => {
-        control.disabled = !shouldShowPitcherSection;
+  pitcherControls.forEach((control) => {
+    control.disabled = !shouldShowPitcherSection;
+  });
+
+  return true;
+}
+
+function bindAbilitySectionVisibility(form) {
+  const { mainPositionSelect } = getPitcherAbilityElements(form);
+
+  if (!mainPositionSelect) {
+    return false;
+  }
+
+  mainPositionSelect.addEventListener("change", () => {
+    updateAbilitySectionVisibility(form);
+  });
+
+  return updateAbilitySectionVisibility(form);
+}
+
+function applyRequestedEditScope(form) {
+  const requestedScope = getRequestedEditScope();
+  const scope = FOCUSABLE_EDIT_SCOPES.has(requestedScope) ? requestedScope : "";
+
+  form.dataset.editScope = scope || DEFAULT_EDIT_SCOPE;
+
+  if (!scope) {
+    return false;
+  }
+
+  const targetSection = form.querySelector(`[data-edit-section="${scope}"]`);
+
+  if (!targetSection || targetSection.hidden) {
+    return false;
+  }
+
+  targetSection.dataset.scopeActive = "true";
+
+  if (!window.location.hash) {
+    window.requestAnimationFrame(() => {
+      targetSection.scrollIntoView({
+        block: "start",
+        behavior: "smooth",
       });
-  };
+    });
+  }
 
-  positionSelect.addEventListener("change", applyVisibility);
-  applyVisibility();
+  return true;
 }
 
 function renderForm(form, player) {
@@ -481,7 +750,13 @@ function renderForm(form, player) {
     title: "基本情報",
     description: "識別情報とスナップショット単位の基本項目を編集します。",
     content: [
-      renderTextInputRow({ field: "name", label: "名前", value: player.name, required: true }),
+      renderTextInputRow({
+        field: "name",
+        label: "名前",
+        value: player.name,
+        required: true,
+        rowClass: "player-form-row--full",
+      }),
       renderSelectRow({
         field: "player_type",
         label: "選手種別",
@@ -504,13 +779,9 @@ function renderForm(form, player) {
         value: String(player.grade),
         required: true,
       }),
-      renderYearRow(player.admission_year),
-      renderSelectRow({
-        field: "snapshot_label",
-        label: "スナップショット種別",
-        options: SNAPSHOT_LABEL_OPTIONS,
-        value: player.snapshot_label,
-        required: true,
+      renderTimelineEditorRow({
+        admissionYear: player.admission_year,
+        snapshotLabel: player.snapshot_label,
       }),
       renderSelectRow({
         field: "main_position",
@@ -603,18 +874,11 @@ function buildPayload(formData) {
     batting_hand: formData.get("batting_hand"),
   };
 
-  [
-    "velocity",
-    "control",
-    "stamina",
-    "trajectory",
-    "meat",
-    "power",
-    "run_speed",
-    "arm_strength",
-    "fielding",
-    "catching",
-  ].forEach((field) => {
+  const abilityFieldNames = isPitcherPosition(payload.main_position)
+    ? [...PITCHER_ABILITY_FIELD_NAMES, ...BATTER_ABILITY_FIELD_NAMES]
+    : BATTER_ABILITY_FIELD_NAMES;
+
+  abilityFieldNames.forEach((field) => {
     appendOptionalIntegerPayload(payload, formData, field);
   });
 
@@ -669,8 +933,12 @@ async function init() {
 
     renderForm(form, player);
     setupAdmissionYearPickers(form);
+    setupSnapshotSelector(form);
+    syncTimelineSnapshotListHeight(form);
+    window.addEventListener("resize", () => syncTimelineSnapshotListHeight(form));
     setupRankedAbilityInputs(form);
-    syncPitcherSectionVisibility(form);
+    bindAbilitySectionVisibility(form);
+    applyRequestedEditScope(form);
     form.addEventListener("submit", (event) => handleSubmit(event, player, messageElement));
   } catch (error) {
     setPageHeader(titleElement, contextElement, {
@@ -691,4 +959,4 @@ if (typeof document !== "undefined" && document.getElementById("player-edit-form
   init();
 }
 
-export { buildPayload, getAbilityRankForValue, isPitcherMainPosition };
+export { bindAbilitySectionVisibility, buildPayload, getAbilityRankForValue, isPitcherPosition, updateAbilitySectionVisibility };
