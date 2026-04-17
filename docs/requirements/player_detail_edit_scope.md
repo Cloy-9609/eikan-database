@@ -5,20 +5,27 @@
 - どの項目が表示専用か、編集・保存対象かを整理する
 - フロントエンド、API、DB の対応状況と不足を次実装前に可視化する
 
+## 重要前提
+- スナップショット管理は `docs/requirements/player_snapshot_timeline.md` の親子構造を前提に再設計する。
+- relation 系編集UIより先に、`player_series` と時点スナップショットの責務分離を確定する。
+- このメモでは、`player_detail` を「同一選手の時点切替画面」、`player_edit` を「1スナップショット編集画面」へ寄せる方針を採る。
+
 ## 画面責務
 
 ### `player_detail`
-- 役割は「選手情報の読み取り」と「編集導線の起点」。
-- 上部ヘッダーは選手の識別情報を扱う。
-- 各カードは `basic / pitcher / batter / relations` の読み取り単位として扱う。
+- 役割は「同一選手の共通情報表示」「時点切替」「編集導線の起点」。
+- 上部ヘッダーは `player_series` の識別情報を扱う。
+- ヘッダー直下に正式9時点のボタン群を置き、登録済み/未登録を区別する。
+- 各カードは、現在選択中スナップショットの `basic / pitcher / batter / relations` の読み取り単位として扱う。
 - 将来的な編集導線は、画面全体編集よりも「基本情報を編集」「投手能力を編集」のようなセクション単位導線と相性が良い。
 - 守備位置図 UI は Phase2 後半の別拡張とし、本画面の責務は当面「情報表示 + 編集入口」に留める。
 
 ### `player_edit`
-- 現在の役割は「基本情報 + 投手能力 + 野手能力」の一括編集。
+- 主な役割は「1スナップショットの基本情報 + 投手能力 + 野手能力」の編集。
 - 現行 UI で編集できるのは、名前、選手種別、都道府県、学年、入学年、スナップショット種別、メインポジション、投打、投手能力、野手能力。
 - 変化球、特殊能力、サブポジションは未編集。
 - `player_detail` から `basic / pitcher / batter` の各セクションへアンカー付きで遷移できるため、当面は 1 画面編集を維持しつつ、将来的なセクション単位保存へも伸ばしやすい。
+- 再設計後は `snapshot_label` を既存スナップショット上で自由変更させず、新規時点作成時に確定する扱いを基本とする。
 
 ## 現在の保存導線
 1. `frontend/js/pages/player_edit.js`
@@ -41,6 +48,8 @@
 
 ## 項目別整理
 
+※ 下表の `DB保存先` は現行実装ベースの整理である。目標構造としては、共通情報を `player_series`、時点差分を `players` に寄せる方針を `player_snapshot_timeline.md` で優先する。
+
 | 項目 | detail表示 | edit編集 | 保存 | API受理 | DB保存先 | 優先度 | メモ |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 名前 `name` | あり | あり | あり | あり | `players.name` | 高 | 現行の基本情報編集対象 |
@@ -51,7 +60,7 @@
 | メインポジション `main_position` | あり | あり | あり | あり | `players.main_position` | 高 | 現行の基本情報編集対象 |
 | 選手種別 `player_type` | あり | あり | あり | あり | `players.player_type` | 高 | `is_reincarnated` / `is_genius` との扱い整理は未完 |
 | 投打 `throwing_hand` / `batting_hand` | あり | あり | あり | あり | `players.throwing_hand`, `players.batting_hand` | 高 | detail では合成表示、edit では別入力 |
-| スナップショット種別 `snapshot_label` | あり | あり | あり | あり | `players.snapshot_label` | 高 | 将来拡張時は frontend/service/schema の同時更新が必要 |
+| スナップショット種別 `snapshot_label` | あり | 条件付き | 条件付き | あり | `players.snapshot_label` | 高 | 時点識別子として扱う。既存時点の編集では原則固定、新規作成時に確定 |
 | 球速 `velocity` | あり | あり | あり | あり | `players.velocity` | 高 | `player_detail` / `player_edit` 対応済み |
 | コントロール `control` | あり | あり | あり | あり | `players.control` | 高 | `player_detail` / `player_edit` 対応済み |
 | スタミナ `stamina` | あり | あり | あり | あり | `players.stamina` | 高 | `player_detail` / `player_edit` 対応済み |
@@ -94,7 +103,7 @@
 - `player_edit.js` / `player_register.js` の選択肢
 - `playerService.js` の許可 enum
 - `schema.sql` の CHECK 制約
-- 将来 `2年4月` や `夏甲子園終了後` を増やす際は上記を同時更新する必要がある。
+- 将来は `player_series` 前提の正式9時点を共通定数として一元化し、都度の許可値増設ではなく固定順時系列として扱う必要がある。
 
 ### 5. `player_type` と内部フラグの責務が曖昧
 - UI は `player_type` のみ編集。
@@ -104,21 +113,22 @@
 ## 今後の実装優先候補
 
 ### 優先度 高
-1. `pitch_types` / `special_abilities` / `sub_positions` の編集 UI を追加する
-2. `player_detail` の relation 系カードにも編集導線を追加する
+1. `player_series` + スナップショット時点管理の設計を先に固定する
+2. `player_detail` を時点切替前提の画面責務へ整理する
 3. 基本情報編集と能力編集の保存対象を docs とコードで一致させ続ける
 
 ### 優先度 中
 1. section 単位編集を見据えて update API の責務を `PUT` か `PATCH` かで再整理する
-2. スナップショット種別の拡張方針を先に定義する
-3. `player_type` に応じた能力セクションの表示補助を検討する
+2. `pitch_types` / `special_abilities` / `sub_positions` の編集 UI をスナップショット前提で追加する
+3. `player_detail` の relation 系カードにも編集導線を追加する
+4. `player_type` に応じた能力セクションの表示補助を検討する
 
 ### 優先度 低
 1. `total_stars`、`player_type_note`、`evidence_image_path` の露出方針を決める
 2. `player_results` を player API に含めるか別 API にするか決める
 
 ## 今回の判断
-- `player_detail` は表示責務を維持し、編集の入口だけを持つ
-- `player_edit` は「基本情報 + 投手能力 + 野手能力」の編集画面とする
-- `player_detail` から各能力カード単位で編集画面へ入れる導線を持つ
-- relation 系編集は次段の対象として残す
+- `player_detail` は表示責務を維持しつつ、同一選手の時点切替を担う
+- `player_edit` は「1スナップショットの基本情報 + 投手能力 + 野手能力」の編集画面とする
+- `snapshot_label` は新規時点作成時に確定する識別子として扱う
+- relation 系編集は、スナップショット再設計の土台確定後に進める
