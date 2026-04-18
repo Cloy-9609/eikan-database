@@ -112,6 +112,13 @@ const TOAST_DEFAULT_DURATION_MS = 2200;
 const TOAST_SUCCESS_DURATION_MS = 1800;
 const TOAST_ERROR_DURATION_MS = 3200;
 const TOAST_LOADING_MIN_VISIBLE_MS = 900;
+const SNAPSHOT_BUTTON_STATE_LABELS = {
+  unregistered: "未登録",
+  registered: "登録済み",
+  current: "表示中",
+  loading: "読み込み中",
+  error: "問題発生",
+};
 
 const DETAIL_STATE = {
   playerId: "",
@@ -122,6 +129,8 @@ const DETAIL_STATE = {
   pendingCreateSnapshotKey: "",
   confirmBeforeCreateSnapshot: true,
   isBusy: false,
+   loadingSnapshotKey: "",
+   snapshotButtonErrorKey: "",
   refs: null,
   activeModalScope: "",
   lastFocusedElement: null,
@@ -146,6 +155,23 @@ function getPlayerIdFromQuery() {
 function getSnapshotFromQuery() {
   const params = new URLSearchParams(window.location.search);
   return params.get("snapshot") ?? "";
+}
+
+function getCurrentSchoolId() {
+  return (
+    DETAIL_STATE.playerSeries?.school_id ??
+    DETAIL_STATE.currentSnapshot?.school_id ??
+    DETAIL_STATE.player?.school_id ??
+    null
+  );
+}
+
+function getSnapshotCreateConfirmationStorageKey(schoolId = getCurrentSchoolId()) {
+  if (!schoolId) {
+    return "";
+  }
+
+  return `${SNAPSHOT_CREATE_CONFIRM_STORAGE_KEY}:school:${schoolId}`;
 }
 
 function syncSnapshotQuery(snapshotKey) {
@@ -200,7 +226,7 @@ function getOfficialSnapshotDefinitions() {
   }));
 }
 
-function getSnapshotOptionDefinitions(currentSnapshotLabel = "") {
+function getSnapshotOptionDefinitionsLegacy(currentSnapshotLabel = "") {
   const options = [...SNAPSHOT_LABEL_OPTIONS];
 
   if (
@@ -210,6 +236,22 @@ function getSnapshotOptionDefinitions(currentSnapshotLabel = "") {
     options.push({
       value: currentSnapshotLabel,
       label: `${SNAPSHOT_LABELS[currentSnapshotLabel] ?? currentSnapshotLabel} (旧データ)`,
+    });
+  }
+
+  return options;
+}
+
+function getSnapshotOptionDefinitions(currentSnapshotLabel = "") {
+  const options = [...SNAPSHOT_LABEL_OPTIONS];
+
+  if (
+    currentSnapshotLabel &&
+    !options.some((option) => option.value === currentSnapshotLabel)
+  ) {
+    options.push({
+      value: currentSnapshotLabel,
+      label: `${SNAPSHOT_LABELS[currentSnapshotLabel] ?? currentSnapshotLabel} (旧形式の大会後データ)`,
     });
   }
 
@@ -236,19 +278,30 @@ function formatThrowBat(player) {
   return `${throwing || "-"} / ${batting || "-"}`;
 }
 
-function readSnapshotCreateConfirmationPreference() {
+function readSnapshotCreateConfirmationPreference(schoolId = getCurrentSchoolId()) {
+  const storageKey = getSnapshotCreateConfirmationStorageKey(schoolId);
+
+  if (!storageKey) {
+    return true;
+  }
+
   try {
-    return sessionStorage.getItem(SNAPSHOT_CREATE_CONFIRM_STORAGE_KEY) !== "false";
+    return sessionStorage.getItem(storageKey) !== "false";
   } catch (error) {
     return true;
   }
 }
 
-function setSnapshotCreateConfirmationPreference(shouldConfirm) {
+function setSnapshotCreateConfirmationPreference(shouldConfirm, schoolId = getCurrentSchoolId()) {
   DETAIL_STATE.confirmBeforeCreateSnapshot = shouldConfirm;
+  const storageKey = getSnapshotCreateConfirmationStorageKey(schoolId);
+
+  if (!storageKey) {
+    return;
+  }
 
   try {
-    sessionStorage.setItem(SNAPSHOT_CREATE_CONFIRM_STORAGE_KEY, shouldConfirm ? "true" : "false");
+    sessionStorage.setItem(storageKey, shouldConfirm ? "true" : "false");
   } catch (error) {
     // Ignore storage failures and keep the in-memory preference.
   }
@@ -296,6 +349,25 @@ function buildPlayerViewModel(seriesResponse) {
     batting_hand: playerSeries?.batting_hand ?? currentSnapshot?.batting_hand ?? "",
     player_series_note: playerSeries?.note ?? currentSnapshot?.player_series_note ?? "",
   };
+}
+
+function getCurrentEditablePlayer() {
+  return buildPlayerViewModel(getCurrentSeriesResponse()) ?? DETAIL_STATE.player;
+}
+
+function clearSnapshotButtonFeedback() {
+  DETAIL_STATE.loadingSnapshotKey = "";
+  DETAIL_STATE.snapshotButtonErrorKey = "";
+}
+
+function setSnapshotButtonLoading(snapshotKey) {
+  DETAIL_STATE.loadingSnapshotKey = snapshotKey;
+  DETAIL_STATE.snapshotButtonErrorKey = "";
+}
+
+function setSnapshotButtonError(snapshotKey) {
+  DETAIL_STATE.loadingSnapshotKey = "";
+  DETAIL_STATE.snapshotButtonErrorKey = snapshotKey;
 }
 
 function isPitcherPosition(value) {
@@ -411,7 +483,7 @@ function renderSnapshotValue(value) {
   `;
 }
 
-function buildSnapshotCreatePrompt(snapshotKey) {
+function buildSnapshotCreatePromptLegacy(snapshotKey) {
   if (!snapshotKey) {
     return "";
   }
@@ -450,7 +522,7 @@ function buildSnapshotCreatePrompt(snapshotKey) {
   `;
 }
 
-function buildLegacySnapshotNotice(seriesResponse) {
+function buildLegacySnapshotNoticeLegacy(seriesResponse) {
   const currentSnapshot = seriesResponse?.currentSnapshot ?? null;
   const hasLegacySnapshots =
     Boolean(seriesResponse?.playerSeries?.has_legacy_snapshot_labels) ||
@@ -476,7 +548,7 @@ function buildLegacySnapshotNotice(seriesResponse) {
   `;
 }
 
-function buildSnapshotTimelineButtons(seriesResponse) {
+function buildSnapshotTimelineButtonsLegacy(seriesResponse) {
   const snapshots = Array.isArray(seriesResponse?.snapshots) ? seriesResponse.snapshots : [];
   const currentSnapshot = seriesResponse?.currentSnapshot ?? null;
 
@@ -520,6 +592,187 @@ function buildSnapshotTimelineButtons(seriesResponse) {
           <h3 id="snapshot-timeline-title" class="snapshot-timeline-title">時点切替</h3>
           <p class="snapshot-timeline-caption">
             登録済みの時点は切り替え、未登録の時点は追加できます。
+          </p>
+        </div>
+      </div>
+      <div class="snapshot-timeline-buttons">
+        ${buttonsHtml}
+      </div>
+      ${promptHtml}
+      ${buildLegacySnapshotNotice(seriesResponse)}
+    </section>
+  `;
+}
+
+function getLegacySnapshotSummaryLabel(snapshotKey) {
+  if (snapshotKey === "post_tournament") {
+    return "旧形式の大会後データ";
+  }
+
+  return "移行前の時点データ";
+}
+
+function resolveSnapshotButtonState(snapshotKey, snapshots, currentSnapshot) {
+  const registered = isSnapshotRegistered(snapshotKey, snapshots);
+  const current = isCurrentSnapshot(snapshotKey, currentSnapshot);
+
+  if (DETAIL_STATE.loadingSnapshotKey === snapshotKey) {
+    return {
+      tone: "loading",
+      label: SNAPSHOT_BUTTON_STATE_LABELS.loading,
+      registered,
+      current: false,
+    };
+  }
+
+  if (DETAIL_STATE.snapshotButtonErrorKey === snapshotKey) {
+    return {
+      tone: "error",
+      label: SNAPSHOT_BUTTON_STATE_LABELS.error,
+      registered,
+      current: false,
+    };
+  }
+
+  if (current) {
+    return {
+      tone: "current",
+      label: SNAPSHOT_BUTTON_STATE_LABELS.current,
+      registered: true,
+      current: true,
+    };
+  }
+
+  if (registered) {
+    return {
+      tone: "registered",
+      label: SNAPSHOT_BUTTON_STATE_LABELS.registered,
+      registered: true,
+      current: false,
+    };
+  }
+
+  return {
+    tone: "unregistered",
+    label: SNAPSHOT_BUTTON_STATE_LABELS.unregistered,
+    registered: false,
+    current: false,
+  };
+}
+
+function buildSnapshotCreatePrompt(snapshotKey) {
+  if (!snapshotKey) {
+    return "";
+  }
+
+  const snapshotDefinition = getOfficialSnapshotDefinitions().find((definition) => definition.key === snapshotKey);
+  const snapshotLabel = snapshotDefinition?.label ?? SNAPSHOT_LABELS[snapshotKey] ?? snapshotKey;
+  const schoolLabel = DETAIL_STATE.playerSeries?.school_name
+    ? `${formatSchoolName(DETAIL_STATE.playerSeries.school_name)}では`
+    : "この学校では";
+
+  return `
+    <div class="snapshot-create-prompt" data-create-snapshot-prompt>
+      <p class="snapshot-create-prompt-text">「${escapeHtml(snapshotLabel)}」の時点を作成しますか？</p>
+      <div class="snapshot-create-prompt-actions">
+        <button
+          type="button"
+          class="player-button player-button-primary player-button-inline"
+          data-create-snapshot-confirm="${escapeAttribute(snapshotKey)}"
+        >
+          作成する
+        </button>
+        <button
+          type="button"
+          class="player-button player-button-secondary player-button-inline"
+          data-create-snapshot-cancel
+        >
+          キャンセル
+        </button>
+      </div>
+      <label class="snapshot-create-prompt-toggle">
+        <input
+          type="checkbox"
+          data-snapshot-confirm-toggle
+          ${DETAIL_STATE.confirmBeforeCreateSnapshot ? "" : "checked"}
+        >
+        <span>${schoolLabel}次回から確認しない</span>
+      </label>
+    </div>
+  `;
+}
+
+function buildLegacySnapshotNotice(seriesResponse) {
+  const currentSnapshot = seriesResponse?.currentSnapshot ?? null;
+  const hasLegacySnapshots =
+    Boolean(seriesResponse?.playerSeries?.has_legacy_snapshot_labels) ||
+    (Array.isArray(seriesResponse?.snapshots) &&
+      seriesResponse.snapshots.some((snapshot) => snapshot.is_legacy_snapshot_label));
+
+  if (!hasLegacySnapshots) {
+    return "";
+  }
+
+  if (currentSnapshot?.is_legacy_snapshot_label) {
+    return `
+      <div class="snapshot-legacy-note">
+        ${escapeHtml(getLegacySnapshotSummaryLabel(currentSnapshot.snapshot_label))}を表示中です。正式9時点には対応付けていません。
+      </div>
+    `;
+  }
+
+  return `
+    <div class="snapshot-legacy-note">
+      この選手には${escapeHtml(getLegacySnapshotSummaryLabel("post_tournament"))}や旧データ時点が含まれています。
+    </div>
+  `;
+}
+
+function buildSnapshotTimelineButtons(seriesResponse) {
+  const snapshots = Array.isArray(seriesResponse?.snapshots) ? seriesResponse.snapshots : [];
+  const currentSnapshot = seriesResponse?.currentSnapshot ?? null;
+
+  const buttonsHtml = getOfficialSnapshotDefinitions()
+    .map(({ key, label }) => {
+      const buttonState = resolveSnapshotButtonState(key, snapshots, currentSnapshot);
+      const className = [
+        "snapshot-timeline-button",
+        `is-${buttonState.tone}`,
+        buttonState.registered ? "is-registered" : "is-unregistered",
+        buttonState.current ? "is-current" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      return `
+        <button
+          type="button"
+          class="${className}"
+          data-snapshot-button="${escapeAttribute(key)}"
+          data-snapshot-registered="${buttonState.registered ? "true" : "false"}"
+          data-snapshot-state="${buttonState.tone}"
+          aria-pressed="${buttonState.current ? "true" : "false"}"
+          ${DETAIL_STATE.isBusy ? "disabled" : ""}
+        >
+          <span class="snapshot-timeline-button-label">${label}</span>
+          <span class="snapshot-timeline-button-state">${buttonState.label}</span>
+        </button>
+      `;
+    })
+    .join("");
+
+  const promptHtml =
+    DETAIL_STATE.pendingCreateSnapshotKey && DETAIL_STATE.confirmBeforeCreateSnapshot
+      ? buildSnapshotCreatePrompt(DETAIL_STATE.pendingCreateSnapshotKey)
+      : "";
+
+  return `
+    <section class="snapshot-timeline" aria-labelledby="snapshot-timeline-title">
+      <div class="snapshot-timeline-header">
+        <div>
+          <h3 id="snapshot-timeline-title" class="snapshot-timeline-title">時点切替</h3>
+          <p class="snapshot-timeline-caption">
+            登録状況と表示中の時点を、ボタンの色とラベルで確認できます。
           </p>
         </div>
       </div>
@@ -723,7 +976,11 @@ function syncDetailState(seriesResponse) {
   DETAIL_STATE.playerSeries = seriesResponse?.playerSeries ?? null;
   DETAIL_STATE.snapshots = Array.isArray(seriesResponse?.snapshots) ? seriesResponse.snapshots : [];
   DETAIL_STATE.currentSnapshot = seriesResponse?.currentSnapshot ?? null;
-  DETAIL_STATE.player = DETAIL_STATE.currentSnapshot;
+  DETAIL_STATE.player = buildPlayerViewModel(seriesResponse);
+  DETAIL_STATE.confirmBeforeCreateSnapshot = readSnapshotCreateConfirmationPreference(
+    DETAIL_STATE.playerSeries?.school_id ?? DETAIL_STATE.currentSnapshot?.school_id ?? null
+  );
+  clearSnapshotButtonFeedback();
 }
 
 function renderCurrentPlayerDetail() {
@@ -1919,8 +2176,9 @@ function closeSectionEditModal() {
 function openSectionEditModal(scope, player) {
   const refs = DETAIL_STATE.refs;
   const meta = SECTION_EDIT_META[scope];
+  const modalPlayer = getCurrentEditablePlayer() ?? player;
 
-  if (!refs?.modalElement || !refs.modalBodyElement || !meta || !player) {
+  if (!refs?.modalElement || !refs?.modalBodyElement || !meta || !modalPlayer) {
     return false;
   }
 
@@ -1930,7 +2188,7 @@ function openSectionEditModal(scope, player) {
   DETAIL_STATE.activeModalScope = scope;
   refs.modalKickerElement.textContent = meta.kicker;
   refs.modalTitleElement.textContent = meta.title;
-  refs.modalBodyElement.innerHTML = buildSectionEditForm(scope, player);
+  refs.modalBodyElement.innerHTML = buildSectionEditForm(scope, modalPlayer);
   refs.modalElement.hidden = false;
   refs.modalElement.dataset.activeScope = scope;
   document.body.classList.add("player-page--modal-open");
@@ -1953,7 +2211,7 @@ function openSectionEditModal(scope, player) {
 }
 
 async function saveSectionEdit(scope, formData) {
-  const currentPlayer = DETAIL_STATE.player;
+  const currentPlayer = getCurrentEditablePlayer();
 
   if (!currentPlayer) {
     throw new Error("選手情報が読み込まれていません。");
@@ -2046,6 +2304,9 @@ function handleDetailRootClickLegacy(event) {
     event.preventDefault();
 
     createSnapshotAndReload(createConfirmButton.dataset.createSnapshotConfirm).catch((error) => {
+      setSnapshotButtonError(createConfirmButton.dataset.createSnapshotConfirm);
+      renderCurrentPlayerDetail();
+      showErrorToast(error instanceof Error ? error.message : "時点の作成に失敗しました。");
       setMessage(
         DETAIL_STATE.refs.messageElement,
         error instanceof Error ? error.message : "時点の作成に失敗しました。",
@@ -2069,6 +2330,9 @@ function handleDetailRootClickLegacy(event) {
     event.preventDefault();
 
     handleSnapshotButtonClick(snapshotButton.dataset.snapshotButton).catch((error) => {
+      setSnapshotButtonError(snapshotButton.dataset.snapshotButton);
+      renderCurrentPlayerDetail();
+      showErrorToast(error instanceof Error ? error.message : "時点の切り替えに失敗しました。");
       setMessage(
         DETAIL_STATE.refs.messageElement,
         error instanceof Error ? error.message : "時点の切り替えに失敗しました。",
@@ -2229,6 +2493,7 @@ async function createSnapshotAndReload(snapshotKey) {
   const snapshotLabel = SNAPSHOT_LABELS[snapshotKey] ?? snapshotKey;
   const loadingToast = showLoadingToast(`「${snapshotLabel}」の時点を作成中です...`);
 
+  clearSnapshotButtonFeedback();
   DETAIL_STATE.pendingCreateSnapshotKey = "";
   DETAIL_STATE.isBusy = true;
   renderCurrentPlayerDetail();
@@ -2242,9 +2507,12 @@ async function createSnapshotAndReload(snapshotKey) {
     loadingToast.close().then(() => showSuccessToast(`「${snapshotLabel}」の時点を作成しました。`));
   } catch (error) {
     loadingToast.close().catch(() => {});
+    setSnapshotButtonError(snapshotKey);
+    renderCurrentPlayerDetail();
     throw error;
   } finally {
     DETAIL_STATE.isBusy = false;
+    renderCurrentPlayerDetail();
   }
 }
 
@@ -2257,17 +2525,25 @@ async function handleSnapshotButtonClick(snapshotKey) {
     return;
   }
 
+  DETAIL_STATE.snapshotButtonErrorKey = "";
+
   if (isSnapshotRegistered(snapshotKey, DETAIL_STATE.snapshots)) {
     DETAIL_STATE.isBusy = true;
+    setSnapshotButtonLoading(snapshotKey);
+    renderCurrentPlayerDetail();
 
     try {
       await loadPlayerDetail({
         snapshot: snapshotKey,
         syncUrl: true,
-        loadingMessage: `「${SNAPSHOT_LABELS[snapshotKey] ?? snapshotKey}」を読み込み中です...`,
       });
+    } catch (error) {
+      setSnapshotButtonError(snapshotKey);
+      renderCurrentPlayerDetail();
+      throw error;
     } finally {
       DETAIL_STATE.isBusy = false;
+      renderCurrentPlayerDetail();
     }
 
     return;
@@ -2324,12 +2600,14 @@ function handleDetailRootClick(event) {
 
   const scope = button.dataset.openSectionEdit;
 
-  if (!scope || !DETAIL_STATE.player) {
+  const editablePlayer = getCurrentEditablePlayer();
+
+  if (!scope || !editablePlayer) {
     return;
   }
 
   event.preventDefault();
-  openSectionEditModal(scope, DETAIL_STATE.player);
+  openSectionEditModal(scope, editablePlayer);
 }
 
 async function handleModalSubmit(event) {

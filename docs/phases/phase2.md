@@ -96,6 +96,16 @@ Phase 1 で作った動く土台の上に、実運用で便利と言える機能
 - この時点では「選手を守備位置図に配置できる機能」までは含めず、配置 UI は別機能として後続検討に分離する。
 - 守備位置図 UI の具体仕様は `docs/requirements/defense_position_map.md` を参照し、Phase 2 後半で仕様確定から着手する。
 
+#### 1.3.b school_detail の学校年度進行（1年経過）
+
+- `school_detail` の `1年経過` は、school 管理と player snapshot 運用を接続する中期拡張として扱う。
+- 着手順は「snapshot 再設計の固定 → `player_detail` の時点切替安定化 → `school_detail` の所属選手一覧を `player_series` 単位へ統一 → 学校年度進行仕様の確定 → core 実装」とする。
+- 初期実装では、学校の `current_year` 更新と、所属選手の school 管理上の現在学年更新までを責務とする。
+- 初期実装では、`1年経過` により各選手の snapshot を自動生成しない。
+- school 進行と latest snapshot のずれは当面許容し、必要に応じて補助表示で埋める。
+- relation 系編集UIや守備位置図 UI より前に、少なくとも `school_detail` の年度進行が何を更新し、snapshot と何を分離するかを requirements で固定しておく。
+- 詳細仕様は `docs/requirements/school_year_progression.md` を参照する。
+
 ### 1.4 入力補助
 
 - よく使う値の候補化
