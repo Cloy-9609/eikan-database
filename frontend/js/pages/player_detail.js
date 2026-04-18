@@ -186,6 +186,25 @@ function syncSnapshotQuery(snapshotKey) {
   window.history.replaceState({}, "", url);
 }
 
+function buildPlayerEditUrl(playerId, { mode = "", from = "", snapshot = "" } = {}) {
+  const params = new URLSearchParams();
+  params.set("id", String(playerId));
+
+  if (mode) {
+    params.set("mode", mode);
+  }
+
+  if (from) {
+    params.set("from", from);
+  }
+
+  if (snapshot) {
+    params.set("snapshot", snapshot);
+  }
+
+  return `./player_edit.html?${params.toString()}`;
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -2482,8 +2501,8 @@ async function initOld() {
   }
 }
 
-// Keep transient notifications out of the main layout by routing them through toast helpers.
-async function createSnapshotAndReload(snapshotKey) {
+// Snapshot creation keeps the seeded copy logic, then moves straight into editing that new timeline point.
+async function createSnapshotAndGoToEdit(snapshotKey) {
   const playerSeriesId = DETAIL_STATE.playerSeries?.id;
 
   if (!playerSeriesId) {
@@ -2498,23 +2517,38 @@ async function createSnapshotAndReload(snapshotKey) {
   DETAIL_STATE.isBusy = true;
   renderCurrentPlayerDetail();
 
+  let isRedirectingToEdit = false;
+
   try {
-    await addSnapshotToSeries(playerSeriesId, { snapshot_label: snapshotKey });
-    await loadPlayerDetail({
-      snapshot: snapshotKey,
-      syncUrl: true,
-    });
-    loadingToast.close().then(() => showSuccessToast(`「${snapshotLabel}」の時点を作成しました。`));
+    const createdSnapshot = await addSnapshotToSeries(playerSeriesId, { snapshot_label: snapshotKey });
+
+    if (!createdSnapshot?.id) {
+      throw new Error("作成した時点の編集画面へ移動できませんでした。");
+    }
+
+    isRedirectingToEdit = true;
+    window.location.assign(
+      buildPlayerEditUrl(createdSnapshot.id, {
+        mode: "snapshot-create",
+        from: "timeline",
+        snapshot: createdSnapshot.snapshot_label ?? snapshotKey,
+      })
+    );
   } catch (error) {
     loadingToast.close().catch(() => {});
     setSnapshotButtonError(snapshotKey);
     renderCurrentPlayerDetail();
     throw error;
   } finally {
-    DETAIL_STATE.isBusy = false;
-    renderCurrentPlayerDetail();
+    if (!isRedirectingToEdit) {
+      DETAIL_STATE.isBusy = false;
+      renderCurrentPlayerDetail();
+    }
   }
 }
+
+// Keep the older name as a compatibility alias for legacy handlers/tests while the redirect behavior is updated.
+const createSnapshotAndReload = createSnapshotAndGoToEdit;
 
 async function handleSnapshotButtonClick(snapshotKey) {
   if (!snapshotKey || DETAIL_STATE.isBusy) {
@@ -2554,7 +2588,7 @@ async function handleSnapshotButtonClick(snapshotKey) {
     return;
   }
 
-  await createSnapshotAndReload(snapshotKey);
+  await createSnapshotAndGoToEdit(snapshotKey);
 }
 
 function handleDetailRootClick(event) {
@@ -2563,7 +2597,7 @@ function handleDetailRootClick(event) {
   if (createConfirmButton) {
     event.preventDefault();
 
-    createSnapshotAndReload(createConfirmButton.dataset.createSnapshotConfirm).catch((error) => {
+    createSnapshotAndGoToEdit(createConfirmButton.dataset.createSnapshotConfirm).catch((error) => {
       const message = error instanceof Error ? error.message : "時点の作成に失敗しました。";
       showErrorToast(message);
       setMessage(DETAIL_STATE.refs.messageElement, message, true);

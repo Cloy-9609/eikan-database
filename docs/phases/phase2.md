@@ -22,6 +22,39 @@ Phase 1 で作った動く土台の上に、実運用で便利と言える機能
 このフェーズでは、
 「登録できる」から「探しやすい」「入力しやすい」「将来の OCR につなげやすい」へ進める。
 
+## 現在地（2026/04/19時点）
+
+Phase 2 は、現時点では「次に着手するフェーズ」ではなく、すでに進行中のフェーズとして扱う。
+現在地としては、snapshot / series 再設計を中心にした Phase 2 前半〜中盤と整理する。
+
+### 実装済み
+
+- 選手スナップショット時系列設計の固定
+  - `player_series` を親、既存 `players` を各時点 snapshot 子とする方針を requirements と DB / API 土台へ反映済み
+- `player_detail` の時点切替成立
+  - 最新 snapshot 初期表示、正式9時点ボタン、legacy 補助表示、`currentSnapshot` ベース描画まで実装済み
+- 新規 snapshot 作成導線成立
+  - 未登録時点から snapshot を作成し、そのまま `player_edit` の該当 snapshot 編集へ進む導線まで実装済み
+- `school_detail` の `player_series` 単位一覧化
+  - 所属選手一覧と人数表示を snapshot 単位ではなく同一選手単位へ整理済み
+- `school_detail` の `1年経過` requirements 整理
+  - `docs/requirements/school_year_progression.md` に責務分離と初期方針を整理済み
+- OCR 設計書の現行導線整合
+  - `ocr_pipeline_design.md` を、snapshot / series 設計、`player_detail` / `player_edit` 導線、現在の phase 方針に合わせて調整済み
+
+### 一部実装済み
+
+- OCR 入口仮UI
+  - `player_edit` の `snapshot-create` モードで、将来の OCR / 固定UI解析導線を受け入れる仮カードまでは実装済み
+  - ただし、画像アップロード、固定UI解析、OCR結果反映、低信頼項目レビューは未実装
+
+### 未実装
+
+- relation 系編集UI
+- 守備位置図 UI
+- `school_detail` の `1年経過` core 実装
+- OCR 本体 MVP
+
 ## 目的
 
 - 手入力中心の運用を、実際に使いやすい運用へ引き上げる
@@ -146,10 +179,10 @@ Phase 1 で作った動く土台の上に、実運用で便利と言える機能
 
 ## 次の主戦場としての意味
 
-現時点の本プロジェクトでは、Phase 2 が次に本格着手するフェーズと考える。
+現時点の本プロジェクトでは、Phase 2 はすでに本格進行中のフェーズである。
 
 理由:
 
-- 基本導線は既に成立しつつある
-- コア入力仕様の確定が進んでいる
-- 次に価値が高いのは、入力の効率化と検索性向上だからである
+- 基本導線に加え、snapshot / series 再設計の土台実装まで進んでいる
+- `player_detail` / `school_detail` の主要な画面責務整理が進んでいる
+- 残る価値の高い作業が、relation 系編集、学校進行、OCR 入力支援など Phase 2 的な拡張タスクに集中している

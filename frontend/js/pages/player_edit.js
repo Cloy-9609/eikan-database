@@ -99,6 +99,16 @@ function getRequestedEditScope() {
   return scope.trim();
 }
 
+function getEditFlowContextFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+
+  return {
+    mode: params.get("mode")?.trim() ?? "",
+    from: params.get("from")?.trim() ?? "",
+    snapshot: params.get("snapshot")?.trim() ?? "",
+  };
+}
+
 function escapeAttribute(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -219,6 +229,138 @@ function setPageHeader(titleElement, contextElement, { title, context, documentT
   }
 
   document.title = documentTitle;
+}
+
+function buildPlayerDetailUrl(playerId, snapshotLabel = "") {
+  const params = new URLSearchParams();
+  params.set("id", String(playerId));
+
+  if (snapshotLabel) {
+    params.set("snapshot", snapshotLabel);
+  }
+
+  return `./player_detail.html?${params.toString()}`;
+}
+
+function buildEditModePresentation(player, flowContext) {
+  const snapshotLabel = getSnapshotLabel(flowContext.snapshot || player.snapshot_label);
+
+  if (flowContext.mode !== "snapshot-create") {
+    return {
+      title: "選手情報編集",
+      context: `${player.name} の基本情報と能力値を編集します。relation 系は次段で拡張します。`,
+      documentTitle: `${player.name} | 選手情報編集`,
+      flowNote: null,
+      returnLabel: "詳細へ戻る",
+    };
+  }
+
+  return {
+    title: "新しい時点の更新情報を登録",
+    context: `「${snapshotLabel}」を作成しました。この時点の能力・情報を更新してください。`,
+    documentTitle: `${player.name} | 新時点の情報登録`,
+    flowNote: {
+      kicker: "Snapshot Create",
+      title: "新しい時点の登録を続けています",
+      body: "この時点は直前の登録済み snapshot を初期値として引き継いでいます。必要な差分を更新し、将来的には OCR / 画像読取の反映先としても使いやすい入口にします。",
+    },
+    returnLabel: "この時点の詳細へ戻る",
+  };
+}
+
+function renderFlowNote(noteElement, flowNote) {
+  if (!noteElement) {
+    return;
+  }
+
+  if (!flowNote) {
+    noteElement.hidden = true;
+    noteElement.innerHTML = "";
+    return;
+  }
+
+  noteElement.hidden = false;
+  noteElement.innerHTML = `
+    <p class="player-edit-flow-note-kicker">${flowNote.kicker}</p>
+    <h2 class="player-edit-flow-note-title">${flowNote.title}</h2>
+    <p class="player-edit-flow-note-body">${flowNote.body}</p>
+  `;
+}
+
+function buildOcrEntryPresentation(player, flowContext) {
+  if (flowContext.mode !== "snapshot-create") {
+    return null;
+  }
+
+  const snapshotLabel = getSnapshotLabel(flowContext.snapshot || player.snapshot_label);
+
+  return {
+    title: "画像から更新情報を読み取る",
+    description: `今後、「${snapshotLabel}」の画像から能力値や起用情報を読み取って、この時点の入力へ反映できるようにする予定です。`,
+    buttonLabel: "画像読取を開始（準備中）",
+    note: "現時点では手動入力のみ対応しています。OCR / 固定UI解析 / 結果プレビューは今後ここに追加します。",
+    actionMessage: "画像読取機能は今後追加予定です。現時点ではこの画面で手動入力を続けてください。",
+  };
+}
+
+function renderOcrEntryCard(entryElement, ocrEntry) {
+  if (!entryElement) {
+    return;
+  }
+
+  if (!ocrEntry) {
+    entryElement.hidden = true;
+    entryElement.innerHTML = "";
+    return;
+  }
+
+  entryElement.hidden = false;
+  entryElement.dataset.mode = "snapshot-create";
+  entryElement.dataset.featureState = "planned";
+  entryElement.innerHTML = `
+    <div
+      class="player-edit-ocr-entry-card"
+      data-ocr-entry
+      data-mode="snapshot-create"
+      data-feature-state="planned"
+    >
+      <div class="player-edit-ocr-entry-header">
+        <div class="player-edit-ocr-entry-copy">
+          <p class="player-edit-ocr-entry-kicker">OCR Entry</p>
+          <h2 class="player-edit-ocr-entry-title">${ocrEntry.title}</h2>
+        </div>
+        <span class="player-edit-ocr-entry-badge">準備中</span>
+      </div>
+      <p class="player-edit-ocr-entry-description">${ocrEntry.description}</p>
+      <div class="player-edit-ocr-entry-actions">
+        <button
+          type="button"
+          class="player-button player-button-secondary"
+          data-ocr-entry-action="planned"
+          data-feature-state="planned"
+        >
+          ${ocrEntry.buttonLabel}
+        </button>
+      </div>
+      <p class="player-edit-ocr-entry-note">${ocrEntry.note}</p>
+    </div>
+  `;
+}
+
+function bindOcrEntryActions(entryElement, messageElement, ocrEntry) {
+  if (!entryElement || !ocrEntry) {
+    return;
+  }
+
+  const actionButton = entryElement.querySelector("[data-ocr-entry-action='planned']");
+
+  if (!actionButton) {
+    return;
+  }
+
+  actionButton.addEventListener("click", () => {
+    setMessage(messageElement, ocrEntry.actionMessage);
+  });
 }
 
 function renderFormSection({
@@ -743,7 +885,7 @@ function applyRequestedEditScope(form) {
   return true;
 }
 
-function renderForm(form, player) {
+function renderForm(form, player, { detailHref, returnLabel = "詳細へ戻る" } = {}) {
   const basicSection = renderFormSection({
     id: "player-edit-section-basic",
     sectionKey: "basic",
@@ -832,7 +974,9 @@ function renderForm(form, player) {
 
     <div class="player-form-actions">
       <button type="submit" class="player-button player-button-primary">選手情報を保存</button>
-      <a class="player-button player-button-secondary" href="./player_detail.html?id=${encodeURIComponent(player.id)}">詳細へ戻る</a>
+      <a class="player-button player-button-secondary" href="${escapeAttribute(
+        detailHref || buildPlayerDetailUrl(player.id, player.snapshot_label)
+      )}">${returnLabel}</a>
     </div>
   `;
 }
@@ -890,13 +1034,14 @@ async function handleSubmit(event, player, messageElement) {
 
   const formData = new FormData(event.currentTarget);
   const payload = buildPayload(formData);
+  const detailHref = buildPlayerDetailUrl(player.id, payload.snapshot_label || player.snapshot_label);
 
   try {
     setMessage(messageElement, "保存しています...");
     await updatePlayer(player.id, payload);
     setMessage(messageElement, "保存しました。詳細画面へ戻ります。");
     window.setTimeout(() => {
-      window.location.href = `./player_detail.html?id=${encodeURIComponent(player.id)}`;
+      window.location.href = detailHref;
     }, 800);
   } catch (error) {
     setMessage(messageElement, error.message, true);
@@ -907,31 +1052,38 @@ async function handleSubmit(event, player, messageElement) {
 async function init() {
   const form = document.getElementById("player-edit-form");
   const messageElement = document.getElementById("player-edit-message");
+  const flowNoteElement = document.getElementById("player-edit-flow-note");
+  const ocrEntryElement = document.getElementById("player-edit-ocr-entry");
   const titleElement = document.getElementById("player-edit-title");
   const contextElement = document.getElementById("player-edit-context");
 
   try {
     const playerId = getPlayerIdFromQuery();
+    const flowContext = getEditFlowContextFromQuery();
     const player = await fetchPlayerById(playerId);
+    const presentation = buildEditModePresentation(player, flowContext);
+    const ocrEntry = buildOcrEntryPresentation(player, flowContext);
+    const detailHref = buildPlayerDetailUrl(player.id, flowContext.snapshot || player.snapshot_label);
 
-    setPageHeader(titleElement, contextElement, {
-      title: "選手情報編集",
-      context: `${player.name} の基本情報と能力値を編集します。relation 系は次段で拡張します。`,
-      documentTitle: `${player.name} | 選手情報編集`,
-    });
+    setPageHeader(titleElement, contextElement, presentation);
+    renderFlowNote(flowNoteElement, presentation.flowNote);
+    renderOcrEntryCard(ocrEntryElement, ocrEntry);
 
     if (Number(player.school_is_archived) === 1) {
       setMessage(messageElement, "削除済み学校に所属する選手は編集できません。", true);
       form.innerHTML = `
         <div class="player-form-actions">
-          <a class="player-button player-button-secondary" href="./player_detail.html?id=${encodeURIComponent(player.id)}">選手詳細へ戻る</a>
+          <a class="player-button player-button-secondary" href="${escapeAttribute(detailHref)}">選手詳細へ戻る</a>
           <a class="player-button player-button-secondary" href="./schools.html">学校一覧へ戻る</a>
         </div>
       `;
       return;
     }
 
-    renderForm(form, player);
+    renderForm(form, player, {
+      detailHref,
+      returnLabel: presentation.returnLabel,
+    });
     setupAdmissionYearPickers(form);
     setupSnapshotSelector(form);
     syncTimelineSnapshotListHeight(form);
@@ -939,6 +1091,7 @@ async function init() {
     setupRankedAbilityInputs(form);
     bindAbilitySectionVisibility(form);
     applyRequestedEditScope(form);
+    bindOcrEntryActions(ocrEntryElement, messageElement, ocrEntry);
     form.addEventListener("submit", (event) => handleSubmit(event, player, messageElement));
   } catch (error) {
     setPageHeader(titleElement, contextElement, {
@@ -946,6 +1099,7 @@ async function init() {
       context: "選手情報を取得できませんでした。",
       documentTitle: "選手情報編集",
     });
+    renderOcrEntryCard(ocrEntryElement, null);
     setMessage(messageElement, error.message, true);
     form.innerHTML = `
       <div class="player-form-actions">
