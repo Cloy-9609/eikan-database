@@ -4,6 +4,11 @@ const schoolModel = require("../models/schoolModel");
 const { transaction } = require("../db/database");
 const { ALLOWED_PREFECTURE_VALUES } = require("../constants/prefectures");
 const {
+  PLAYER_POSITION_OPTIONS,
+  ALLOWED_ABILITY_CATEGORIES,
+  buildRelationOptionsResponse,
+} = require("../constants/playerRelations");
+const {
   OFFICIAL_SNAPSHOT_LABELS,
   TRANSITIONAL_SNAPSHOT_LABELS,
   SNAPSHOT_LABELS,
@@ -21,24 +26,9 @@ const ALLOWED_PLAYER_TYPES = ["normal", "genius", "reincarnated"];
 const ALLOWED_SNAPSHOT_LABELS = TRANSITIONAL_SNAPSHOT_LABELS;
 const ALLOWED_THROWING_HANDS = ["right", "left"];
 const ALLOWED_BATTING_HANDS = ["right", "left", "both"];
-const ALLOWED_POSITIONS = [
-  "投手",
-  "捕手",
-  "一塁手",
-  "二塁手",
-  "三塁手",
-  "遊撃手",
-  "外野手",
-];
+const ALLOWED_POSITIONS = PLAYER_POSITION_OPTIONS;
 const ADMISSION_YEAR_MIN = 1932;
 const ADMISSION_YEAR_MAX = 2039;
-const ALLOWED_ABILITY_CATEGORIES = [
-  "pitcher_ranked",
-  "pitcher_unranked",
-  "batter_ranked",
-  "batter_unranked",
-  "green",
-];
 const REQUIRED_UPDATE_FIELDS = [
   "name",
   "player_type",
@@ -743,9 +733,14 @@ async function getPlayerDetailByPlayerId(id, query = {}) {
   return getPlayerSeriesById(player.player_series_id, query);
 }
 
+function getPlayerRelationOptions() {
+  return buildRelationOptionsResponse();
+}
+
 module.exports = {
   getPlayers,
   getPlayerById,
+  getPlayerRelationOptions,
   getPlayerDetailByPlayerId,
   getPlayerSeriesById,
   createPlayer,

@@ -3,7 +3,17 @@ import {
   buildAdmissionYearPicker,
   setupAdmissionYearPickers,
 } from "../components/admissionYearPicker.js";
+import { fetchPlayerRelationOptions } from "../api/playerApi.js";
 import { PREFECTURE_GROUPS, isKnownPrefecture } from "../constants/prefectures.js";
+import {
+  bindRelationEditors,
+  getFallbackRelationOptions,
+  normalizeRelationOptions,
+  renderPitchTypeEditor,
+  renderSpecialAbilityEditor,
+  renderSubPositionEditor,
+  serializeRelationInputs,
+} from "../utils/playerRelations.js";
 
 const PLAYER_TYPE_OPTIONS = [
   { value: "normal", label: "通常" },
@@ -34,7 +44,14 @@ Object.assign(SNAPSHOT_LABELS, LEGACY_SNAPSHOT_LABELS);
 const POSITION_OPTIONS = ["投手", "捕手", "一塁手", "二塁手", "三塁手", "遊撃手", "外野手"];
 const PITCHER_MAIN_POSITION = "投手";
 const DEFAULT_EDIT_SCOPE = "full";
-const FOCUSABLE_EDIT_SCOPES = new Set(["basic", "pitcher", "batter", "special"]);
+const FOCUSABLE_EDIT_SCOPES = new Set([
+  "basic",
+  "pitcher",
+  "batter",
+  "special",
+  "pitches",
+  "sub_positions",
+]);
 
 const THROWING_HAND_OPTIONS = [
   { value: "right", label: "右" },
@@ -174,6 +191,15 @@ function getSnapshotLabel(value) {
   return SNAPSHOT_LABELS[value] ?? value ?? "";
 }
 
+async function loadRelationOptions() {
+  try {
+    const relationOptions = await fetchPlayerRelationOptions();
+    return normalizeRelationOptions(relationOptions);
+  } catch (error) {
+    return normalizeRelationOptions(getFallbackRelationOptions());
+  }
+}
+
 function isPitcherPosition(value) {
   return value === PITCHER_MAIN_POSITION;
 }
@@ -248,7 +274,7 @@ function buildEditModePresentation(player, flowContext) {
   if (flowContext.mode !== "snapshot-create") {
     return {
       title: "選手情報編集",
-      context: `${player.name} の基本情報と能力値を編集します。relation 系は次段で拡張します。`,
+      context: `${player.name} の基本情報、能力値、relation 系をこの画面で編集します。`,
       documentTitle: `${player.name} | 選手情報編集`,
       flowNote: null,
       returnLabel: "詳細へ戻る",
@@ -812,19 +838,31 @@ function syncTimelineSnapshotListHeight(form) {
 function getPitcherAbilityElements(form) {
   const mainPositionSelect = form.querySelector("#main_position");
   const pitcherSection = form.querySelector('[data-edit-section="pitcher"]');
+  const pitchesSection = form.querySelector('[data-edit-section="pitches"]');
   const pitcherControls = pitcherSection
     ? Array.from(pitcherSection.querySelectorAll("input, select, textarea, button"))
+    : [];
+  const pitchRelationControls = pitchesSection
+    ? Array.from(pitchesSection.querySelectorAll("input, select, textarea, button"))
     : [];
 
   return {
     mainPositionSelect,
     pitcherSection,
+    pitchesSection,
     pitcherControls,
+    pitchRelationControls,
   };
 }
 
 function updateAbilitySectionVisibility(form) {
-  const { mainPositionSelect, pitcherSection, pitcherControls } = getPitcherAbilityElements(form);
+  const {
+    mainPositionSelect,
+    pitcherSection,
+    pitchesSection,
+    pitcherControls,
+    pitchRelationControls,
+  } = getPitcherAbilityElements(form);
 
   if (!mainPositionSelect || !pitcherSection) {
     return false;
@@ -833,8 +871,15 @@ function updateAbilitySectionVisibility(form) {
   const shouldShowPitcherSection = isPitcherPosition(mainPositionSelect.value);
   pitcherSection.hidden = !shouldShowPitcherSection;
   pitcherSection.setAttribute("aria-hidden", shouldShowPitcherSection ? "false" : "true");
+  if (pitchesSection) {
+    pitchesSection.hidden = !shouldShowPitcherSection;
+    pitchesSection.setAttribute("aria-hidden", shouldShowPitcherSection ? "false" : "true");
+  }
 
   pitcherControls.forEach((control) => {
+    control.disabled = !shouldShowPitcherSection;
+  });
+  pitchRelationControls.forEach((control) => {
     control.disabled = !shouldShowPitcherSection;
   });
 
@@ -885,7 +930,7 @@ function applyRequestedEditScope(form) {
   return true;
 }
 
-function renderForm(form, player, { detailHref, returnLabel = "詳細へ戻る" } = {}) {
+function renderForm(form, player, relationOptions, { detailHref, returnLabel = "詳細へ戻る" } = {}) {
   const basicSection = renderFormSection({
     id: "player-edit-section-basic",
     sectionKey: "basic",
@@ -967,10 +1012,53 @@ function renderForm(form, player, { detailHref, returnLabel = "詳細へ戻る" 
     content: renderAbilityRows(BATTER_ABILITY_FIELDS, player),
   });
 
+  const specialSection = renderFormSection({
+    id: "player-edit-section-special",
+    sectionKey: "special",
+    title: "特殊能力",
+    description: "現在の snapshot に付いている特殊能力を編集します。",
+    fieldsClass: "player-form-fields player-form-fields--relation",
+    content: renderSpecialAbilityEditor({
+      abilities: player.special_abilities,
+      relationOptions,
+      editorIdPrefix: `player-edit-${player.id}`,
+    }),
+  });
+
+  const pitchesSection = renderFormSection({
+    id: "player-edit-section-pitches",
+    sectionKey: "pitches",
+    title: "変化球",
+    description: "投手時点の球種、変化量、オリジナル名を編集します。",
+    fieldsClass: "player-form-fields player-form-fields--relation",
+    content: renderPitchTypeEditor({
+      pitchTypes: player.pitch_types,
+      relationOptions,
+      editorIdPrefix: `player-edit-${player.id}`,
+    }),
+  });
+
+  const subPositionsSection = renderFormSection({
+    id: "player-edit-section-sub-positions",
+    sectionKey: "sub_positions",
+    title: "サブポジション",
+    description: "メインポジション以外の守備位置と適性値を編集します。",
+    fieldsClass: "player-form-fields player-form-fields--relation",
+    content: renderSubPositionEditor({
+      subPositions: player.sub_positions,
+      relationOptions,
+      editorIdPrefix: `player-edit-${player.id}`,
+      mainPosition: player.main_position,
+    }),
+  });
+
   form.innerHTML = `
     ${basicSection}
     ${pitcherSection}
     ${batterSection}
+    ${specialSection}
+    ${pitchesSection}
+    ${subPositionsSection}
 
     <div class="player-form-actions">
       <button type="submit" class="player-button player-button-primary">選手情報を保存</button>
@@ -1005,7 +1093,7 @@ function appendOptionalIntegerPayload(payload, formData, field) {
   }
 }
 
-function buildPayload(formData) {
+function buildPayload(formData, form, relationOptions) {
   const payload = {
     name: formData.get("name"),
     player_type: formData.get("player_type"),
@@ -1026,14 +1114,21 @@ function buildPayload(formData) {
     appendOptionalIntegerPayload(payload, formData, field);
   });
 
-  return payload;
+  return {
+    ...payload,
+    ...serializeRelationInputs(form, relationOptions, {
+      includePitchTypes: isPitcherPosition(payload.main_position),
+      mainPosition: payload.main_position,
+    }),
+  };
 }
 
-async function handleSubmit(event, player, messageElement) {
+async function handleSubmit(event, player, messageElement, relationOptions) {
   event.preventDefault();
 
-  const formData = new FormData(event.currentTarget);
-  const payload = buildPayload(formData);
+  const form = event.currentTarget;
+  const formData = new FormData(form);
+  const payload = buildPayload(formData, form, relationOptions);
   const detailHref = buildPlayerDetailUrl(player.id, payload.snapshot_label || player.snapshot_label);
 
   try {
@@ -1060,7 +1155,10 @@ async function init() {
   try {
     const playerId = getPlayerIdFromQuery();
     const flowContext = getEditFlowContextFromQuery();
-    const player = await fetchPlayerById(playerId);
+    const [player, relationOptions] = await Promise.all([
+      fetchPlayerById(playerId),
+      loadRelationOptions(),
+    ]);
     const presentation = buildEditModePresentation(player, flowContext);
     const ocrEntry = buildOcrEntryPresentation(player, flowContext);
     const detailHref = buildPlayerDetailUrl(player.id, flowContext.snapshot || player.snapshot_label);
@@ -1080,7 +1178,7 @@ async function init() {
       return;
     }
 
-    renderForm(form, player, {
+    renderForm(form, player, relationOptions, {
       detailHref,
       returnLabel: presentation.returnLabel,
     });
@@ -1089,10 +1187,15 @@ async function init() {
     syncTimelineSnapshotListHeight(form);
     window.addEventListener("resize", () => syncTimelineSnapshotListHeight(form));
     setupRankedAbilityInputs(form);
+    bindRelationEditors(form, relationOptions, {
+      getMainPosition: () => form.querySelector("#main_position")?.value ?? player.main_position,
+    });
     bindAbilitySectionVisibility(form);
     applyRequestedEditScope(form);
     bindOcrEntryActions(ocrEntryElement, messageElement, ocrEntry);
-    form.addEventListener("submit", (event) => handleSubmit(event, player, messageElement));
+    form.addEventListener("submit", (event) =>
+      handleSubmit(event, player, messageElement, relationOptions)
+    );
   } catch (error) {
     setPageHeader(titleElement, contextElement, {
       title: "選手情報編集",

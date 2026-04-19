@@ -468,6 +468,149 @@
   gap: var(--player-space-lg);
 }
 
+.player-form-fields--relation {
+  grid-template-columns: 1fr;
+}
+
+.player-relation-editor {
+  display: grid;
+  gap: var(--player-space-lg);
+  padding: var(--player-space-lg);
+  border: 1px solid var(--player-color-border);
+  border-radius: var(--player-radius-xl);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 254, 0.94) 100%);
+}
+
+.player-relation-editor-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--player-space-md);
+}
+
+.player-relation-editor-copy {
+  display: grid;
+  gap: var(--player-space-xs);
+}
+
+.player-relation-editor-title {
+  margin: 0;
+  color: var(--player-color-text);
+  font-size: var(--player-font-size-md-plus);
+}
+
+.player-relation-editor-description {
+  margin: 0;
+  color: var(--player-color-text-subtle);
+  line-height: var(--player-line-height-relaxed);
+}
+
+.player-relation-editor-list {
+  display: grid;
+  gap: var(--player-space-md);
+}
+
+.player-relation-row {
+  display: grid;
+  gap: var(--player-space-md);
+  padding: var(--player-space-lg);
+  border: 1px solid var(--player-color-border-soft);
+  border-radius: var(--player-radius-lg);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.player-relation-row-grid {
+  display: grid;
+  gap: var(--player-space-md);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.player-relation-row-grid--pitch,
+.player-relation-row-grid--special,
+.player-relation-row-grid--sub-position {
+  align-items: start;
+}
+
+.player-relation-field {
+  display: grid;
+  gap: var(--player-space-xs);
+}
+
+.player-relation-field--full {
+  grid-column: 1 / -1;
+}
+
+.player-relation-label {
+  font-size: var(--player-font-size-sm-plus);
+}
+
+.player-relation-field > input,
+.player-relation-field > select {
+  width: 100%;
+  min-height: var(--player-size-control-height);
+  padding: 0 var(--player-space-lg);
+  border: 1px solid var(--player-color-border-strong);
+  border-radius: var(--player-radius-lg);
+  background: var(--player-color-surface-solid);
+  color: var(--player-color-text-strong);
+  font: inherit;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.player-relation-field > input:hover,
+.player-relation-field > select:hover {
+  border-color: var(--player-color-border-hover);
+}
+
+.player-relation-field > input:focus,
+.player-relation-field > select:focus {
+  outline: none;
+  border-color: var(--player-color-accent);
+  box-shadow: var(--player-shadow-focus);
+}
+
+.player-relation-field--checkbox {
+  align-content: start;
+}
+
+.player-relation-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--player-space-sm);
+  min-height: var(--player-size-control-height);
+  padding: 0 var(--player-space-lg);
+  border: 1px solid var(--player-color-border-strong);
+  border-radius: var(--player-radius-lg);
+  background: var(--player-color-surface-solid);
+  color: var(--player-color-text-body);
+  font-weight: 600;
+}
+
+.player-relation-checkbox input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.player-relation-row-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.player-relation-empty {
+  margin: 0;
+}
+
+.player-relation-warning {
+  margin: 0;
+  color: var(--player-color-error-soft-text);
+}
+
 .player-form-row {
   display: grid;
   gap: var(--player-space-xs);

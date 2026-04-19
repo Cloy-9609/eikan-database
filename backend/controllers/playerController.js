@@ -26,6 +26,19 @@ async function getPlayerById(req, res, next) {
   }
 }
 
+async function getPlayerRelationOptions(req, res, next) {
+  try {
+    const relationOptions = await playerService.getPlayerRelationOptions();
+    res.json({
+      success: true,
+      data: relationOptions,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function getPlayerDetailById(req, res, next) {
   try {
     const playerDetail = await playerService.getPlayerDetailByPlayerId(req.params.id, req.query);
@@ -94,6 +107,7 @@ async function updatePlayer(req, res, next) {
 module.exports = {
   getPlayers,
   getPlayerById,
+  getPlayerRelationOptions,
   getPlayerDetailById,
   getPlayerSeriesById,
   createPlayer,

@@ -36,6 +36,11 @@ export async function fetchPlayerById(id) {
   return parseResponse(response);
 }
 
+export async function fetchPlayerRelationOptions() {
+  const response = await fetch(`${PLAYER_API_BASE}/relation-options`);
+  return parseResponse(response);
+}
+
 export async function fetchPlayerDetailById(id, { snapshot } = {}) {
   const params = new URLSearchParams();
 

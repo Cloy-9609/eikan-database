@@ -3,8 +3,18 @@ import {
   buildAdmissionYearPicker,
   setupAdmissionYearPickers,
 } from "../components/admissionYearPicker.js";
+import { fetchPlayerRelationOptions } from "../api/playerApi.js";
 import { PREFECTURE_GROUPS, isKnownPrefecture } from "../constants/prefectures.js";
 import { formatSchoolName } from "../utils/formatter.js";
+import {
+  bindRelationEditors,
+  getFallbackRelationOptions,
+  normalizeRelationOptions,
+  renderPitchTypeEditor,
+  renderSpecialAbilityEditor,
+  renderSubPositionEditor,
+  serializeRelationInputs,
+} from "../utils/playerRelations.js";
 
 const PLAYER_TYPE_LABELS = {
   normal: "通常",
@@ -101,8 +111,20 @@ const SECTION_EDIT_META = {
   special: {
     kicker: "Special Edit",
     title: "特殊能力を編集",
-    description: "特殊能力編集は今後このモーダルに追加できる構造にしています。",
-    submitLabel: "",
+    description: "現在表示中の snapshot に付いている特殊能力を編集します。",
+    submitLabel: "特殊能力を保存",
+  },
+  pitches: {
+    kicker: "Pitch Edit",
+    title: "変化球を編集",
+    description: "現在表示中の snapshot の変化球を編集します。",
+    submitLabel: "変化球を保存",
+  },
+  sub_positions: {
+    kicker: "Sub Position Edit",
+    title: "サブポジションを編集",
+    description: "現在表示中の snapshot のサブポジションを編集します。",
+    submitLabel: "サブポジションを保存",
   },
 };
 
@@ -129,8 +151,9 @@ const DETAIL_STATE = {
   pendingCreateSnapshotKey: "",
   confirmBeforeCreateSnapshot: true,
   isBusy: false,
-   loadingSnapshotKey: "",
-   snapshotButtonErrorKey: "",
+  loadingSnapshotKey: "",
+  snapshotButtonErrorKey: "",
+  relationOptions: null,
   refs: null,
   activeModalScope: "",
   lastFocusedElement: null,
@@ -186,7 +209,7 @@ function syncSnapshotQuery(snapshotKey) {
   window.history.replaceState({}, "", url);
 }
 
-function buildPlayerEditUrl(playerId, { mode = "", from = "", snapshot = "" } = {}) {
+function buildPlayerEditUrl(playerId, { mode = "", from = "", snapshot = "", scope = "" } = {}) {
   const params = new URLSearchParams();
   params.set("id", String(playerId));
 
@@ -200,6 +223,10 @@ function buildPlayerEditUrl(playerId, { mode = "", from = "", snapshot = "" } = 
 
   if (snapshot) {
     params.set("snapshot", snapshot);
+  }
+
+  if (scope) {
+    params.set("scope", scope);
   }
 
   return `./player_edit.html?${params.toString()}`;
@@ -275,6 +302,15 @@ function getSnapshotOptionDefinitions(currentSnapshotLabel = "") {
   }
 
   return options;
+}
+
+async function loadRelationOptions() {
+  try {
+    const relationOptions = await fetchPlayerRelationOptions();
+    return normalizeRelationOptions(relationOptions);
+  } catch (error) {
+    return normalizeRelationOptions(getFallbackRelationOptions());
+  }
 }
 
 function formatHand(value) {
@@ -474,6 +510,22 @@ function buildSectionEditButton(scope, label = "編集") {
     >
       ${label}
     </button>
+  `;
+}
+
+function buildSectionEditLink(scope, snapshot, label = "編集画面") {
+  return `
+    <a
+      class="player-button player-button-secondary player-button-inline"
+      href="${escapeAttribute(
+        buildPlayerEditUrl(snapshot.id, {
+          snapshot: snapshot.snapshot_label,
+          scope,
+        })
+      )}"
+    >
+      ${label}
+    </a>
   `;
 }
 
@@ -848,6 +900,69 @@ function renderListSection({ title, sectionKey, items, formatter, headerActionHt
   });
 }
 
+function buildRelationSectionActions(scope, snapshot, { archivedSchool = false } = {}) {
+  if (archivedSchool || !snapshot?.id) {
+    return "";
+  }
+
+  return `
+    ${buildSectionEditButton(scope)}
+    ${buildSectionEditLink(scope, snapshot, "編集画面")}
+  `;
+}
+
+function renderPitchTypeSection(snapshot, { archivedSchool = false } = {}) {
+  if (!isPitcherPosition(snapshot?.main_position)) {
+    return "";
+  }
+
+  return renderListSection({
+    title: "変化球一覧",
+    sectionKey: "pitch-types",
+    items: snapshot?.pitch_types,
+    formatter: (item) => {
+      const pitchName = escapeHtml(item.pitch_name ?? "不明");
+      const level = item.level !== undefined && item.level !== null ? ` Lv${escapeHtml(item.level)}` : "";
+      const original = item.is_original ? " (オリジナル)" : "";
+      const originalName = item.original_pitch_name ? ` / ${escapeHtml(item.original_pitch_name)}` : "";
+
+      return `${pitchName}${level}${original}${originalName}`;
+    },
+    headerActionHtml: buildRelationSectionActions("pitches", snapshot, { archivedSchool }),
+  });
+}
+
+function renderSpecialAbilitySection(snapshot, { archivedSchool = false } = {}) {
+  return renderListSection({
+    title: "特殊能力一覧",
+    sectionKey: "special",
+    items: snapshot?.special_abilities,
+    formatter: (item) => {
+      const name = escapeHtml(item.ability_name ?? "不明");
+      const rank = item.rank_value ? ` (${escapeHtml(item.rank_value)})` : "";
+      const category = item.ability_category ? ` [${escapeHtml(item.ability_category)}]` : "";
+
+      return `${name}${rank}${category}`;
+    },
+    headerActionHtml: buildRelationSectionActions("special", snapshot, { archivedSchool }),
+  });
+}
+
+function renderSubPositionSection(snapshot, { archivedSchool = false } = {}) {
+  return renderListSection({
+    title: "サブポジ一覧",
+    sectionKey: "sub-positions",
+    items: snapshot?.sub_positions,
+    formatter: (item) => {
+      const name = escapeHtml(item.position_name ?? "不明");
+      const suitability = item.suitability_value ? ` (${escapeHtml(item.suitability_value)})` : "";
+
+      return `${name}${suitability}`;
+    },
+    headerActionHtml: buildRelationSectionActions("sub_positions", snapshot, { archivedSchool }),
+  });
+}
+
 function setMessage(messageElement, message, isError = false) {
   messageElement.textContent = message;
   messageElement.classList.toggle("is-visible", Boolean(message));
@@ -1193,49 +1308,9 @@ function renderPlayerLegacy(refs, seriesResponse) {
       },
     ]);
 
-    const pitchTypesSection = shouldShowPitcherSection
-      ? renderListSection({
-          title: "変化球一覧",
-          sectionKey: "pitch-types",
-          items: currentSnapshot.pitch_types,
-          formatter: (item) => {
-            const pitchName = escapeHtml(item.pitch_name ?? "不明");
-            const level =
-              item.level !== undefined && item.level !== null ? ` Lv${escapeHtml(item.level)}` : "";
-            const original = item.is_original ? " (オリジナル)" : "";
-            const originalName = item.original_pitch_name
-              ? ` / ${escapeHtml(item.original_pitch_name)}`
-              : "";
-
-            return `${pitchName}${level}${original}${originalName}`;
-          },
-        })
-      : "";
-
-    const specialAbilitiesSection = renderListSection({
-      title: "特殊能力一覧",
-      sectionKey: "special",
-      items: currentSnapshot.special_abilities,
-      formatter: (item) => {
-        const name = escapeHtml(item.ability_name ?? "不明");
-        const rank = item.rank_value ? ` (${escapeHtml(item.rank_value)})` : "";
-        const category = item.ability_category ? ` [${escapeHtml(item.ability_category)}]` : "";
-
-        return `${name}${rank}${category}`;
-      },
-    });
-
-    const subPositionsSection = renderListSection({
-      title: "サブポジ一覧",
-      sectionKey: "sub-positions",
-      items: currentSnapshot.sub_positions,
-      formatter: (item) => {
-        const name = escapeHtml(item.position_name ?? "不明");
-        const suitability = item.suitability_value ? ` (${escapeHtml(item.suitability_value)})` : "";
-
-        return `${name}${suitability}`;
-      },
-    });
+    const pitchTypesSection = renderPitchTypeSection(currentSnapshot, { archivedSchool });
+    const specialAbilitiesSection = renderSpecialAbilitySection(currentSnapshot, { archivedSchool });
+    const subPositionsSection = renderSubPositionSection(currentSnapshot, { archivedSchool });
 
     const archivedNotice = archivedSchool
       ? `
@@ -1359,48 +1434,9 @@ function renderPlayerLegacy(refs, seriesResponse) {
     { field: "catching", label: "捕球", valueHtml: renderRankedAbilityValue(player.catching) },
   ]);
 
-  const pitchTypesSection = shouldShowPitcherSection
-    ? renderListSection({
-        title: "変化球一覧",
-        sectionKey: "pitch-types",
-        items: player.pitch_types,
-        formatter: (item) => {
-          const pitchName = escapeHtml(item.pitch_name ?? "不明");
-          const level = item.level !== undefined && item.level !== null ? ` Lv${escapeHtml(item.level)}` : "";
-          const original = item.is_original ? " (オリジナル)" : "";
-          const originalName = item.original_pitch_name
-            ? ` / ${escapeHtml(item.original_pitch_name)}`
-            : "";
-
-          return `${pitchName}${level}${original}${originalName}`;
-        },
-      })
-    : "";
-
-  const specialAbilitiesSection = renderListSection({
-    title: "特殊能力一覧",
-    sectionKey: "special",
-    items: player.special_abilities,
-    formatter: (item) => {
-      const name = escapeHtml(item.ability_name ?? "不明");
-      const rank = item.rank_value ? ` (${escapeHtml(item.rank_value)})` : "";
-      const category = item.ability_category ? ` [${escapeHtml(item.ability_category)}]` : "";
-
-      return `${name}${rank}${category}`;
-    },
-  });
-
-  const subPositionsSection = renderListSection({
-    title: "サブポジ一覧",
-    sectionKey: "sub-positions",
-    items: player.sub_positions,
-    formatter: (item) => {
-      const name = escapeHtml(item.position_name ?? "不明");
-      const suitability = item.suitability_value ? ` (${escapeHtml(item.suitability_value)})` : "";
-
-      return `${name}${suitability}`;
-    },
-  });
+  const pitchTypesSection = renderPitchTypeSection(player, { archivedSchool });
+  const specialAbilitiesSection = renderSpecialAbilitySection(player, { archivedSchool });
+  const subPositionsSection = renderSubPositionSection(player, { archivedSchool });
 
   const archivedNotice = archivedSchool
     ? `
@@ -1564,48 +1600,9 @@ function renderPlayer(refs, seriesResponse) {
     { field: "catching", label: "捕球", valueHtml: renderRankedAbilityValue(currentSnapshot.catching) },
   ]);
 
-  const pitchTypesSection = shouldShowPitcherSection
-    ? renderListSection({
-        title: "変化球一覧",
-        sectionKey: "pitch-types",
-        items: currentSnapshot.pitch_types,
-        formatter: (item) => {
-          const pitchName = escapeHtml(item.pitch_name ?? "不明");
-          const level = item.level !== undefined && item.level !== null ? ` Lv${escapeHtml(item.level)}` : "";
-          const original = item.is_original ? " (オリジナル)" : "";
-          const originalName = item.original_pitch_name
-            ? ` / ${escapeHtml(item.original_pitch_name)}`
-            : "";
-
-          return `${pitchName}${level}${original}${originalName}`;
-        },
-      })
-    : "";
-
-  const specialAbilitiesSection = renderListSection({
-    title: "特殊能力一覧",
-    sectionKey: "special",
-    items: currentSnapshot.special_abilities,
-    formatter: (item) => {
-      const name = escapeHtml(item.ability_name ?? "不明");
-      const rank = item.rank_value ? ` (${escapeHtml(item.rank_value)})` : "";
-      const category = item.ability_category ? ` [${escapeHtml(item.ability_category)}]` : "";
-
-      return `${name}${rank}${category}`;
-    },
-  });
-
-  const subPositionsSection = renderListSection({
-    title: "サブポジ一覧",
-    sectionKey: "sub-positions",
-    items: currentSnapshot.sub_positions,
-    formatter: (item) => {
-      const name = escapeHtml(item.position_name ?? "不明");
-      const suitability = item.suitability_value ? ` (${escapeHtml(item.suitability_value)})` : "";
-
-      return `${name}${suitability}`;
-    },
-  });
+  const pitchTypesSection = renderPitchTypeSection(currentSnapshot, { archivedSchool });
+  const specialAbilitiesSection = renderSpecialAbilitySection(currentSnapshot, { archivedSchool });
+  const subPositionsSection = renderSubPositionSection(currentSnapshot, { archivedSchool });
 
   const archivedNotice = archivedSchool
     ? `
@@ -1720,7 +1717,7 @@ function buildAbilitySectionPayload(formData, fields) {
   return payload;
 }
 
-function buildSectionUpdatePayload(scope, formData) {
+function buildSectionUpdatePayload(scope, formData, form, player, relationOptions) {
   if (scope === "basic") {
     return buildBasicSectionPayload(formData);
   }
@@ -1731,6 +1728,33 @@ function buildSectionUpdatePayload(scope, formData) {
 
   if (scope === "batter") {
     return buildAbilitySectionPayload(formData, BATTER_ABILITY_FIELDS);
+  }
+
+  if (scope === "special") {
+    return {
+      special_abilities: serializeRelationInputs(form, relationOptions, {
+        includePitchTypes: false,
+        mainPosition: player.main_position,
+      }).special_abilities,
+    };
+  }
+
+  if (scope === "pitches") {
+    return {
+      pitch_types: serializeRelationInputs(form, relationOptions, {
+        includePitchTypes: true,
+        mainPosition: player.main_position,
+      }).pitch_types,
+    };
+  }
+
+  if (scope === "sub_positions") {
+    return {
+      sub_positions: serializeRelationInputs(form, relationOptions, {
+        includePitchTypes: false,
+        mainPosition: player.main_position,
+      }).sub_positions,
+    };
   }
 
   return {};
@@ -2009,6 +2033,56 @@ function renderSectionEditFormLayout({ scope, player, content, note = "" }) {
   `;
 }
 
+function renderRelationModalSection(scope, player) {
+  const relationOptions = DETAIL_STATE.relationOptions ?? normalizeRelationOptions(getFallbackRelationOptions());
+  const editorIdPrefix = `player-detail-modal-${scope}-${player.id}`;
+
+  if (scope === "special") {
+    return renderModalFormSection({
+      sectionKey: "special",
+      title: "特殊能力",
+      description: "候補から選びつつ、辞書にない能力名は直接入力でも追加できます。",
+      fieldsClass: "player-form-fields player-form-fields--relation",
+      content: renderSpecialAbilityEditor({
+        abilities: player.special_abilities,
+        relationOptions,
+        editorIdPrefix,
+      }),
+    });
+  }
+
+  if (scope === "pitches") {
+    return renderModalFormSection({
+      sectionKey: "pitches",
+      title: "変化球",
+      description: "球種、変化量、オリジナル球種名を現在の snapshot に対して更新します。",
+      fieldsClass: "player-form-fields player-form-fields--relation",
+      content: renderPitchTypeEditor({
+        pitchTypes: player.pitch_types,
+        relationOptions,
+        editorIdPrefix,
+      }),
+    });
+  }
+
+  if (scope === "sub_positions") {
+    return renderModalFormSection({
+      sectionKey: "sub_positions",
+      title: "サブポジション",
+      description: "メインポジションと重複しないように、守備位置と適性を編集します。",
+      fieldsClass: "player-form-fields player-form-fields--relation",
+      content: renderSubPositionEditor({
+        subPositions: player.sub_positions,
+        relationOptions,
+        editorIdPrefix,
+        mainPosition: player.main_position,
+      }),
+    });
+  }
+
+  return "";
+}
+
 function buildSectionEditForm(scope, player) {
   if (scope === "basic") {
     const content = renderModalFormSection({
@@ -2102,20 +2176,24 @@ function buildSectionEditForm(scope, player) {
     return renderSectionEditFormLayout({ scope, player, content });
   }
 
-  const placeholderContent = renderModalFormSection({
-    sectionKey: "special",
-    title: "特殊能力",
-    description: "special スコープの編集フォームは今後ここに追加できます。",
-    content: `
-      <div class="player-modal-placeholder">
-        <p class="player-empty-text">
-          まだ特殊能力の個別編集フォームは実装していません。今後はこのスコープにフォームを差し込むだけで、同じモーダル基盤を使って拡張できます。
-        </p>
-      </div>
-    `,
-  });
+  if (scope === "special" || scope === "pitches" || scope === "sub_positions") {
+    return renderSectionEditFormLayout({
+      scope,
+      player,
+      content: renderRelationModalSection(scope, player),
+    });
+  }
 
-  return renderSectionEditFormLayout({ scope, player, content: placeholderContent });
+  return renderSectionEditFormLayout({
+    scope,
+    player,
+    content: renderModalFormSection({
+      sectionKey: scope,
+      title: "編集フォーム",
+      description: "このスコープの編集フォームは未定義です。",
+      content: '<p class="player-empty-text">対応していない編集スコープです。</p>',
+    }),
+  });
 }
 
 function setupRankedAbilityInputs(form) {
@@ -2218,6 +2296,13 @@ function openSectionEditModal(scope, player) {
   if (form) {
     setupAdmissionYearPickers(form);
     setupRankedAbilityInputs(form);
+    bindRelationEditors(
+      form,
+      DETAIL_STATE.relationOptions ?? normalizeRelationOptions(getFallbackRelationOptions()),
+      {
+        getMainPosition: () => modalPlayer.main_position,
+      }
+    );
     window.requestAnimationFrame(() => {
       const firstFocusable = form.querySelector("select, input:not([type='hidden']), textarea, button");
       if (firstFocusable instanceof HTMLElement) {
@@ -2229,16 +2314,18 @@ function openSectionEditModal(scope, player) {
   return true;
 }
 
-async function saveSectionEdit(scope, formData) {
+async function saveSectionEdit(scope, form, formData) {
   const currentPlayer = getCurrentEditablePlayer();
 
   if (!currentPlayer) {
     throw new Error("選手情報が読み込まれていません。");
   }
 
+  const relationOptions = DETAIL_STATE.relationOptions ?? normalizeRelationOptions(getFallbackRelationOptions());
+
   const payload = {
     ...buildRequiredUpdatePayload(currentPlayer),
-    ...buildSectionUpdatePayload(scope, formData),
+    ...buildSectionUpdatePayload(scope, formData, form, currentPlayer, relationOptions),
   };
 
   return updatePlayer(currentPlayer.id, payload);
@@ -2419,7 +2506,7 @@ async function handleModalSubmitOld(event) {
   setMessage(DETAIL_STATE.refs.modalMessageElement, `${meta.title}を保存しています...`);
 
   try {
-    const updatedPlayer = await saveSectionEdit(scope, formData);
+    const updatedPlayer = await saveSectionEdit(scope, form, formData);
     setMessage(DETAIL_STATE.refs.modalMessageElement, `${meta.title}を更新しました。`);
     await loadPlayerDetail({
       snapshot: updatedPlayer.snapshot_label,
@@ -2485,6 +2572,7 @@ async function initOld() {
   DETAIL_STATE.refs = refs;
   DETAIL_STATE.playerId = getPlayerIdFromQuery();
   DETAIL_STATE.confirmBeforeCreateSnapshot = readSnapshotCreateConfirmationPreference();
+  DETAIL_STATE.relationOptions = await loadRelationOptions();
   setupInteractions(refs);
 
   try {
@@ -2666,7 +2754,7 @@ async function handleModalSubmit(event) {
   setMessage(DETAIL_STATE.refs.modalMessageElement, "");
 
   try {
-    const updatedPlayer = await saveSectionEdit(scope, formData);
+    const updatedPlayer = await saveSectionEdit(scope, form, formData);
     await loadPlayerDetail({
       snapshot: updatedPlayer.snapshot_label,
       syncUrl: true,
