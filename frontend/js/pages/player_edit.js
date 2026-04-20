@@ -1029,12 +1029,13 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
     id: "player-edit-section-pitches",
     sectionKey: "pitches",
     title: "変化球",
-    description: "投手時点の球種、変化量、オリジナル名を編集します。",
+    description: "必要な方向だけ追加し、方向ごとの候補とメーターで変化量を編集します。",
     fieldsClass: "player-form-fields player-form-fields--relation",
     content: renderPitchTypeEditor({
       pitchTypes: player.pitch_types,
       relationOptions,
       editorIdPrefix: `player-edit-${player.id}`,
+      throwingHand: player.throwing_hand,
     }),
   });
 
@@ -1189,6 +1190,7 @@ async function init() {
     setupRankedAbilityInputs(form);
     bindRelationEditors(form, relationOptions, {
       getMainPosition: () => form.querySelector("#main_position")?.value ?? player.main_position,
+      getThrowingHand: () => form.querySelector("#throwing_hand")?.value ?? player.throwing_hand,
     });
     bindAbilitySectionVisibility(form);
     applyRequestedEditScope(form);

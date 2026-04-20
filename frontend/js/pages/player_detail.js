@@ -79,6 +79,43 @@ const PITCHER_ABILITY_FIELDS = [
   { field: "stamina", label: "スタミナ", inputType: "ranked" },
 ];
 
+const PITCH_METER_MAX_LEVEL = 7;
+
+const PITCH_MOVEMENT_DIRECTIONS = [
+  { key: "top", label: "上", orientation: "vertical", angle: 0 },
+  { key: "left", label: "左", orientation: "horizontal", angle: -8 },
+  { key: "right", label: "右", orientation: "horizontal", angle: 8 },
+  { key: "down-left", label: "左下", orientation: "vertical", angle: 34 },
+  { key: "down", label: "下", orientation: "vertical", angle: 0 },
+  { key: "down-right", label: "右下", orientation: "vertical", angle: -34 },
+];
+
+const PITCH_DIRECTION_MIRROR_MAP = {
+  top: "top",
+  left: "right",
+  right: "left",
+  "down-left": "down-right",
+  down: "down",
+  "down-right": "down-left",
+};
+
+const PITCH_MOVEMENT_CATEGORIES = [
+  {
+    direction: "top",
+    patterns: ["ストレート", "直球", "ツーシーム", "ムービング", "ライジング", "ジャイロ"],
+  },
+  { direction: "left", patterns: ["スライダー", "スラーブ", "カット", "カッター"] },
+  { direction: "right", patterns: ["シュート"] },
+  { direction: "down-left", patterns: ["カーブ", "ドロップ"] },
+  {
+    direction: "down",
+    patterns: ["フォーク", "SFF", "スプリット", "Ｖスライダー", "Vスライダー", "縦スライダー"],
+  },
+  { direction: "down-right", patterns: ["シンカー", "スクリュー", "チェンジ", "パーム", "ナックル"] },
+];
+
+const STRAIGHT_PITCH_PATTERNS = ["ストレート", "直球"];
+
 const BATTER_ABILITY_FIELDS = [
   { field: "trajectory", label: "弾道", inputType: "trajectory" },
   { field: "meat", label: "ミート", inputType: "ranked" },
@@ -911,6 +948,298 @@ function buildRelationSectionActions(scope, snapshot, { archivedSchool = false }
   `;
 }
 
+function clampNumber(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function normalizePitchName(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+function pitchNameMatches(value, patterns) {
+  const normalizedName = normalizePitchName(value);
+
+  if (!normalizedName) {
+    return false;
+  }
+
+  return patterns.some((pattern) => normalizedName.includes(normalizePitchName(pattern)));
+}
+
+function isStraightPitch(pitch) {
+  return pitchNameMatches(pitch?.pitch_name, STRAIGHT_PITCH_PATTERNS);
+}
+
+function isLeftThrowingHand(value) {
+  return ["left", "左"].includes(String(value ?? "").trim().toLowerCase());
+}
+
+function mirrorPitchDirection(direction) {
+  return PITCH_DIRECTION_MIRROR_MAP[direction] ?? direction;
+}
+
+function getCanonicalPitchDirection(pitch) {
+  const candidateNames = [pitch?.pitch_name, pitch?.original_pitch_name].filter(Boolean);
+
+  for (const name of candidateNames) {
+    const category = PITCH_MOVEMENT_CATEGORIES.find(({ patterns }) => pitchNameMatches(name, patterns));
+
+    if (category) {
+      return category.direction;
+    }
+  }
+
+  return "down";
+}
+
+function getDisplayPitchDirection(pitch, throwingHand = "") {
+  const canonicalDirection = getCanonicalPitchDirection(pitch);
+  return isLeftThrowingHand(throwingHand) ? mirrorPitchDirection(canonicalDirection) : canonicalDirection;
+}
+
+function getPitchDisplayLayout(pitch, throwingHand = "") {
+  const direction = getDisplayPitchDirection(pitch, throwingHand);
+  const directionMeta =
+    PITCH_MOVEMENT_DIRECTIONS.find((candidate) => candidate.key === direction) ??
+    PITCH_MOVEMENT_DIRECTIONS.find((candidate) => candidate.key === "down");
+
+  return {
+    direction,
+    directionLabel: directionMeta?.label ?? "",
+    orientation: directionMeta?.orientation ?? "vertical",
+    angle: directionMeta?.angle ?? 0,
+  };
+}
+
+function normalizePitchLevel(value, fallback = 1) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return fallback;
+  }
+
+  return clampNumber(Math.trunc(numericValue), 1, PITCH_METER_MAX_LEVEL);
+}
+
+function getPitchDisplayName(pitch) {
+  const originalName = String(pitch?.original_pitch_name ?? "").trim();
+
+  if ((Number(pitch?.is_original) === 1 || pitch?.is_original === true) && originalName) {
+    return originalName;
+  }
+
+  return pitch?.pitch_name ?? "不明";
+}
+
+function toPitchDisplayItem(pitch, { baseline = false, throwingHand = "" } = {}) {
+  const layout = getPitchDisplayLayout(pitch, throwingHand);
+  const straight = baseline || isStraightPitch(pitch);
+
+  return {
+    direction: layout.direction,
+    orientation: layout.orientation,
+    angle: layout.angle,
+    name: baseline ? "ストレート" : getPitchDisplayName(pitch),
+    level: straight ? 1 : normalizePitchLevel(pitch?.level),
+    baseName: pitch?.pitch_name ?? "",
+    isOriginal: Number(pitch?.is_original) === 1 || pitch?.is_original === true,
+    baseline: straight,
+  };
+}
+
+function groupPitchesByDirection(snapshot) {
+  const pitchTypes = Array.isArray(snapshot?.pitch_types) ? snapshot.pitch_types : [];
+  const hasStraightPitch = pitchTypes.some((pitch) => isStraightPitch(pitch));
+  const throwingHand = snapshot?.throwing_hand ?? "";
+  const displayPitches = [
+    ...(hasStraightPitch ? [] : [{ pitch_name: "ストレート", level: 1, is_original: 0, baseline: true }]),
+    ...pitchTypes,
+  ].map((pitch) => toPitchDisplayItem(pitch, { baseline: Boolean(pitch.baseline), throwingHand }));
+
+  return PITCH_MOVEMENT_DIRECTIONS.reduce((groups, direction) => {
+    groups[direction.key] = displayPitches.filter((pitch) => pitch.direction === direction.key);
+    return groups;
+  }, {});
+}
+
+function renderPitcherRankedSummaryValue(value) {
+  const rankGroup = getAbilityRank(value);
+
+  if (!rankGroup) {
+    return formatValue(value);
+  }
+
+  return `
+    <span class="pitcher-summary-ranked">
+      <span class="pitcher-summary-rank">${rankGroup.rank}</span>
+      <span class="pitcher-summary-number">${escapeHtml(value)}</span>
+    </span>
+  `;
+}
+
+function renderPitcherVelocityValue(value) {
+  if (value === undefined || value === null || value === "") {
+    return formatValue(value);
+  }
+
+  return `
+    <span class="pitcher-summary-velocity">
+      <span class="pitcher-summary-number">${escapeHtml(value)}</span>
+      <span class="pitcher-summary-unit">km/h</span>
+    </span>
+  `;
+}
+
+function renderPitchingSummary(snapshot) {
+  const rows = [
+    {
+      field: "velocity",
+      label: "球速",
+      valueHtml: renderPitcherVelocityValue(snapshot?.velocity),
+    },
+    {
+      field: "control",
+      label: "コントロール",
+      valueHtml: renderPitcherRankedSummaryValue(snapshot?.control),
+    },
+    {
+      field: "stamina",
+      label: "スタミナ",
+      valueHtml: renderPitcherRankedSummaryValue(snapshot?.stamina),
+    },
+  ];
+
+  return `
+    <section class="pitcher-summary" aria-label="投手能力要約">
+      <h3 class="pitcher-overview-subtitle">投手能力</h3>
+      <dl class="pitcher-summary-list">
+        ${rows
+          .map(
+            (row) => `
+              <div class="pitcher-summary-row" data-field="${escapeAttribute(row.field)}">
+                <dt>${row.label}</dt>
+                <dd>${row.valueHtml}</dd>
+              </div>
+            `
+          )
+          .join("")}
+      </dl>
+    </section>
+  `;
+}
+
+function renderPitchMeter(pitch, index = 0) {
+  const safeName = escapeHtml(pitch.name);
+  const titleParts = [pitch.name];
+
+  if (pitch.isOriginal && pitch.baseName && pitch.baseName !== pitch.name) {
+    titleParts.push(`元: ${pitch.baseName}`);
+  }
+
+  const segmentCount = pitch.baseline ? 1 : PITCH_METER_MAX_LEVEL;
+  const segments = Array.from({ length: segmentCount }, (_, segmentIndex) => {
+    const segmentLevel = segmentIndex + 1;
+    const activeClass = segmentLevel <= pitch.level ? " is-active" : "";
+    return `<span class="pitch-meter-segment${activeClass}" aria-hidden="true"></span>`;
+  }).join("");
+
+  return `
+    <div
+      class="pitch-meter"
+      data-pitch-direction="${escapeAttribute(pitch.direction)}"
+      data-pitch-orientation="${escapeAttribute(pitch.orientation)}"
+      data-pitch-baseline="${pitch.baseline ? "true" : "false"}"
+      style="--pitch-lane: ${index}; --pitch-angle: ${Number(pitch.angle) || 0}deg;"
+      aria-label="${escapeAttribute(`${pitch.name} 変化量 ${pitch.level}`)}"
+    >
+      <div class="pitch-meter-label">
+        <span class="pitch-meter-name" title="${escapeAttribute(titleParts.join(" / "))}">${safeName}</span>
+        <span class="pitch-meter-level">Lv${escapeHtml(pitch.level)}</span>
+      </div>
+      <div class="pitch-meter-track" aria-hidden="true">
+        ${segments}
+      </div>
+    </div>
+  `;
+}
+
+function renderPitchDirection(direction, pitches) {
+  const directionPitches = Array.isArray(pitches) ? pitches : [];
+  const emptyClass = directionPitches.length > 0 ? "" : " is-empty";
+
+  return `
+    <div
+      class="pitch-direction pitch-direction--${escapeAttribute(direction.key)}${emptyClass}"
+      data-pitch-direction="${escapeAttribute(direction.key)}"
+      aria-label="${escapeAttribute(`${direction.label}方向`)}"
+    >
+      <div class="pitch-direction-guide" aria-hidden="true"></div>
+      <div class="pitch-direction-meters">
+        ${directionPitches.map((pitch, index) => renderPitchMeter(pitch, index)).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderPitchMovementChart(snapshot) {
+  const groupedPitches = groupPitchesByDirection(snapshot);
+
+  return `
+    <section class="pitch-movement" aria-label="変化球表示">
+      <h3 class="pitcher-overview-subtitle">変化球</h3>
+      <div class="pitch-movement-chart">
+        <div class="pitch-movement-center" aria-hidden="true">
+          <span class="pitch-movement-ball"></span>
+        </div>
+        ${PITCH_MOVEMENT_DIRECTIONS.map((direction) =>
+          renderPitchDirection(direction, groupedPitches[direction.key])
+        ).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function buildPitcherOverviewActions(snapshot, { archivedSchool = false } = {}) {
+  if (archivedSchool) {
+    return "";
+  }
+
+  const pitchActions = snapshot?.id
+    ? `
+      ${buildSectionEditButton("pitches", "変化球編集")}
+      ${buildSectionEditLink("pitches", snapshot, "編集画面")}
+    `
+    : "";
+
+  return `
+    ${buildSectionEditButton("pitcher", "能力編集")}
+    ${pitchActions}
+  `;
+}
+
+function renderPitcherOverviewSection(snapshot, { archivedSchool = false } = {}) {
+  if (!isPitcherPosition(snapshot?.main_position)) {
+    return "";
+  }
+
+  return renderDetailCard({
+    title: "投手情報",
+    sectionKey: "pitcher-overview",
+    bodyClass: "detail-card-body--pitcher-overview",
+    headerActionHtml: buildPitcherOverviewActions(snapshot, { archivedSchool }),
+    content: `
+      <div class="pitcher-overview-scroll">
+        <div class="pitcher-overview-layout">
+          ${renderPitchingSummary(snapshot)}
+          ${renderPitchMovementChart(snapshot)}
+        </div>
+      </div>
+    `,
+  });
+}
+
 function renderPitchTypeSection(snapshot, { archivedSchool = false } = {}) {
   if (!isPitcherPosition(snapshot?.main_position)) {
     return "";
@@ -1509,7 +1838,7 @@ function renderPlayer(refs, seriesResponse) {
   const archivedSchool = isArchivedSchool(player);
   const schoolNameText = formatSchoolName(player.school_name, "不明");
   const schoolNameHtml = escapeHtml(schoolNameText);
-  const shouldShowPitcherSection = isPitcherPosition(player.main_position);
+  const shouldShowPitcherSection = isPitcherPosition(currentSnapshot.main_position);
   const displayName = playerSeries.name || player.name || "選手名未設定";
   const snapshotDisplayLabel =
     currentSnapshot.snapshot_label_display ??
@@ -1572,20 +1901,6 @@ function renderPlayer(refs, seriesResponse) {
     },
   ]);
 
-  const pitcherInfo = renderDefinitionRows([
-    { field: "velocity", label: "球速", valueHtml: formatValue(currentSnapshot.velocity) },
-    {
-      field: "control",
-      label: "コントロール",
-      valueHtml: renderRankedAbilityValue(currentSnapshot.control),
-    },
-    {
-      field: "stamina",
-      label: "スタミナ",
-      valueHtml: renderRankedAbilityValue(currentSnapshot.stamina),
-    },
-  ]);
-
   const batterInfo = renderDefinitionRows([
     { field: "trajectory", label: "弾道", valueHtml: formatValue(currentSnapshot.trajectory) },
     { field: "meat", label: "ミート", valueHtml: renderRankedAbilityValue(currentSnapshot.meat) },
@@ -1600,7 +1915,15 @@ function renderPlayer(refs, seriesResponse) {
     { field: "catching", label: "捕球", valueHtml: renderRankedAbilityValue(currentSnapshot.catching) },
   ]);
 
-  const pitchTypesSection = renderPitchTypeSection(currentSnapshot, { archivedSchool });
+  const pitcherOverviewSection = shouldShowPitcherSection
+    ? renderPitcherOverviewSection(
+        {
+          ...currentSnapshot,
+          throwing_hand: player.throwing_hand ?? currentSnapshot.throwing_hand,
+        },
+        { archivedSchool }
+      )
+    : "";
   const specialAbilitiesSection = renderSpecialAbilitySection(currentSnapshot, { archivedSchool });
   const subPositionsSection = renderSubPositionSection(currentSnapshot, { archivedSchool });
 
@@ -1628,19 +1951,6 @@ function renderPlayer(refs, seriesResponse) {
     `,
   });
 
-  const pitcherSection = shouldShowPitcherSection
-    ? renderDetailCard({
-        title: "投手能力",
-        sectionKey: "pitcher",
-        headerActionHtml: archivedSchool ? "" : buildSectionEditButton("pitcher"),
-        content: `
-          <dl class="detail-grid compact-grid" data-detail-grid="pitcher">
-            ${pitcherInfo}
-          </dl>
-        `,
-      })
-    : "";
-
   const batterSection = renderDetailCard({
     title: "野手能力",
     sectionKey: "batter",
@@ -1655,8 +1965,7 @@ function renderPlayer(refs, seriesResponse) {
   refs.root.innerHTML = `
     ${archivedNotice}
     ${basicSection}
-    ${pitcherSection}
-    ${pitchTypesSection}
+    ${pitcherOverviewSection}
     ${batterSection}
     ${specialAbilitiesSection}
     ${subPositionsSection}
@@ -2055,12 +2364,13 @@ function renderRelationModalSection(scope, player) {
     return renderModalFormSection({
       sectionKey: "pitches",
       title: "変化球",
-      description: "球種、変化量、オリジナル球種名を現在の snapshot に対して更新します。",
+      description: "必要な方向だけ追加し、球種、変化量、オリジナル球種名を現在の snapshot に対して更新します。",
       fieldsClass: "player-form-fields player-form-fields--relation",
       content: renderPitchTypeEditor({
         pitchTypes: player.pitch_types,
         relationOptions,
         editorIdPrefix,
+        throwingHand: player.throwing_hand,
       }),
     });
   }
@@ -2301,6 +2611,7 @@ function openSectionEditModal(scope, player) {
       DETAIL_STATE.relationOptions ?? normalizeRelationOptions(getFallbackRelationOptions()),
       {
         getMainPosition: () => modalPlayer.main_position,
+        getThrowingHand: () => modalPlayer.throwing_hand,
       }
     );
     window.requestAnimationFrame(() => {
