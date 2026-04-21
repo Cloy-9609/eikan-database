@@ -83,8 +83,8 @@ const PITCH_METER_MAX_LEVEL = 7;
 
 const PITCH_MOVEMENT_DIRECTIONS = [
   { key: "top", label: "上", orientation: "vertical", angle: 0 },
-  { key: "left", label: "左", orientation: "horizontal", angle: -8 },
-  { key: "right", label: "右", orientation: "horizontal", angle: 8 },
+  { key: "left", label: "左", orientation: "horizontal", angle: 0 },
+  { key: "right", label: "右", orientation: "horizontal", angle: 0 },
   { key: "down-left", label: "左下", orientation: "vertical", angle: 34 },
   { key: "down", label: "下", orientation: "vertical", angle: 0 },
   { key: "down-right", label: "右下", orientation: "vertical", angle: -34 },
@@ -100,21 +100,21 @@ const PITCH_DIRECTION_MIRROR_MAP = {
 };
 
 const PITCH_MOVEMENT_CATEGORIES = [
-  {
-    direction: "top",
-    patterns: ["ストレート", "直球", "ツーシーム", "ムービング", "ライジング", "ジャイロ"],
-  },
-  { direction: "left", patterns: ["スライダー", "スラーブ", "カット", "カッター"] },
-  { direction: "right", patterns: ["シュート"] },
-  { direction: "down-left", patterns: ["カーブ", "ドロップ"] },
+  { direction: "left", patterns: ["シュート", "Hシュート", "シンキングツーシーム"] },
+  { direction: "down-right", patterns: ["カーブ", "スローカーブ", "ドロップカーブ", "スラーブ", "ナックルカーブ", "パワーカーブ", "ドロップ"] },
+  { direction: "down-left", patterns: ["シンカー（スクリュー）", "シンカー", "スクリュー", "Hシンカー", "サークルチェンジ"] },
   {
     direction: "down",
-    patterns: ["フォーク", "SFF", "スプリット", "Ｖスライダー", "Vスライダー", "縦スライダー"],
+    patterns: ["フォーク", "SFF", "チェンジアップ", "Vスライダー", "Ｖスライダー", "縦スライダー", "パーム", "ナックル"],
   },
-  { direction: "down-right", patterns: ["シンカー", "スクリュー", "チェンジ", "パーム", "ナックル"] },
+  { direction: "right", patterns: ["スライダー", "Hスライダー", "カットボール", "カッター"] },
+  {
+    direction: "top-secondary",
+    patterns: ["全力ストレート", "ツーシームファスト", "ツーシーム", "ムービングファスト", "ムービング", "超スローボール"],
+  },
 ];
 
-const STRAIGHT_PITCH_PATTERNS = ["ストレート", "直球"];
+const STRAIGHT_PITCH_PATTERNS = ["ストレート", "通常ストレート", "直球"];
 
 const BATTER_ABILITY_FIELDS = [
   { field: "trajectory", label: "弾道", inputType: "trajectory" },
@@ -969,7 +969,8 @@ function pitchNameMatches(value, patterns) {
 }
 
 function isStraightPitch(pitch) {
-  return pitchNameMatches(pitch?.pitch_name, STRAIGHT_PITCH_PATTERNS);
+  const normalizedName = normalizePitchName(pitch?.pitch_name);
+  return STRAIGHT_PITCH_PATTERNS.some((pattern) => normalizedName === normalizePitchName(pattern));
 }
 
 function isLeftThrowingHand(value) {
@@ -981,6 +982,10 @@ function mirrorPitchDirection(direction) {
 }
 
 function getCanonicalPitchDirection(pitch) {
+  if (isStraightPitch(pitch)) {
+    return "top";
+  }
+
   const candidateNames = [pitch?.pitch_name, pitch?.original_pitch_name].filter(Boolean);
 
   for (const name of candidateNames) {
@@ -996,6 +1001,11 @@ function getCanonicalPitchDirection(pitch) {
 
 function getDisplayPitchDirection(pitch, throwingHand = "") {
   const canonicalDirection = getCanonicalPitchDirection(pitch);
+
+  if (canonicalDirection === "top" || canonicalDirection === "top-secondary") {
+    return "top";
+  }
+
   return isLeftThrowingHand(throwingHand) ? mirrorPitchDirection(canonicalDirection) : canonicalDirection;
 }
 

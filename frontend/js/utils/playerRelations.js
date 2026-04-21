@@ -8,20 +8,34 @@ const FALLBACK_RELATION_OPTIONS = {
   ],
   specialAbilitySuggestions: [],
   pitchTypeSuggestions: [
-    "ストレート",
-    "ツーシーム",
+    "全力ストレート",
+    "ツーシームファスト",
     "ムービングファスト",
+    "超スローボール",
     "スライダー",
+    "Hスライダー",
     "カットボール",
-    "カーブ",
-    "スローカーブ",
+    "シュート",
+    "Hシュート",
+    "シンキングツーシーム",
     "フォーク",
     "SFF",
-    "スプリット",
     "チェンジアップ",
+    "Vスライダー",
+    "パーム",
+    "ナックル",
+    "カーブ",
+    "スローカーブ",
+    "ドロップカーブ",
+    "スラーブ",
+    "ナックルカーブ",
+    "パワーカーブ",
+    "ドロップ",
+    "シンカー（スクリュー）",
     "シンカー",
     "スクリュー",
-    "シュート",
+    "Hシンカー",
+    "サークルチェンジ",
   ],
   subPositionOptions: ["投手", "捕手", "一塁手", "二塁手", "三塁手", "遊撃手", "外野手"],
   subPositionSuitabilitySuggestions: ["S", "A", "B", "C", "D", "E", "F", "G"],
@@ -32,8 +46,8 @@ const PITCH_METER_MAX_LEVEL = 7;
 
 const PITCH_MOVEMENT_DIRECTIONS = [
   { key: "top", label: "上", orientation: "vertical", angle: 0 },
-  { key: "left", label: "左", orientation: "horizontal", angle: -8 },
-  { key: "right", label: "右", orientation: "horizontal", angle: 8 },
+  { key: "left", label: "左", orientation: "horizontal", angle: 0 },
+  { key: "right", label: "右", orientation: "horizontal", angle: 0 },
   { key: "down-left", label: "左下", orientation: "vertical", angle: 34 },
   { key: "down", label: "下", orientation: "vertical", angle: 0 },
   { key: "down-right", label: "右下", orientation: "vertical", angle: -34 },
@@ -51,21 +65,21 @@ const PITCH_DIRECTION_MIRROR_MAP = {
 const PITCH_EDITOR_MAX_VISIBLE_SLOTS = 2;
 
 const PITCH_MOVEMENT_CATEGORIES = [
-  {
-    direction: "top",
-    patterns: ["ストレート", "直球", "ツーシーム", "ムービング", "ライジング", "ジャイロ"],
-  },
-  { direction: "left", patterns: ["スライダー", "スラーブ", "カット", "カッター"] },
-  { direction: "right", patterns: ["シュート"] },
-  { direction: "down-left", patterns: ["カーブ", "ドロップ"] },
+  { direction: "left", patterns: ["シュート", "Hシュート", "シンキングツーシーム"] },
+  { direction: "down-right", patterns: ["カーブ", "スローカーブ", "ドロップカーブ", "スラーブ", "ナックルカーブ", "パワーカーブ", "ドロップ"] },
+  { direction: "down-left", patterns: ["シンカー（スクリュー）", "シンカー", "スクリュー", "Hシンカー", "サークルチェンジ"] },
   {
     direction: "down",
-    patterns: ["フォーク", "SFF", "スプリット", "Ｖスライダー", "Vスライダー", "縦スライダー"],
+    patterns: ["フォーク", "SFF", "チェンジアップ", "Vスライダー", "Ｖスライダー", "縦スライダー", "パーム", "ナックル"],
   },
-  { direction: "down-right", patterns: ["シンカー", "スクリュー", "チェンジ", "パーム", "ナックル"] },
+  { direction: "right", patterns: ["スライダー", "Hスライダー", "カットボール", "カッター"] },
+  {
+    direction: "top-secondary",
+    patterns: ["全力ストレート", "ツーシームファスト", "ツーシーム", "ムービングファスト", "ムービング", "超スローボール"],
+  },
 ];
 
-const STRAIGHT_PITCH_PATTERNS = ["ストレート", "直球"];
+const STRAIGHT_PITCH_PATTERNS = ["ストレート", "通常ストレート", "直球"];
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -202,7 +216,8 @@ function pitchNameMatches(value, patterns) {
 }
 
 function isStraightPitchName(value) {
-  return pitchNameMatches(value, STRAIGHT_PITCH_PATTERNS);
+  const normalizedName = normalizePitchName(value);
+  return STRAIGHT_PITCH_PATTERNS.some((pattern) => normalizedName === normalizePitchName(pattern));
 }
 
 function isLeftThrowingHand(value) {
@@ -214,6 +229,10 @@ function mirrorPitchDirection(direction) {
 }
 
 function getCanonicalPitchDirection(pitch) {
+  if (isStraightPitchName(pitch?.pitch_name)) {
+    return "top";
+  }
+
   const candidateNames = [pitch?.pitch_name, pitch?.original_pitch_name].filter(Boolean);
 
   for (const name of candidateNames) {
@@ -229,10 +248,19 @@ function getCanonicalPitchDirection(pitch) {
 
 function getDisplayPitchDirection(pitch, throwingHand = "") {
   const canonicalDirection = getCanonicalPitchDirection(pitch);
+
+  if (canonicalDirection === "top" || canonicalDirection === "top-secondary") {
+    return "top";
+  }
+
   return isLeftThrowingHand(throwingHand) ? mirrorPitchDirection(canonicalDirection) : canonicalDirection;
 }
 
 function getCanonicalDirectionForDisplay(displayDirection, throwingHand = "") {
+  if (displayDirection === "top") {
+    return "top-secondary";
+  }
+
   return isLeftThrowingHand(throwingHand) ? mirrorPitchDirection(displayDirection) : displayDirection;
 }
 
@@ -452,6 +480,22 @@ function renderPitchPreservedRow(item) {
   `;
 }
 
+function getPitchEditorMaxSlots(directionKey) {
+  return directionKey === "top" ? 1 : PITCH_EDITOR_MAX_VISIBLE_SLOTS;
+}
+
+function getPitchEditorSlotNumber(directionKey, slotIndex) {
+  return directionKey === "top" ? slotIndex + 2 : slotIndex + 1;
+}
+
+function getPitchEditorAddLabel(directionKey, slotCount) {
+  if (directionKey === "top") {
+    return "第2球種を追加";
+  }
+
+  return slotCount > 0 ? `第${slotCount + 1}変化球を追加` : "追加";
+}
+
 function renderPitchEditorSlot(item, relationOptions, { idPrefix, direction, slotIndex, throwingHand = "" }) {
   const pitchNameId = `${idPrefix}-pitch-${direction.key}-${slotIndex}-name`;
   const pitchOriginalId = `${idPrefix}-pitch-${direction.key}-${slotIndex}-original`;
@@ -477,7 +521,7 @@ function renderPitchEditorSlot(item, relationOptions, { idPrefix, direction, slo
       data-pitch-baseline="${isStraight ? "true" : "false"}"
     >
       <div class="pitch-editor-slot-header">
-        <span class="pitch-editor-slot-index">${slotIndex + 1}</span>
+        <span class="pitch-editor-slot-index">${getPitchEditorSlotNumber(direction.key, slotIndex)}</span>
         <button type="button" class="pitch-editor-clear" data-pitch-slot-clear>削除</button>
       </div>
       <div class="pitch-editor-controls">
@@ -524,8 +568,9 @@ function renderPitchEditorSlot(item, relationOptions, { idPrefix, direction, slo
 
 function renderPitchDirectionEditor(direction, pitches, relationOptions, { idPrefix, throwingHand = "" }) {
   const directionPitches = Array.isArray(pitches) ? pitches : [];
-  const visiblePitches = directionPitches.slice(0, PITCH_EDITOR_MAX_VISIBLE_SLOTS);
-  const preservedPitches = directionPitches.slice(PITCH_EDITOR_MAX_VISIBLE_SLOTS);
+  const maxVisibleSlots = getPitchEditorMaxSlots(direction.key);
+  const visiblePitches = directionPitches.slice(0, maxVisibleSlots);
+  const preservedPitches = directionPitches.slice(maxVisibleSlots);
   const slotCount = visiblePitches.length;
   const slots = visiblePitches.map((pitch, index) =>
     renderPitchEditorSlot(pitch ?? {}, relationOptions, {
@@ -536,7 +581,7 @@ function renderPitchDirectionEditor(direction, pitches, relationOptions, { idPre
     })
   ).join("");
   const preservedSlots = preservedPitches.map((pitch) => renderPitchPreservedRow(pitch)).join("");
-  const canAdd = slotCount < PITCH_EDITOR_MAX_VISIBLE_SLOTS && preservedPitches.length === 0;
+  const canAdd = slotCount < maxVisibleSlots && preservedPitches.length === 0;
 
   return `
     <section
@@ -552,14 +597,17 @@ function renderPitchDirectionEditor(direction, pitches, relationOptions, { idPre
       <div class="pitch-editor-direction-slots" data-pitch-direction-slots>${slots}</div>
       ${preservedSlots}
       <button type="button" class="pitch-editor-add" data-pitch-direction-add="${escapeAttribute(direction.key)}" ${canAdd ? "" : "hidden"}>
-        ${slotCount > 0 ? `第${slotCount + 1}変化球を追加` : "追加"}
+        ${getPitchEditorAddLabel(direction.key, slotCount)}
       </button>
     </section>
   `;
 }
 
 function renderPitchEditor({ pitchTypes = [], relationOptions, editorIdPrefix = "player-relations", throwingHand = "" }) {
-  const groupedPitches = groupPitchesByDirection(pitchTypes, throwingHand);
+  const safePitchTypes = Array.isArray(pitchTypes) ? pitchTypes : [];
+  const editablePitchTypes = safePitchTypes.filter((pitch) => !isStraightPitchName(pitch?.pitch_name));
+  const preservedStraightPitches = safePitchTypes.filter((pitch) => isStraightPitchName(pitch?.pitch_name));
+  const groupedPitches = groupPitchesByDirection(editablePitchTypes, throwingHand);
 
   return `
     <div
@@ -573,6 +621,7 @@ function renderPitchEditor({ pitchTypes = [], relationOptions, editorIdPrefix = 
           <p class="player-relation-editor-description">必要な方向だけ追加し、方向ごとの球種候補と変化量をメーターで編集します。</p>
         </div>
       </div>
+      ${preservedStraightPitches.map((pitch) => renderPitchPreservedRow(pitch)).join("")}
       <div class="pitch-editor-scroll">
         <div class="pitch-editor-grid">
           <div class="pitch-editor-center" aria-hidden="true">
@@ -858,12 +907,14 @@ function updatePitchDirectionAddButton(section) {
   const slotCount = section.querySelectorAll("[data-pitch-editor-slot]").length;
   const preservedCount = section.querySelectorAll("[data-pitch-preserved-slot]").length;
   const addButton = section.querySelector("[data-pitch-direction-add]");
-  const canAdd = slotCount < PITCH_EDITOR_MAX_VISIBLE_SLOTS && preservedCount === 0;
+  const directionKey = section.dataset.pitchDirectionSection;
+  const maxVisibleSlots = getPitchEditorMaxSlots(directionKey);
+  const canAdd = slotCount < maxVisibleSlots && preservedCount === 0;
   section.dataset.pitchSlotCount = String(slotCount);
   section.dataset.pitchPreservedCount = String(preservedCount);
 
   if (addButton) {
-    addButton.textContent = slotCount > 0 ? `第${slotCount + 1}変化球を追加` : "追加";
+    addButton.textContent = getPitchEditorAddLabel(directionKey, slotCount);
     addButton.hidden = !canAdd;
     addButton.disabled = !canAdd;
   }
@@ -876,13 +927,14 @@ function appendPitchDirectionSlot(section, relationOptions, throwingHand = "") {
 
   const slotCount = section.querySelectorAll("[data-pitch-editor-slot]").length;
   const preservedCount = section.querySelectorAll("[data-pitch-preserved-slot]").length;
+  const directionKey = section.dataset.pitchDirectionSection;
+  const maxVisibleSlots = getPitchEditorMaxSlots(directionKey);
 
-  if (slotCount >= PITCH_EDITOR_MAX_VISIBLE_SLOTS || preservedCount > 0) {
+  if (slotCount >= maxVisibleSlots || preservedCount > 0) {
     updatePitchDirectionAddButton(section);
     return null;
   }
 
-  const directionKey = section.dataset.pitchDirectionSection;
   const direction = PITCH_MOVEMENT_DIRECTIONS.find((item) => item.key === directionKey);
   const slotsRoot = section.querySelector("[data-pitch-direction-slots]");
   const editor = section.closest('[data-relation-editor="pitches"]');

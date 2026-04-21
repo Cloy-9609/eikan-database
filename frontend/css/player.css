@@ -1753,7 +1753,7 @@
 
 .pitch-movement-center {
   position: absolute;
-  top: 50%;
+  top: 48%;
   left: 50%;
   z-index: 5;
   display: grid;
@@ -1807,23 +1807,23 @@
 }
 
 .pitch-direction--top {
-  top: 5%;
+  top: 17%;
   left: 50%;
-  width: clamp(96px, 20vw, 150px);
+  width: clamp(86px, 18vw, 128px);
   transform: translateX(-50%);
 }
 
 .pitch-direction--left {
   top: 50%;
-  left: 4%;
-  width: clamp(112px, 22vw, 170px);
+  left: 2%;
+  width: clamp(94px, 34%, 134px);
   transform: translateY(-50%);
 }
 
 .pitch-direction--right {
   top: 50%;
-  right: 4%;
-  width: clamp(112px, 22vw, 170px);
+  right: 2%;
+  width: clamp(94px, 34%, 134px);
   transform: translateY(-50%);
 }
 
@@ -2791,8 +2791,24 @@
   }
 
   .pitch-movement-center {
+    top: 48%;
     width: 30px;
     height: 30px;
+  }
+
+  .pitch-direction--top {
+    top: 18%;
+    width: 82px;
+  }
+
+  .pitch-direction--left {
+    left: 1%;
+    width: 92px;
+  }
+
+  .pitch-direction--right {
+    right: 1%;
+    width: 92px;
   }
 
   .pitch-direction-meters {
