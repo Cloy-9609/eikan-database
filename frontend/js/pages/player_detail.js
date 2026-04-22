@@ -1046,37 +1046,54 @@ function renderPitchingSummary(snapshot) {
   `;
 }
 
-function renderPitchMeter(pitch, index = 0) {
-  const safeName = escapeHtml(pitch.name);
+function getPitchMeterSegments(pitch) {
+  const segmentCount = pitch.fixedLevel ? 1 : PITCH_METER_MAX_LEVEL;
+
+  return Array.from({ length: segmentCount }, (_, segmentIndex) => {
+    const segmentLevel = segmentIndex + 1;
+    const activeClass = segmentLevel <= pitch.level ? " is-active" : "";
+    return `<span class="pitch-meter-segment${activeClass}" aria-hidden="true"></span>`;
+  }).join("");
+}
+
+function getPitchMeterTitle(pitch) {
   const titleParts = [pitch.name];
 
   if (pitch.isOriginal && pitch.baseName && pitch.baseName !== pitch.name) {
     titleParts.push(`元: ${pitch.baseName}`);
   }
 
-  const segmentCount = pitch.fixedLevel ? 1 : PITCH_METER_MAX_LEVEL;
-  const segments = Array.from({ length: segmentCount }, (_, segmentIndex) => {
-    const segmentLevel = segmentIndex + 1;
-    const activeClass = segmentLevel <= pitch.level ? " is-active" : "";
-    return `<span class="pitch-meter-segment${activeClass}" aria-hidden="true"></span>`;
-  }).join("");
+  return titleParts.join(" / ");
+}
+
+function renderPitchMeterLabel(pitch, index = 0) {
+  const safeName = escapeHtml(pitch.name);
+  const secondaryClass = index > 0 ? " pitch-meter-label--secondary" : "";
+
+  return `
+    <div class="pitch-meter-label${secondaryClass}" data-pitch-meter-label="${index}">
+      <span class="pitch-meter-name" title="${escapeAttribute(getPitchMeterTitle(pitch))}">${safeName}</span>
+      <span class="pitch-meter-level">Lv${escapeHtml(pitch.level)}</span>
+    </div>
+  `;
+}
+
+function renderPitchMeter(pitch, index = 0) {
+  const secondaryClass = index > 0 ? " pitch-meter--secondary" : "";
 
   return `
     <div
-      class="pitch-meter"
+      class="pitch-meter pitch-meter--track${secondaryClass}"
       data-pitch-direction="${escapeAttribute(pitch.direction)}"
       data-pitch-orientation="${escapeAttribute(pitch.orientation)}"
       data-pitch-baseline="${pitch.baseline ? "true" : "false"}"
       data-pitch-fixed-level="${pitch.fixedLevel ? "true" : "false"}"
-      style="--pitch-lane: ${index}; --pitch-angle: ${Number(pitch.angle) || 0}deg;"
+      data-pitch-meter-index="${escapeAttribute(index)}"
+      style="--pitch-lane: ${index};"
       aria-label="${escapeAttribute(`${pitch.name} 変化量 ${pitch.level}`)}"
     >
-      <div class="pitch-meter-label">
-        <span class="pitch-meter-name" title="${escapeAttribute(titleParts.join(" / "))}">${safeName}</span>
-        <span class="pitch-meter-level">Lv${escapeHtml(pitch.level)}</span>
-      </div>
       <div class="pitch-meter-track" aria-hidden="true">
-        ${segments}
+        ${getPitchMeterSegments(pitch)}
       </div>
     </div>
   `;
@@ -1085,16 +1102,34 @@ function renderPitchMeter(pitch, index = 0) {
 function renderPitchDirection(direction, pitches) {
   const directionPitches = Array.isArray(pitches) ? pitches : [];
   const emptyClass = directionPitches.length > 0 ? "" : " is-empty";
+  const secondaryClass = directionPitches.length > 1 ? " has-secondary-pitch" : "";
+  const metersHtml =
+    directionPitches.length > 0
+      ? `
+        <div class="pitch-direction-labels">
+          ${directionPitches.map((pitch, index) => renderPitchMeterLabel(pitch, index)).join("")}
+        </div>
+        <div
+          class="pitch-direction-track-strip"
+          data-pitch-direction-track-strip
+          data-pitch-direction="${escapeAttribute(direction.key)}"
+          data-pitch-orientation="${escapeAttribute(direction.orientation)}"
+          style="--pitch-angle: ${Number(direction.angle) || 0}deg;"
+        >
+          ${directionPitches.map((pitch, index) => renderPitchMeter(pitch, index)).join("")}
+        </div>
+      `
+      : "";
 
   return `
     <div
-      class="pitch-direction pitch-direction--${escapeAttribute(direction.key)}${emptyClass}"
+      class="pitch-direction pitch-direction--${escapeAttribute(direction.key)}${emptyClass}${secondaryClass}"
       data-pitch-direction="${escapeAttribute(direction.key)}"
       aria-label="${escapeAttribute(`${direction.label}方向`)}"
     >
       <div class="pitch-direction-guide" aria-hidden="true"></div>
-      <div class="pitch-direction-meters">
-        ${directionPitches.map((pitch, index) => renderPitchMeter(pitch, index)).join("")}
+      <div class="pitch-direction-meters" data-pitch-count="${escapeAttribute(directionPitches.length)}">
+        ${metersHtml}
       </div>
     </div>
   `;

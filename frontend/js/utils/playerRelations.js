@@ -397,7 +397,6 @@ function renderSpecialAbilityRow(item, relationOptions, { idPrefix, rowKey }) {
 function renderPitchTypeRow(item, relationOptions, { idPrefix, rowKey }) {
   const pitchNameId = `${idPrefix}-pitch-name-${rowKey}`;
   const pitchLevelId = `${idPrefix}-pitch-level-${rowKey}`;
-  const pitchOriginalNameId = `${idPrefix}-pitch-original-name-${rowKey}`;
   const isOriginal = Number(item.is_original) === 1 || item.is_original === true;
 
   return `
@@ -436,15 +435,10 @@ function renderPitchTypeRow(item, relationOptions, { idPrefix, rowKey }) {
             >
             <span>固有名あり</span>
           </label>
-        </div>
-        <div class="player-relation-field player-relation-field--full" data-pitch-original-field ${isOriginal ? "" : "hidden"}>
-          <label class="player-form-label player-relation-label" for="${escapeAttribute(pitchOriginalNameId)}">オリジナル球種名</label>
           <input
-            id="${escapeAttribute(pitchOriginalNameId)}"
-            type="text"
-            value="${escapeAttribute(item.original_pitch_name ?? "")}"
+            type="hidden"
+            value="${escapeAttribute(isOriginal ? item.original_pitch_name ?? "" : "")}"
             data-pitch-original-name
-            placeholder="例: スイーパー"
           >
         </div>
       </div>
@@ -501,6 +495,37 @@ function renderPitchPreservedRow(item) {
   `;
 }
 
+function normalizePitchEditorOriginalState(pitchTypes) {
+  let originalFound = false;
+
+  return pitchTypes.map((pitch) => {
+    const isOriginal = Number(pitch?.is_original) === 1 || pitch?.is_original === true;
+
+    if (isOriginal && !originalFound) {
+      originalFound = true;
+      return {
+        ...pitch,
+        is_original: 1,
+        original_pitch_name: pitch?.original_pitch_name ?? "",
+      };
+    }
+
+    if (!isOriginal) {
+      return pitch;
+    }
+
+    return {
+      ...pitch,
+      is_original: 0,
+      original_pitch_name: null,
+    };
+  });
+}
+
+function getFirstOriginalPitch(pitchTypes) {
+  return pitchTypes.find((pitch) => Number(pitch?.is_original) === 1 || pitch?.is_original === true) ?? null;
+}
+
 function getPitchEditorMaxSlots(directionKey) {
   return directionKey === "top" ? 1 : PITCH_EDITOR_MAX_VISIBLE_SLOTS;
 }
@@ -520,7 +545,6 @@ function getPitchEditorAddLabel(directionKey, slotCount) {
 function renderPitchEditorSlot(item, relationOptions, { idPrefix, direction, slotIndex, throwingHand = "" }) {
   const pitchNameId = `${idPrefix}-pitch-${direction.key}-${slotIndex}-name`;
   const pitchOriginalId = `${idPrefix}-pitch-${direction.key}-${slotIndex}-original`;
-  const pitchOriginalNameId = `${idPrefix}-pitch-${direction.key}-${slotIndex}-original-name`;
   const isOriginal = Number(item?.is_original) === 1 || item?.is_original === true;
   const pitchName = item?.pitch_name ?? "";
   const isStraight = isStraightPitchName(pitchName);
@@ -575,17 +599,34 @@ function renderPitchEditorSlot(item, relationOptions, { idPrefix, direction, slo
           >
           <span>固有名あり</span>
         </label>
-        <div class="player-relation-field" data-pitch-original-field ${isOriginal ? "" : "hidden"}>
-          <label class="player-form-label player-relation-label" for="${escapeAttribute(pitchOriginalNameId)}">オリジナル球種名</label>
-          <input
-            id="${escapeAttribute(pitchOriginalNameId)}"
-            type="text"
-            value="${escapeAttribute(item?.original_pitch_name ?? "")}"
-            data-pitch-original-name
-            placeholder="例: スイーパー"
-          >
-        </div>
+        <input
+          type="hidden"
+          value="${escapeAttribute(isOriginal ? item?.original_pitch_name ?? "" : "")}"
+          data-pitch-original-name
+        >
       </div>
+    </div>
+  `;
+}
+
+function renderPitchOriginalSharedField({ editorIdPrefix, originalPitch }) {
+  const inputId = `${editorIdPrefix}-pitch-original-shared-name`;
+  const isSelected = Boolean(originalPitch);
+
+  return `
+    <div class="pitch-editor-original-summary" data-pitch-original-summary>
+      <label class="player-form-label pitch-editor-label" for="${escapeAttribute(inputId)}">オリ変球種名</label>
+      <input
+        id="${escapeAttribute(inputId)}"
+        type="text"
+        value="${escapeAttribute(originalPitch?.original_pitch_name ?? "")}"
+        data-pitch-original-shared-name
+        placeholder="${isSelected ? "例: スイーパー" : "固有名ありを選択すると入力できます"}"
+        ${isSelected ? "" : "disabled"}
+      >
+      <p class="player-form-help pitch-editor-original-help" data-pitch-original-summary-help>
+        ${isSelected ? "選択中の固有名ありスロットに保存されます。" : "固有名ありを選ぶと入力できます。"}
+      </p>
     </div>
   `;
 }
@@ -628,7 +669,8 @@ function renderPitchDirectionEditor(direction, pitches, relationOptions, { idPre
 }
 
 function renderPitchEditor({ pitchTypes = [], relationOptions, editorIdPrefix = "player-relations", throwingHand = "" }) {
-  const safePitchTypes = Array.isArray(pitchTypes) ? pitchTypes : [];
+  const safePitchTypes = normalizePitchEditorOriginalState(Array.isArray(pitchTypes) ? pitchTypes : []);
+  const originalPitch = getFirstOriginalPitch(safePitchTypes);
   const editablePitchTypes = safePitchTypes.filter(
     (pitch) =>
       !isStraightPitchName(pitch?.pitch_name) &&
@@ -667,6 +709,7 @@ function renderPitchEditor({ pitchTypes = [], relationOptions, editorIdPrefix = 
           ).join("")}
         </div>
       </div>
+      ${renderPitchOriginalSharedField({ editorIdPrefix, originalPitch })}
     </div>
   `;
 }
@@ -876,7 +919,6 @@ function syncSpecialAbilityRow(row, relationOptions) {
 
 function syncPitchTypeRow(row) {
   const checkbox = row.querySelector("[data-pitch-original]");
-  const originalField = row.querySelector("[data-pitch-original-field]");
   const originalNameInput = row.querySelector("[data-pitch-original-name]");
   const pitchNameInput = row.querySelector("[data-pitch-name]");
   const levelInput = row.querySelector("[data-pitch-level]");
@@ -885,10 +927,6 @@ function syncPitchTypeRow(row) {
   const isOriginal = checkbox?.checked ?? false;
   const isStraight = isStraightPitchName(pitchNameInput?.value ?? "");
   const isFixedLevel = isStraight || row.dataset.pitchDirection === "top";
-
-  if (originalField) {
-    originalField.hidden = !isOriginal;
-  }
 
   if (!isOriginal && originalNameInput) {
     originalNameInput.value = "";
@@ -917,6 +955,108 @@ function syncPitchTypeRow(row) {
       });
     }
   }
+}
+
+function syncPitchOriginalSummary(editor, { preferSharedValue = false } = {}) {
+  if (!editor) {
+    return;
+  }
+
+  const sharedInput = editor.querySelector("[data-pitch-original-shared-name]");
+  const sharedHelp = editor.querySelector("[data-pitch-original-summary-help]");
+  const rows = Array.from(editor.querySelectorAll('[data-relation-row="pitches"]'));
+  let selectedRow = null;
+
+  rows.forEach((row) => {
+    const checkbox = row.querySelector("[data-pitch-original]");
+
+    if (!checkbox?.checked) {
+      return;
+    }
+
+    if (!selectedRow) {
+      selectedRow = row;
+      return;
+    }
+
+    checkbox.checked = false;
+    syncPitchTypeRow(row);
+  });
+
+  if (!sharedInput) {
+    return;
+  }
+
+  if (!selectedRow) {
+    sharedInput.value = "";
+    sharedInput.disabled = true;
+    sharedInput.placeholder = "固有名ありを選択すると入力できます";
+    editor.dataset.pitchOriginalSelected = "false";
+
+    if (sharedHelp) {
+      sharedHelp.textContent = "固有名ありを選ぶと入力できます。";
+    }
+
+    rows.forEach((row) => {
+      const originalNameInput = row.querySelector("[data-pitch-original-name]");
+      if (originalNameInput) {
+        originalNameInput.value = "";
+      }
+    });
+    return;
+  }
+
+  const selectedOriginalNameInput = selectedRow.querySelector("[data-pitch-original-name]");
+  const nextOriginalName = preferSharedValue
+    ? sharedInput.value
+    : selectedOriginalNameInput?.value || sharedInput.value;
+
+  sharedInput.disabled = false;
+  sharedInput.placeholder = "例: スイーパー";
+  sharedInput.value = nextOriginalName;
+  editor.dataset.pitchOriginalSelected = "true";
+
+  if (sharedHelp) {
+    sharedHelp.textContent = "選択中の固有名ありスロットに保存されます。";
+  }
+
+  rows.forEach((row) => {
+    const checkbox = row.querySelector("[data-pitch-original]");
+    const originalNameInput = row.querySelector("[data-pitch-original-name]");
+    const isSelected = row === selectedRow;
+
+    if (checkbox && !isSelected) {
+      checkbox.checked = false;
+    }
+
+    if (originalNameInput) {
+      originalNameInput.value = isSelected ? sharedInput.value : "";
+    }
+  });
+}
+
+function syncPitchOriginalCheckbox(checkbox) {
+  const editor = checkbox?.closest('[data-relation-editor="pitches"]');
+  const row = checkbox?.closest('[data-relation-row="pitches"]');
+
+  if (!editor || !row) {
+    return;
+  }
+
+  if (checkbox.checked) {
+    editor.querySelectorAll("[data-pitch-original]").forEach((candidate) => {
+      if (candidate !== checkbox && candidate.checked) {
+        candidate.checked = false;
+        const candidateRow = candidate.closest('[data-relation-row="pitches"]');
+        if (candidateRow) {
+          syncPitchTypeRow(candidateRow);
+        }
+      }
+    });
+  }
+
+  syncPitchTypeRow(row);
+  syncPitchOriginalSummary(editor, { preferSharedValue: checkbox.checked });
 }
 
 function setPitchSlotLevel(row, level) {
@@ -994,6 +1134,7 @@ function appendPitchDirectionSlot(section, relationOptions, throwingHand = "") {
 
   if (row) {
     syncPitchTypeRow(row);
+    syncPitchOriginalSummary(editor, { preferSharedValue: true });
   }
 
   return row;
@@ -1022,6 +1163,7 @@ function syncPitchEditorSelectOptions(editor, relationOptions, throwingHand = ""
     );
     syncPitchTypeRow(row);
   });
+  syncPitchOriginalSummary(editor, { preferSharedValue: true });
 }
 
 function removePitchEditorSlot(row) {
@@ -1176,10 +1318,13 @@ export function bindRelationEditors(
     if (pitchClearButton && root.contains(pitchClearButton)) {
       event.preventDefault();
       const row = pitchClearButton.closest('[data-relation-row="pitches"]');
+      const editor = pitchClearButton.closest('[data-relation-editor="pitches"]');
 
       if (row) {
         clearPitchSlot(row);
       }
+
+      syncPitchOriginalSummary(editor, { preferSharedValue: true });
 
       return;
     }
@@ -1211,6 +1356,8 @@ export function bindRelationEditors(
         toggleEmptyState(editor);
         if (editor.dataset.relationEditor === "sub_positions") {
           syncMainPositionSensitiveEditors();
+        } else if (editor.dataset.relationEditor === "pitches") {
+          syncPitchOriginalSummary(editor, { preferSharedValue: true });
         }
       }
 
@@ -1241,6 +1388,7 @@ export function bindRelationEditors(
       syncSpecialAbilityRow(row, normalizedOptions);
     } else if (editor.dataset.relationEditor === "pitches") {
       syncPitchTypeRow(row);
+      syncPitchOriginalSummary(editor, { preferSharedValue: true });
     } else if (editor.dataset.relationEditor === "sub_positions") {
       syncSubPositionRow(row, normalizedOptions, getMainPosition?.());
     }
@@ -1264,10 +1412,7 @@ export function bindRelationEditors(
     const pitchOriginalCheckbox = event.target.closest("[data-pitch-original]");
 
     if (pitchOriginalCheckbox) {
-      const row = pitchOriginalCheckbox.closest('[data-relation-row="pitches"]');
-      if (row) {
-        syncPitchTypeRow(row);
-      }
+      syncPitchOriginalCheckbox(pitchOriginalCheckbox);
     }
 
     const pitchNameInput = event.target.closest("[data-pitch-name]");
@@ -1290,11 +1435,26 @@ export function bindRelationEditors(
     }
   });
 
+  root.addEventListener("input", (event) => {
+    const originalNameInput = event.target.closest("[data-pitch-original-shared-name]");
+
+    if (!originalNameInput) {
+      return;
+    }
+
+    syncPitchOriginalSummary(originalNameInput.closest('[data-relation-editor="pitches"]'), {
+      preferSharedValue: true,
+    });
+  });
+
   root.querySelectorAll('[data-relation-editor="special"] [data-relation-row="special"]').forEach((row) => {
     syncSpecialAbilityRow(row, normalizedOptions);
   });
   root.querySelectorAll('[data-relation-editor="pitches"] [data-relation-row="pitches"]').forEach((row) => {
     syncPitchTypeRow(row);
+  });
+  root.querySelectorAll('[data-relation-editor="pitches"]').forEach((editor) => {
+    syncPitchOriginalSummary(editor);
   });
   root.querySelectorAll("[data-pitch-direction-section]").forEach((section) => {
     updatePitchDirectionAddButton(section);
@@ -1348,12 +1508,26 @@ function serializeSpecialAbilities(root, relationOptions) {
 }
 
 function serializePitchTypes(root) {
+  root.querySelectorAll('[data-relation-editor="pitches"]').forEach((editor) => {
+    syncPitchOriginalSummary(editor, { preferSharedValue: true });
+  });
+
+  let originalTaken = false;
+
   return Array.from(root.querySelectorAll('[data-relation-editor="pitches"] [data-relation-row="pitches"]'))
     .map((row, index) => {
       const pitchName = trimInputValue(row.querySelector("[data-pitch-name]"));
       const levelText = trimInputValue(row.querySelector("[data-pitch-level]"));
-      const isOriginal = row.querySelector("[data-pitch-original]")?.checked ? 1 : 0;
-      const originalPitchName = trimInputValue(row.querySelector("[data-pitch-original-name]"));
+      const originalCheckbox = row.querySelector("[data-pitch-original]");
+      const isCheckedOriginal = originalCheckbox?.checked ?? false;
+      const isOriginal = isCheckedOriginal && !originalTaken ? 1 : 0;
+      const originalPitchName = isOriginal
+        ? trimInputValue(row.querySelector("[data-pitch-original-name]"))
+        : "";
+
+      if (isCheckedOriginal && originalTaken && originalCheckbox) {
+        originalCheckbox.checked = false;
+      }
 
       if (!pitchName && !originalPitchName && isOriginal === 0) {
         return null;
@@ -1374,6 +1548,10 @@ function serializePitchTypes(root) {
 
       if (isOriginal && !originalPitchName) {
         throw new Error(`変化球 ${index + 1}件目のオリジナル球種名を入力してください。`);
+      }
+
+      if (isOriginal) {
+        originalTaken = true;
       }
 
       return {

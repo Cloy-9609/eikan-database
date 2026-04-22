@@ -880,7 +880,10 @@ function updateAbilitySectionVisibility(form) {
     control.disabled = !shouldShowPitcherSection;
   });
   pitchRelationControls.forEach((control) => {
-    control.disabled = !shouldShowPitcherSection;
+    const isOriginalSharedInput = control.matches("[data-pitch-original-shared-name]");
+    const originalSelected =
+      control.closest('[data-relation-editor="pitches"]')?.dataset.pitchOriginalSelected === "true";
+    control.disabled = !shouldShowPitcherSection || (isOriginalSharedInput && !originalSelected);
   });
 
   return true;
