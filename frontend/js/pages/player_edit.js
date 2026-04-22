@@ -969,10 +969,6 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
         value: String(player.grade),
         required: true,
       }),
-      renderTimelineEditorRow({
-        admissionYear: player.admission_year,
-        snapshotLabel: player.snapshot_label,
-      }),
       renderSelectRow({
         field: "main_position",
         label: "メインポジション",
@@ -993,6 +989,10 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
         options: BATTING_HAND_OPTIONS,
         value: player.batting_hand,
         required: true,
+      }),
+      renderTimelineEditorRow({
+        admissionYear: player.admission_year,
+        snapshotLabel: player.snapshot_label,
       }),
     ].join(""),
   });
