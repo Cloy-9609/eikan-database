@@ -1056,9 +1056,9 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
   form.innerHTML = `
     ${basicSection}
     ${pitcherSection}
+    ${pitchesSection}
     ${batterSection}
     ${specialSection}
-    ${pitchesSection}
     ${subPositionsSection}
 
     <div class="player-form-actions">

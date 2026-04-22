@@ -42,15 +42,15 @@ const FALLBACK_RELATION_OPTIONS = {
 };
 
 const SPECIAL_ABILITY_RANK_OPTIONS = ["A", "B", "C", "D", "E", "F", "G"];
-const PITCH_METER_MAX_LEVEL = 7;
+export const PITCH_METER_MAX_LEVEL = 7;
 
-const PITCH_MOVEMENT_DIRECTIONS = [
+export const PITCH_MOVEMENT_DIRECTIONS = [
   { key: "top", label: "上", orientation: "vertical", angle: 0 },
   { key: "left", label: "左", orientation: "horizontal", angle: 0 },
   { key: "right", label: "右", orientation: "horizontal", angle: 0 },
-  { key: "down-left", label: "左下", orientation: "vertical", angle: 34 },
+  { key: "down-left", label: "左下", orientation: "vertical", angle: 45 },
   { key: "down", label: "下", orientation: "vertical", angle: 0 },
-  { key: "down-right", label: "右下", orientation: "vertical", angle: -34 },
+  { key: "down-right", label: "右下", orientation: "vertical", angle: -45 },
 ];
 
 const PITCH_DIRECTION_MIRROR_MAP = {
@@ -80,6 +80,8 @@ const PITCH_MOVEMENT_CATEGORIES = [
 ];
 
 const STRAIGHT_PITCH_PATTERNS = ["ストレート", "通常ストレート", "直球"];
+const PITCH_VISUAL_EXCLUDED_NAMES = ["全力ストレート"];
+const PITCH_EDIT_SELECT_EXCLUDED_NAMES = PITCH_VISUAL_EXCLUDED_NAMES;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -205,6 +207,19 @@ function normalizePitchName(value) {
     .replace(/\s+/g, "");
 }
 
+function pitchNameEqualsAny(value, patterns) {
+  const normalizedName = normalizePitchName(value);
+  return patterns.some((name) => normalizedName === normalizePitchName(name));
+}
+
+function isPitchEditExcludedPitchName(value) {
+  return pitchNameEqualsAny(value, PITCH_EDIT_SELECT_EXCLUDED_NAMES);
+}
+
+export function isPitchMovementChartExcludedPitchName(value) {
+  return pitchNameEqualsAny(value, PITCH_VISUAL_EXCLUDED_NAMES);
+}
+
 function pitchNameMatches(value, patterns) {
   const normalizedName = normalizePitchName(value);
 
@@ -215,7 +230,7 @@ function pitchNameMatches(value, patterns) {
   return patterns.some((pattern) => normalizedName.includes(normalizePitchName(pattern)));
 }
 
-function isStraightPitchName(value) {
+export function isStraightPitchName(value) {
   const normalizedName = normalizePitchName(value);
   return STRAIGHT_PITCH_PATTERNS.some((pattern) => normalizedName === normalizePitchName(pattern));
 }
@@ -228,7 +243,7 @@ function mirrorPitchDirection(direction) {
   return PITCH_DIRECTION_MIRROR_MAP[direction] ?? direction;
 }
 
-function getCanonicalPitchDirection(pitch) {
+export function getCanonicalPitchDirection(pitch) {
   if (isStraightPitchName(pitch?.pitch_name)) {
     return "top";
   }
@@ -246,7 +261,7 @@ function getCanonicalPitchDirection(pitch) {
   return "down";
 }
 
-function getDisplayPitchDirection(pitch, throwingHand = "") {
+export function getDisplayPitchDirection(pitch, throwingHand = "") {
   const canonicalDirection = getCanonicalPitchDirection(pitch);
 
   if (canonicalDirection === "top" || canonicalDirection === "top-secondary") {
@@ -264,7 +279,7 @@ function getCanonicalDirectionForDisplay(displayDirection, throwingHand = "") {
   return isLeftThrowingHand(throwingHand) ? mirrorPitchDirection(displayDirection) : displayDirection;
 }
 
-function getPitchDisplayLayout(pitch, throwingHand = "") {
+export function getPitchDisplayLayout(pitch, throwingHand = "") {
   const direction = getDisplayPitchDirection(pitch, throwingHand);
   const directionMeta =
     PITCH_MOVEMENT_DIRECTIONS.find((candidate) => candidate.key === direction) ??
@@ -296,10 +311,14 @@ function getPitchOptionsForDirection(displayDirection, relationOptions, throwing
     selectedValue,
   ]);
   const filteredOptions = sourceOptions.filter(
-    (option) => getCanonicalPitchDirection({ pitch_name: option }) === canonicalDirection
+    (option) =>
+      !isPitchEditExcludedPitchName(option) &&
+      getCanonicalPitchDirection({ pitch_name: option }) === canonicalDirection
   );
 
-  return normalizeStringArray([selectedValue, ...filteredOptions]);
+  return normalizeStringArray([selectedValue, ...filteredOptions]).filter(
+    (option) => !isPitchEditExcludedPitchName(option)
+  );
 }
 
 function groupPitchesByDirection(pitchTypes = [], throwingHand = "") {
@@ -315,7 +334,9 @@ function groupPitchesByDirection(pitchTypes = [], throwingHand = "") {
 
 function buildPitchSelectOptions(options, selectedValue = "") {
   const normalizedSelected = String(selectedValue ?? "");
-  const normalizedOptions = normalizeStringArray([...options, normalizedSelected]);
+  const normalizedOptions = normalizeStringArray([...options, normalizedSelected]).filter(
+    (option) => !isPitchEditExcludedPitchName(option)
+  );
 
   return [
     '<option value="">球種を選択</option>',
@@ -434,8 +455,8 @@ function renderPitchTypeRow(item, relationOptions, { idPrefix, rowKey }) {
   `;
 }
 
-function renderPitchEditorMeter(level, { direction, orientation, angle, isStraight = false } = {}) {
-  const safeLevel = isStraight ? 1 : normalizePitchLevel(level);
+function renderPitchEditorMeter(level, { direction, orientation, angle, isFixedLevel = false } = {}) {
+  const safeLevel = isFixedLevel ? 1 : normalizePitchLevel(level);
 
   return `
     <div
@@ -443,7 +464,7 @@ function renderPitchEditorMeter(level, { direction, orientation, angle, isStraig
       data-pitch-editor-meter
       data-pitch-direction="${escapeAttribute(direction)}"
       data-pitch-orientation="${escapeAttribute(orientation)}"
-      data-pitch-baseline="${isStraight ? "true" : "false"}"
+      data-pitch-baseline="${isFixedLevel ? "true" : "false"}"
       style="--pitch-angle: ${Number(angle) || 0}deg;"
       role="group"
       aria-label="変化量"
@@ -503,7 +524,8 @@ function renderPitchEditorSlot(item, relationOptions, { idPrefix, direction, slo
   const isOriginal = Number(item?.is_original) === 1 || item?.is_original === true;
   const pitchName = item?.pitch_name ?? "";
   const isStraight = isStraightPitchName(pitchName);
-  const level = isStraight ? 1 : normalizePitchLevel(item?.level);
+  const isFixedLevel = isStraight || direction.key === "top";
+  const level = isFixedLevel ? 1 : normalizePitchLevel(item?.level);
   const directionOptions = getPitchOptionsForDirection(
     direction.key,
     relationOptions,
@@ -518,28 +540,30 @@ function renderPitchEditorSlot(item, relationOptions, { idPrefix, direction, slo
       data-pitch-editor-slot
       data-pitch-direction="${escapeAttribute(direction.key)}"
       data-pitch-orientation="${escapeAttribute(direction.orientation)}"
-      data-pitch-baseline="${isStraight ? "true" : "false"}"
+      data-pitch-baseline="${isFixedLevel ? "true" : "false"}"
     >
-      <div class="pitch-editor-slot-header">
+      <div class="pitch-editor-slot-top">
         <span class="pitch-editor-slot-index">${getPitchEditorSlotNumber(direction.key, slotIndex)}</span>
+        <div class="pitch-editor-controls">
+          <label class="player-form-label pitch-editor-label" for="${escapeAttribute(pitchNameId)}">球種</label>
+          <select id="${escapeAttribute(pitchNameId)}" data-pitch-name>
+            ${buildPitchSelectOptions(directionOptions, pitchName)}
+          </select>
+        </div>
         <button type="button" class="pitch-editor-clear" data-pitch-slot-clear>削除</button>
       </div>
-      <div class="pitch-editor-controls">
-        <label class="player-form-label pitch-editor-label" for="${escapeAttribute(pitchNameId)}">球種</label>
-        <select id="${escapeAttribute(pitchNameId)}" data-pitch-name>
-          ${buildPitchSelectOptions(directionOptions, pitchName)}
-        </select>
-      </div>
       <input type="hidden" value="${escapeAttribute(level)}" data-pitch-level>
-      ${renderPitchEditorMeter(level, {
-        direction: direction.key,
-        orientation: direction.orientation,
-        angle: direction.angle,
-        isStraight,
-      })}
-      <div class="pitch-editor-level-readout">
-        <span>変化量</span>
-        <strong data-pitch-level-readout>${escapeHtml(level)}</strong>
+      <div class="pitch-editor-meter-block">
+        <div class="pitch-editor-level-readout">
+          <span>変化量:</span>
+          <strong data-pitch-level-readout>${escapeHtml(level)}</strong>
+        </div>
+        ${renderPitchEditorMeter(level, {
+          direction: direction.key,
+          orientation: direction.orientation,
+          angle: direction.angle,
+          isFixedLevel,
+        })}
       </div>
       <div class="pitch-editor-original">
         <label class="player-relation-checkbox" for="${escapeAttribute(pitchOriginalId)}">
@@ -605,8 +629,16 @@ function renderPitchDirectionEditor(direction, pitches, relationOptions, { idPre
 
 function renderPitchEditor({ pitchTypes = [], relationOptions, editorIdPrefix = "player-relations", throwingHand = "" }) {
   const safePitchTypes = Array.isArray(pitchTypes) ? pitchTypes : [];
-  const editablePitchTypes = safePitchTypes.filter((pitch) => !isStraightPitchName(pitch?.pitch_name));
-  const preservedStraightPitches = safePitchTypes.filter((pitch) => isStraightPitchName(pitch?.pitch_name));
+  const editablePitchTypes = safePitchTypes.filter(
+    (pitch) =>
+      !isStraightPitchName(pitch?.pitch_name) &&
+      !isPitchEditExcludedPitchName(pitch?.pitch_name)
+  );
+  const preservedPitchTypes = safePitchTypes.filter(
+    (pitch) =>
+      isStraightPitchName(pitch?.pitch_name) ||
+      isPitchEditExcludedPitchName(pitch?.pitch_name)
+  );
   const groupedPitches = groupPitchesByDirection(editablePitchTypes, throwingHand);
 
   return `
@@ -621,7 +653,7 @@ function renderPitchEditor({ pitchTypes = [], relationOptions, editorIdPrefix = 
           <p class="player-relation-editor-description">必要な方向だけ追加し、方向ごとの球種候補と変化量をメーターで編集します。</p>
         </div>
       </div>
-      ${preservedStraightPitches.map((pitch) => renderPitchPreservedRow(pitch)).join("")}
+      ${preservedPitchTypes.map((pitch) => renderPitchPreservedRow(pitch)).join("")}
       <div class="pitch-editor-scroll">
         <div class="pitch-editor-grid">
           <div class="pitch-editor-center" aria-hidden="true">
@@ -852,6 +884,7 @@ function syncPitchTypeRow(row) {
   const meter = row.querySelector("[data-pitch-editor-meter]");
   const isOriginal = checkbox?.checked ?? false;
   const isStraight = isStraightPitchName(pitchNameInput?.value ?? "");
+  const isFixedLevel = isStraight || row.dataset.pitchDirection === "top";
 
   if (originalField) {
     originalField.hidden = !isOriginal;
@@ -862,8 +895,8 @@ function syncPitchTypeRow(row) {
   }
 
   if (row.hasAttribute("data-pitch-editor-slot")) {
-    const nextLevel = isStraight ? 1 : normalizePitchLevel(levelInput?.value);
-    row.dataset.pitchBaseline = isStraight ? "true" : "false";
+    const nextLevel = isFixedLevel ? 1 : normalizePitchLevel(levelInput?.value);
+    row.dataset.pitchBaseline = isFixedLevel ? "true" : "false";
 
     if (levelInput) {
       levelInput.value = String(nextLevel);
@@ -874,13 +907,13 @@ function syncPitchTypeRow(row) {
     }
 
     if (meter) {
-      meter.dataset.pitchBaseline = isStraight ? "true" : "false";
+      meter.dataset.pitchBaseline = isFixedLevel ? "true" : "false";
       meter.querySelectorAll("[data-pitch-level-choice]").forEach((button) => {
         const value = Number(button.dataset.pitchLevelChoice);
         const isActive = value <= nextLevel;
         button.classList.toggle("is-active", isActive);
         button.toggleAttribute("aria-current", value === nextLevel);
-        button.disabled = isStraight && value > 1;
+        button.disabled = isFixedLevel && value > 1;
       });
     }
   }
@@ -890,7 +923,8 @@ function setPitchSlotLevel(row, level) {
   const levelInput = row.querySelector("[data-pitch-level]");
   const pitchNameInput = row.querySelector("[data-pitch-name]");
   const isStraight = isStraightPitchName(pitchNameInput?.value ?? "");
-  const nextLevel = isStraight ? 1 : normalizePitchLevel(level);
+  const isFixedLevel = isStraight || row.dataset.pitchDirection === "top";
+  const nextLevel = isFixedLevel ? 1 : normalizePitchLevel(level);
 
   if (levelInput) {
     levelInput.value = String(nextLevel);
@@ -1329,7 +1363,10 @@ function serializePitchTypes(root) {
         throw new Error(`変化球 ${index + 1}件目の球種名を入力してください。`);
       }
 
-      const level = isStraightPitchName(pitchName) ? 1 : Number(levelText);
+      const level =
+        isStraightPitchName(pitchName) || row.dataset.pitchDirection === "top"
+          ? 1
+          : Number(levelText);
 
       if (!Number.isInteger(level) || level < 1 || level > PITCH_METER_MAX_LEVEL) {
         throw new Error(`変化球 ${index + 1}件目の変化量は 1〜${PITCH_METER_MAX_LEVEL} の整数で入力してください。`);

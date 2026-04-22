@@ -9,7 +9,12 @@ import { formatSchoolName } from "../utils/formatter.js";
 import {
   bindRelationEditors,
   getFallbackRelationOptions,
+  getPitchDisplayLayout,
+  isPitchMovementChartExcludedPitchName,
+  isStraightPitchName,
   normalizeRelationOptions,
+  PITCH_METER_MAX_LEVEL,
+  PITCH_MOVEMENT_DIRECTIONS,
   renderPitchTypeEditor,
   renderSpecialAbilityEditor,
   renderSubPositionEditor,
@@ -78,43 +83,6 @@ const PITCHER_ABILITY_FIELDS = [
   { field: "control", label: "コントロール", inputType: "ranked" },
   { field: "stamina", label: "スタミナ", inputType: "ranked" },
 ];
-
-const PITCH_METER_MAX_LEVEL = 7;
-
-const PITCH_MOVEMENT_DIRECTIONS = [
-  { key: "top", label: "上", orientation: "vertical", angle: 0 },
-  { key: "left", label: "左", orientation: "horizontal", angle: 0 },
-  { key: "right", label: "右", orientation: "horizontal", angle: 0 },
-  { key: "down-left", label: "左下", orientation: "vertical", angle: 34 },
-  { key: "down", label: "下", orientation: "vertical", angle: 0 },
-  { key: "down-right", label: "右下", orientation: "vertical", angle: -34 },
-];
-
-const PITCH_DIRECTION_MIRROR_MAP = {
-  top: "top",
-  left: "right",
-  right: "left",
-  "down-left": "down-right",
-  down: "down",
-  "down-right": "down-left",
-};
-
-const PITCH_MOVEMENT_CATEGORIES = [
-  { direction: "left", patterns: ["シュート", "Hシュート", "シンキングツーシーム"] },
-  { direction: "down-right", patterns: ["カーブ", "スローカーブ", "ドロップカーブ", "スラーブ", "ナックルカーブ", "パワーカーブ", "ドロップ"] },
-  { direction: "down-left", patterns: ["シンカー（スクリュー）", "シンカー", "スクリュー", "Hシンカー", "サークルチェンジ"] },
-  {
-    direction: "down",
-    patterns: ["フォーク", "SFF", "チェンジアップ", "Vスライダー", "Ｖスライダー", "縦スライダー", "パーム", "ナックル"],
-  },
-  { direction: "right", patterns: ["スライダー", "Hスライダー", "カットボール", "カッター"] },
-  {
-    direction: "top-secondary",
-    patterns: ["全力ストレート", "ツーシームファスト", "ツーシーム", "ムービングファスト", "ムービング", "超スローボール"],
-  },
-];
-
-const STRAIGHT_PITCH_PATTERNS = ["ストレート", "通常ストレート", "直球"];
 
 const BATTER_ABILITY_FIELDS = [
   { field: "trajectory", label: "弾道", inputType: "trajectory" },
@@ -952,75 +920,8 @@ function clampNumber(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
-function normalizePitchName(value) {
-  return String(value ?? "")
-    .toLowerCase()
-    .replace(/\s+/g, "");
-}
-
-function pitchNameMatches(value, patterns) {
-  const normalizedName = normalizePitchName(value);
-
-  if (!normalizedName) {
-    return false;
-  }
-
-  return patterns.some((pattern) => normalizedName.includes(normalizePitchName(pattern)));
-}
-
 function isStraightPitch(pitch) {
-  const normalizedName = normalizePitchName(pitch?.pitch_name);
-  return STRAIGHT_PITCH_PATTERNS.some((pattern) => normalizedName === normalizePitchName(pattern));
-}
-
-function isLeftThrowingHand(value) {
-  return ["left", "左"].includes(String(value ?? "").trim().toLowerCase());
-}
-
-function mirrorPitchDirection(direction) {
-  return PITCH_DIRECTION_MIRROR_MAP[direction] ?? direction;
-}
-
-function getCanonicalPitchDirection(pitch) {
-  if (isStraightPitch(pitch)) {
-    return "top";
-  }
-
-  const candidateNames = [pitch?.pitch_name, pitch?.original_pitch_name].filter(Boolean);
-
-  for (const name of candidateNames) {
-    const category = PITCH_MOVEMENT_CATEGORIES.find(({ patterns }) => pitchNameMatches(name, patterns));
-
-    if (category) {
-      return category.direction;
-    }
-  }
-
-  return "down";
-}
-
-function getDisplayPitchDirection(pitch, throwingHand = "") {
-  const canonicalDirection = getCanonicalPitchDirection(pitch);
-
-  if (canonicalDirection === "top" || canonicalDirection === "top-secondary") {
-    return "top";
-  }
-
-  return isLeftThrowingHand(throwingHand) ? mirrorPitchDirection(canonicalDirection) : canonicalDirection;
-}
-
-function getPitchDisplayLayout(pitch, throwingHand = "") {
-  const direction = getDisplayPitchDirection(pitch, throwingHand);
-  const directionMeta =
-    PITCH_MOVEMENT_DIRECTIONS.find((candidate) => candidate.key === direction) ??
-    PITCH_MOVEMENT_DIRECTIONS.find((candidate) => candidate.key === "down");
-
-  return {
-    direction,
-    directionLabel: directionMeta?.label ?? "",
-    orientation: directionMeta?.orientation ?? "vertical",
-    angle: directionMeta?.angle ?? 0,
-  };
+  return isStraightPitchName(pitch?.pitch_name);
 }
 
 function normalizePitchLevel(value, fallback = 1) {
@@ -1045,27 +946,32 @@ function getPitchDisplayName(pitch) {
 
 function toPitchDisplayItem(pitch, { baseline = false, throwingHand = "" } = {}) {
   const layout = getPitchDisplayLayout(pitch, throwingHand);
-  const straight = baseline || isStraightPitch(pitch);
+  const fixedLevel = baseline || isStraightPitch(pitch) || layout.direction === "top";
 
   return {
     direction: layout.direction,
     orientation: layout.orientation,
     angle: layout.angle,
     name: baseline ? "ストレート" : getPitchDisplayName(pitch),
-    level: straight ? 1 : normalizePitchLevel(pitch?.level),
+    level: fixedLevel ? 1 : normalizePitchLevel(pitch?.level),
     baseName: pitch?.pitch_name ?? "",
     isOriginal: Number(pitch?.is_original) === 1 || pitch?.is_original === true,
-    baseline: straight,
+    baseline,
+    fixedLevel,
   };
 }
 
 function groupPitchesByDirection(snapshot) {
   const pitchTypes = Array.isArray(snapshot?.pitch_types) ? snapshot.pitch_types : [];
-  const hasStraightPitch = pitchTypes.some((pitch) => isStraightPitch(pitch));
   const throwingHand = snapshot?.throwing_hand ?? "";
+  const editablePitchTypes = pitchTypes.filter(
+    (pitch) =>
+      !isStraightPitch(pitch) &&
+      !isPitchMovementChartExcludedPitchName(pitch?.pitch_name)
+  );
   const displayPitches = [
-    ...(hasStraightPitch ? [] : [{ pitch_name: "ストレート", level: 1, is_original: 0, baseline: true }]),
-    ...pitchTypes,
+    { pitch_name: "ストレート", level: 1, is_original: 0, baseline: true },
+    ...editablePitchTypes,
   ].map((pitch) => toPitchDisplayItem(pitch, { baseline: Boolean(pitch.baseline), throwingHand }));
 
   return PITCH_MOVEMENT_DIRECTIONS.reduce((groups, direction) => {
@@ -1148,7 +1054,7 @@ function renderPitchMeter(pitch, index = 0) {
     titleParts.push(`元: ${pitch.baseName}`);
   }
 
-  const segmentCount = pitch.baseline ? 1 : PITCH_METER_MAX_LEVEL;
+  const segmentCount = pitch.fixedLevel ? 1 : PITCH_METER_MAX_LEVEL;
   const segments = Array.from({ length: segmentCount }, (_, segmentIndex) => {
     const segmentLevel = segmentIndex + 1;
     const activeClass = segmentLevel <= pitch.level ? " is-active" : "";
@@ -1161,6 +1067,7 @@ function renderPitchMeter(pitch, index = 0) {
       data-pitch-direction="${escapeAttribute(pitch.direction)}"
       data-pitch-orientation="${escapeAttribute(pitch.orientation)}"
       data-pitch-baseline="${pitch.baseline ? "true" : "false"}"
+      data-pitch-fixed-level="${pitch.fixedLevel ? "true" : "false"}"
       style="--pitch-lane: ${index}; --pitch-angle: ${Number(pitch.angle) || 0}deg;"
       aria-label="${escapeAttribute(`${pitch.name} 変化量 ${pitch.level}`)}"
     >
