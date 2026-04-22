@@ -1073,7 +1073,6 @@ function renderPitchMeterLabel(pitch, index = 0) {
   return `
     <div class="pitch-meter-label${secondaryClass}" data-pitch-meter-label="${index}">
       <span class="pitch-meter-name" title="${escapeAttribute(getPitchMeterTitle(pitch))}">${safeName}</span>
-      <span class="pitch-meter-level">Lv${escapeHtml(pitch.level)}</span>
     </div>
   `;
 }

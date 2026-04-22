@@ -1679,10 +1679,10 @@
 .pitcher-overview-layout {
   display: grid;
   grid-template-columns:
-    minmax(clamp(118px, 31vw, 170px), 0.72fr)
-    minmax(clamp(212px, 58vw, 340px), 1.28fr);
+    minmax(clamp(128px, 22vw, 154px), 0.44fr)
+    minmax(clamp(390px, 63vw, 440px), 1.56fr);
   align-items: stretch;
-  gap: clamp(var(--player-space-xs), 2.4vw, var(--player-space-3xl));
+  gap: clamp(var(--player-space-xs), 1.8vw, var(--player-space-2xl));
 }
 
 .pitcher-summary,
@@ -1697,13 +1697,13 @@
   display: grid;
   align-content: start;
   gap: var(--player-space-md);
-  padding: clamp(var(--player-space-sm), 2vw, var(--player-space-xl));
+  padding: clamp(var(--player-space-sm), 1.6vw, var(--player-space-lg));
 }
 
 .pitch-movement {
   display: grid;
   gap: var(--player-space-md);
-  padding: clamp(var(--player-space-sm), 2vw, var(--player-space-xl));
+  padding: clamp(var(--player-space-sm), 1.5vw, var(--player-space-md));
 }
 
 .pitcher-overview-subtitle {
@@ -1782,8 +1782,10 @@
 .pitch-movement-chart {
   --pitch-meter-step: clamp(6px, 1.2vw, 9px);
   --pitch-meter-thickness: clamp(7px, 1.4vw, 10px);
-  --pitch-meter-label-width: clamp(54px, 10vw, 84px);
+  --pitch-meter-label-width: clamp(58px, 11.5vw, 96px);
   --pitch-chart-center-y: 48%;
+  --pitch-non-top-y-shift: 28px;
+  --pitch-chart-non-top-center-y: calc(var(--pitch-chart-center-y) - var(--pitch-non-top-y-shift));
   --pitch-direction-radius: 72px;
   --pitch-direction-diagonal-offset: 52px;
   --pitch-track-pair-gap: 3px;
@@ -1795,7 +1797,7 @@
   --pitch-spoke-diagonal: clamp(58px, 13vw, 98px);
   position: relative;
   display: block;
-  width: min(100%, 340px);
+  width: min(100%, 480px);
   min-height: 304px;
   margin-inline: auto;
   overflow: hidden;
@@ -1807,7 +1809,7 @@
 
 .pitch-movement-center {
   position: absolute;
-  top: 48%;
+  top: var(--pitch-chart-non-top-center-y);
   left: 50%;
   z-index: 5;
   display: grid;
@@ -1868,14 +1870,14 @@
 }
 
 .pitch-direction--left {
-  top: var(--pitch-chart-center-y);
+  top: var(--pitch-chart-non-top-center-y);
   left: 50%;
   width: max-content;
   transform: translate(calc(-50% - var(--pitch-direction-radius)), -50%);
 }
 
 .pitch-direction--right {
-  top: var(--pitch-chart-center-y);
+  top: var(--pitch-chart-non-top-center-y);
   right: auto;
   left: 50%;
   width: max-content;
@@ -1883,7 +1885,7 @@
 }
 
 .pitch-direction--down-left {
-  top: var(--pitch-chart-center-y);
+  top: var(--pitch-chart-non-top-center-y);
   bottom: auto;
   left: 50%;
   width: max-content;
@@ -1894,7 +1896,7 @@
 }
 
 .pitch-direction--down {
-  top: var(--pitch-chart-center-y);
+  top: var(--pitch-chart-non-top-center-y);
   bottom: auto;
   left: 50%;
   width: max-content;
@@ -1902,7 +1904,7 @@
 }
 
 .pitch-direction--down-right {
-  top: var(--pitch-chart-center-y);
+  top: var(--pitch-chart-non-top-center-y);
   right: auto;
   bottom: auto;
   left: 50%;
@@ -3023,6 +3025,7 @@
     --pitch-meter-step: 6px;
     --pitch-meter-thickness: 7px;
     --pitch-meter-label-width: 52px;
+    --pitch-non-top-y-shift: 20px;
     --pitch-direction-radius: 66px;
     --pitch-direction-diagonal-offset: 48px;
     --pitch-spoke-long: 54px;
@@ -3035,7 +3038,7 @@
   }
 
   .pitch-movement-center {
-    top: 48%;
+    top: var(--pitch-chart-non-top-center-y);
     width: 30px;
     height: 30px;
   }
