@@ -127,6 +127,7 @@ DB内部の参照、JOIN、保存処理に使う安定したIDである。人間
   - 所属学校
 - `player_series.series_no`
   - 学校内連番
+  - DBでは整数として保持する
   - `UNIQUE(school_id, series_no)` を付ける
 
 #### `players`
@@ -140,6 +141,7 @@ DB内部の参照、JOIN、保存処理に使う安定したIDである。人間
   - 現行実装では互換上 `snapshot_label` を使用している
 - `snapshot_order`
   - DB列として持つより、共通定数から導出する方針を推奨する
+  - 導出専用値であり、`players` テーブルには追加しない前提とする
 - `UNIQUE(player_series_id, snapshot_key)`
   - 現行実装では `UNIQUE(player_series_id, snapshot_label)` に相当する
 
@@ -159,7 +161,7 @@ A7K3M9Q2
 A7K3M9Q2-014
 ```
 
-`series_no` はゼロ埋めすると一覧で揃いやすい。初期案では3桁固定を基本とし、必要なら4桁へ拡張する。
+`series_no` はゼロ埋めすると一覧で揃いやすい。初期案では3桁固定を基本とし、必要なら4桁へ拡張する。ただし、ゼロ埋めは表示用ルールであり、DBでは整数として保持する。
 
 #### snapshot 表示コード: 短縮型
 生成元は `schools.school_code + player_series.series_no + derived snapshot order` とする。
