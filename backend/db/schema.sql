@@ -33,6 +33,8 @@ CREATE TABLE player_series (
   player_type TEXT NOT NULL CHECK (player_type IN ('normal', 'genius', 'reincarnated')),
   player_type_note TEXT,
   admission_year INTEGER NOT NULL,
+  school_grade INTEGER NOT NULL DEFAULT 1 CHECK (school_grade BETWEEN 1 AND 3),
+  roster_status TEXT NOT NULL DEFAULT 'active' CHECK (roster_status IN ('active', 'graduated')),
   throwing_hand TEXT NOT NULL CHECK (throwing_hand IN ('right', 'left')),
   batting_hand TEXT NOT NULL CHECK (batting_hand IN ('right', 'left', 'both')),
   note TEXT,

@@ -7,6 +7,7 @@ router.get("/", controller.getSchools);
 router.get("/:id/player-series", controller.getSchoolPlayerSeriesSummaries);
 router.get("/:id", controller.getSchoolById);
 router.post("/", controller.createSchool);
+router.post("/:id/progress-year", controller.progressSchoolYear);
 router.patch("/:id", controller.updateSchool);
 router.delete("/:id", controller.deleteSchool);
 

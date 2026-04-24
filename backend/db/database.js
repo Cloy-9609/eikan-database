@@ -3,6 +3,7 @@ const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 const { TRANSITIONAL_SNAPSHOT_LABELS } = require("../constants/playerSnapshots");
 const { ensureManagementCodeSchema } = require("./managementCodeMigration");
+const { ensureSchoolProgressionSchema } = require("./schoolProgressionMigration");
 
 const defaultDatabasePath = path.join(__dirname, "../../database/eikan-app.sqlite");
 const databasePath = process.env.EIKAN_DB_PATH
@@ -489,6 +490,7 @@ function initializeDatabase() {
     }
 
     await ensureManagementCodeSchema({ all, get, run, transaction });
+    await ensureSchoolProgressionSchema({ all, get, run, transaction });
 
     const refreshedTables = await getUserTables();
     const refreshedTableNames = new Set(refreshedTables.map((table) => table.name));

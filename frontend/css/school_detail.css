@@ -77,6 +77,11 @@
   border-color: #c9dced;
 }
 
+.detail-section--progression {
+  background: linear-gradient(180deg, #ffffff 0%, #f6fbf8 100%);
+  border-color: #c9e2d5;
+}
+
 .section-header {
   display: flex;
   align-items: flex-start;
@@ -180,6 +185,53 @@
 .school-form {
   display: grid;
   gap: 18px;
+}
+
+.progression-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.progression-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.progression-summary-item {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #d7e5dd;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.progression-label {
+  color: #587061;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.progression-summary-item strong {
+  color: #173f2a;
+  font-size: 1.05rem;
+}
+
+.progression-note {
+  margin: 0;
+  color: #56687d;
+  line-height: 1.6;
+}
+
+.progression-note--limit {
+  color: #8a1c1c;
+}
+
+.progression-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .school-form-row {
@@ -396,7 +448,7 @@
 
 .players-table {
   width: 100%;
-  min-width: 560px;
+  min-width: 720px;
   border-collapse: collapse;
 }
 
@@ -435,6 +487,50 @@
 
 .players-table-cell--grade {
   white-space: nowrap;
+}
+
+.players-name-stack,
+.players-grade-stack {
+  display: grid;
+  gap: 5px;
+}
+
+.players-secondary-text {
+  color: #687a8d;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.player-name-text {
+  font-weight: 700;
+  color: #243447;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid #bdd0e1;
+  border-radius: 999px;
+  background: #eef5fb;
+  color: #1f4566;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.status-badge--graduated {
+  border-color: #d8c8a4;
+  background: #fff7e6;
+  color: #7a4f00;
+}
+
+.status-badge--ob {
+  border-color: #bac6d4;
+  background: #f0f3f7;
+  color: #394b5f;
 }
 
 .player-link {
@@ -493,6 +589,10 @@
     flex-direction: column;
   }
 
+  .progression-summary {
+    grid-template-columns: 1fr;
+  }
+
   .school-button,
   .school-button-danger {
     width: 100%;
@@ -503,7 +603,7 @@
   }
 
   .players-table {
-    min-width: 520px;
+    min-width: 680px;
   }
 
   .players-table th,

@@ -549,6 +549,8 @@ function buildPlayerSeriesResponse(playerSeries, snapshots, currentSnapshot) {
 async function createPlayer(payload) {
   const validatedPayload = validatePlayerPayload(payload);
   const seriesPayload = buildSeriesPayload(validatedPayload, { note: payload?.note });
+  seriesPayload.school_grade = validatedPayload.grade;
+  seriesPayload.roster_status = "active";
 
   await assertActiveSchool(validatedPayload.school_id);
 

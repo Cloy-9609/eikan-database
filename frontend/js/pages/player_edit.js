@@ -191,6 +191,11 @@ function getSnapshotLabel(value) {
   return SNAPSHOT_LABELS[value] ?? value ?? "";
 }
 
+function formatYearValue(value) {
+  const numericValue = Number(value);
+  return Number.isInteger(numericValue) ? `${numericValue}年` : "未設定";
+}
+
 async function loadRelationOptions() {
   try {
     const relationOptions = await fetchPlayerRelationOptions();
@@ -517,7 +522,12 @@ function renderSnapshotSelector(value) {
   `;
 }
 
-function renderTimelineEditorRow({ admissionYear, snapshotLabel }) {
+function renderTimelineEditorRow({ admissionYear, snapshotLabel, schoolCurrentYear }) {
+  const numericSchoolCurrentYear = Number(schoolCurrentYear);
+  const currentYear = Number.isInteger(numericSchoolCurrentYear)
+    ? numericSchoolCurrentYear
+    : new Date().getFullYear();
+
   return `
     <div class="player-form-row player-form-row--full player-form-row--timeline" data-field="record_timeline">
       <div class="player-form-row-intro">
@@ -528,10 +538,15 @@ function renderTimelineEditorRow({ admissionYear, snapshotLabel }) {
         <section class="player-timeline-panel player-timeline-panel--year" aria-labelledby="player-edit-timeline-year-title">
           <div class="player-timeline-panel-header">
             <h3 id="player-edit-timeline-year-title" class="player-timeline-panel-title">入学年</h3>
-            <p class="player-timeline-panel-description">西暦を上下ボタンで調整します。</p>
+            <p class="player-timeline-panel-description">
+              保存済みの入学年を優先します。学校の現在年度は ${formatYearValue(currentYear)} です。
+            </p>
           </div>
           <div class="player-timeline-panel-body player-form-control player-form-control--year">
-            ${buildAdmissionYearPicker({ selectedYear: admissionYear })}
+            ${buildAdmissionYearPicker({
+              selectedYear: admissionYear,
+              currentYear,
+            })}
           </div>
         </section>
         <section class="player-timeline-panel player-timeline-panel--snapshot" aria-labelledby="player-edit-timeline-snapshot-title">
@@ -993,6 +1008,7 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
       renderTimelineEditorRow({
         admissionYear: player.admission_year,
         snapshotLabel: player.snapshot_label,
+        schoolCurrentYear: player.school_current_year,
       }),
     ].join(""),
   });

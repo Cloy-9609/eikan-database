@@ -266,6 +266,11 @@ function formatPlayerType(value) {
   return formatValue(PLAYER_TYPE_LABELS[value] ?? value);
 }
 
+function formatYearValue(value) {
+  const numericValue = Number(value);
+  return Number.isInteger(numericValue) ? `${numericValue}年` : "未設定";
+}
+
 function formatSnapshotLabel(value) {
   return formatValue(SNAPSHOT_LABELS[value] ?? value);
 }
@@ -398,6 +403,8 @@ function buildPlayerViewModel(seriesResponse) {
     player_series_id: currentSnapshot?.player_series_id ?? playerSeries?.id ?? null,
     school_id: playerSeries?.school_id ?? currentSnapshot?.school_id ?? null,
     school_name: playerSeries?.school_name ?? currentSnapshot?.school_name ?? "",
+    school_current_year:
+      playerSeries?.school_current_year ?? currentSnapshot?.school_current_year ?? null,
     school_is_archived:
       playerSeries?.school_is_archived ?? currentSnapshot?.school_is_archived ?? 0,
     name: playerSeries?.name ?? currentSnapshot?.name ?? "",
@@ -2101,14 +2108,21 @@ function renderSelectControlRow({
   });
 }
 
-function renderYearControlRow(value) {
+function renderYearControlRow(value, currentYear) {
+  const numericCurrentYear = Number(currentYear);
+  const schoolCurrentYear = Number.isInteger(numericCurrentYear)
+    ? numericCurrentYear
+    : new Date().getFullYear();
+
   return renderFormControlRow({
     field: "admission_year",
     label: "入学年",
     rowClass: "player-form-row--full",
     controlClass: "player-form-control player-form-control--year",
+    helpText: `保存済みの入学年を優先します。学校の現在年度は ${formatYearValue(schoolCurrentYear)} です。`,
     controlHtml: buildAdmissionYearPicker({
       selectedYear: value,
+      currentYear: schoolCurrentYear,
     }),
   });
 }
@@ -2358,7 +2372,7 @@ function buildSectionEditForm(scope, player) {
           value: String(player.grade ?? ""),
           required: true,
         }),
-        renderYearControlRow(player.admission_year),
+        renderYearControlRow(player.admission_year, player.school_current_year),
         renderSelectControlRow({
           field: "prefecture",
           label: "出身都道府県",

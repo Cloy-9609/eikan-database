@@ -10,6 +10,8 @@ const PLAYER_SERIES_SELECT_COLUMNS = `
   player_series.player_type,
   player_series.player_type_note,
   player_series.admission_year,
+  player_series.school_grade,
+  player_series.roster_status,
   player_series.throwing_hand,
   player_series.batting_hand,
   player_series.note,
@@ -17,6 +19,7 @@ const PLAYER_SERIES_SELECT_COLUMNS = `
   player_series.updated_at,
   schools.school_code AS school_code,
   schools.name AS school_name,
+  schools.current_year AS school_current_year,
   schools.is_archived AS school_is_archived
 `;
 
@@ -46,6 +49,27 @@ async function findById(id) {
   return get(sql, [id]);
 }
 
+async function findBySchoolId(schoolId) {
+  const sql = `
+    SELECT
+      ${PLAYER_SERIES_SELECT_COLUMNS}
+    FROM player_series
+    INNER JOIN schools ON schools.id = player_series.school_id
+    WHERE player_series.school_id = ?
+    ORDER BY
+      CASE player_series.roster_status
+        WHEN 'active' THEN 0
+        WHEN 'graduated' THEN 1
+        ELSE 2
+      END ASC,
+      player_series.school_grade ASC,
+      player_series.series_no ASC,
+      player_series.id ASC
+  `;
+
+  return all(sql, [schoolId]);
+}
+
 async function createPlayerSeries(series, options = {}) {
   const useExplicitId = options.id !== undefined && options.id !== null;
   const columns = [];
@@ -64,11 +88,15 @@ async function createPlayerSeries(series, options = {}) {
     "player_type",
     "player_type_note",
     "admission_year",
+    "school_grade",
+    "roster_status",
     "throwing_hand",
     "batting_hand",
     "note"
   );
   const seriesNo = series.series_no ?? (await getNextSeriesNoBySchoolId(series.school_id));
+  const schoolGrade = series.school_grade ?? 1;
+  const rosterStatus = series.roster_status ?? "active";
   values.push(
     series.school_id,
     seriesNo,
@@ -77,6 +105,8 @@ async function createPlayerSeries(series, options = {}) {
     series.player_type,
     series.player_type_note,
     series.admission_year,
+    schoolGrade,
+    rosterStatus,
     series.throwing_hand,
     series.batting_hand,
     series.note
@@ -93,6 +123,58 @@ async function createPlayerSeries(series, options = {}) {
   );
 
   return useExplicitId ? options.id : result.lastID;
+}
+
+async function getProgressionCountsBySchoolId(schoolId) {
+  return get(
+    `
+      SELECT
+        SUM(CASE WHEN roster_status = 'active' AND school_grade IN (1, 2) THEN 1 ELSE 0 END) AS advanced_count,
+        SUM(CASE WHEN roster_status = 'active' AND school_grade = 3 THEN 1 ELSE 0 END) AS graduated_count,
+        SUM(CASE WHEN roster_status = 'graduated' THEN 1 ELSE 0 END) AS already_graduated_count
+      FROM player_series
+      WHERE school_id = ?
+    `,
+    [schoolId]
+  );
+}
+
+async function progressSchoolGradesBySchoolId(schoolId) {
+  const counts = await getProgressionCountsBySchoolId(schoolId);
+
+  await run(
+    `
+      UPDATE player_series
+      SET
+        roster_status = 'graduated',
+        updated_at = CURRENT_TIMESTAMP
+      WHERE
+        school_id = ?
+        AND roster_status = 'active'
+        AND school_grade = 3
+    `,
+    [schoolId]
+  );
+
+  await run(
+    `
+      UPDATE player_series
+      SET
+        school_grade = school_grade + 1,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE
+        school_id = ?
+        AND roster_status = 'active'
+        AND school_grade IN (1, 2)
+    `,
+    [schoolId]
+  );
+
+  return {
+    advancedCount: Number(counts?.advanced_count ?? 0),
+    graduatedCount: Number(counts?.graduated_count ?? 0),
+    alreadyGraduatedCount: Number(counts?.already_graduated_count ?? 0),
+  };
 }
 
 async function updatePlayerSeries(seriesId, series) {
@@ -159,8 +241,10 @@ async function syncSnapshotsWithSeries(seriesId, series) {
 
 module.exports = {
   findById,
+  findBySchoolId,
   getNextSeriesNoBySchoolId,
   createPlayerSeries,
+  progressSchoolGradesBySchoolId,
   updatePlayerSeries,
   syncSnapshotsWithSeries,
 };

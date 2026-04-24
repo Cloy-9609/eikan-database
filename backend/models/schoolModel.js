@@ -135,6 +135,24 @@ async function updateSchool(id, { name, prefecture, playStyle, startYear, curren
   return findById(id);
 }
 
+async function updateCurrentYear(id, currentYear) {
+  const sql = `
+    UPDATE schools
+    SET
+      current_year = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND is_archived = 0
+  `;
+
+  const result = await run(sql, [currentYear, id]);
+
+  if (result.changes === 0) {
+    return null;
+  }
+
+  return findById(id);
+}
+
 async function archiveSchool(id) {
   const sql = `
     UPDATE schools
@@ -158,5 +176,6 @@ module.exports = {
   findById,
   createSchool,
   updateSchool,
+  updateCurrentYear,
   archiveSchool,
 };

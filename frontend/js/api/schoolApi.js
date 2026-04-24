@@ -67,6 +67,14 @@ export async function updateSchool(id, schoolPayload) {
   return parseResponse(response);
 }
 
+export async function progressSchoolYear(id) {
+  const response = await fetch(`${SCHOOL_API_BASE}/${id}/progress-year`, {
+    method: "POST",
+  });
+
+  return parseResponse(response);
+}
+
 export async function deleteSchool(id) {
   const response = await fetch(`${SCHOOL_API_BASE}/${id}`, {
     method: "DELETE",

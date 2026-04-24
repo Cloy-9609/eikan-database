@@ -191,3 +191,34 @@
 - snapshot 再設計と `player_detail` の時点切替がまだ進化中であり、school 進行を先に実装すると責務が再度ぶれやすい。
 - school 進行は `grade` の保存場所や `school_detail` 一覧の基準値に影響するため、先に要件整理をしておく方が安全である。
 - snapshot 自動生成まで含めると一気に複雑化するため、初期段階では school 管理と current grade 管理に責務を絞るのが自然である。
+
+## Phase 2 core 実装で確定すること
+
+### 更新対象
+- `1年経過` は `schools.current_year` を 1 年進める。
+- 同じ学校に所属する `player_series` の school 管理学年を進める。
+- school 管理学年の正式列は `player_series.school_grade` とする。
+- 所属状態の正式列は `player_series.roster_status` とし、初期値は `active` とする。
+
+### 更新しない対象
+- `players` snapshot は自動生成しない。
+- 既存 snapshot の `grade` / `snapshot_label` / 能力値 / relation 系データは変更しない。
+- `player_detail` の時点切替は、引き続き snapshot 履歴を基準に表示する。
+
+### 卒業
+- active な `school_grade` 1 年・2 年は、それぞれ 1 年進級する。
+- active な `school_grade` 3 年は、`school_grade = 3` のまま `roster_status = 'graduated'` にする。
+- すでに `graduated` の選手は年度進行で変更しない。
+- 初期実装では所属一覧から卒業選手を除外せず、状態 badge として表示する。
+
+### snapshot との分離
+- school 管理上の現在学年と latest snapshot の学年がずれることを許容する。
+- `school_detail` の所属一覧では `school_grade` / `roster_status` を主表示にする。
+- latest snapshot の時点名や snapshot 学年は補助表示に回す。
+- 将来 snapshot 自動生成を追加する場合は、年度進行 service の transaction 内で school / roster 更新後の拡張処理として追加する。
+
+### 実行単位と安全性
+- `1年経過` は冪等操作ではなく、確認済みの 1 実行ごとに 1 年進める操作とする。
+- UI は実行前に確認を挟み、実行中はボタンを disabled にする。
+- backend は transaction 内で school 年度更新と roster 更新をまとめ、途中失敗時に部分更新を残さない。
+- `current_year` が上限年度を超える場合は進行しない。
