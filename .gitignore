@@ -2,10 +2,15 @@ node_modules/
 .env
 .env.*
 *.db
+*.db-*
 *.sqlite
+*.sqlite-*
+database/
 uploads/
 dist/
 coverage/
 .DS_Store
 Thumbs.db
 .vscode/
+# テスト用データ
+scripts/test_data/

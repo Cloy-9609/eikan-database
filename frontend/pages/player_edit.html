@@ -1,17 +1,43 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>選手編集</title>
+  <title>選手情報編集</title>
   <link rel="stylesheet" href="../css/base.css">
   <link rel="stylesheet" href="../css/layout.css">
+  <link rel="stylesheet" href="../css/components/admission_year_picker.css">
   <link rel="stylesheet" href="../css/player.css">
 </head>
-<body>
+<body class="player-page player-page--edit">
   <main class="page">
-    <h1>選手編集</h1>
-    <form id="player-edit-form"></form>
+    <section class="player-page-panel player-form-card player-form-card--edit">
+      <header class="player-page-header">
+        <p class="player-page-kicker">Player Form</p>
+        <h1 id="player-edit-title" class="player-page-title">選手情報編集</h1>
+        <p id="player-edit-context" class="player-page-context">登録済みの選手情報を編集します。</p>
+      </header>
+      <section
+        id="player-edit-flow-note"
+        class="player-edit-flow-note"
+        aria-live="polite"
+        hidden
+      ></section>
+      <section
+        id="player-edit-ocr-entry"
+        class="player-edit-ocr-entry"
+        aria-live="polite"
+        hidden
+      ></section>
+      <div
+        id="player-edit-message"
+        class="player-message"
+        role="alert"
+        aria-live="polite"
+      ></div>
+      <form id="player-edit-form" class="player-form player-form--edit" data-edit-scope="full"></form>
+    </section>
   </main>
+  <script type="module" src="../js/pages/player_edit.js"></script>
 </body>
 </html>

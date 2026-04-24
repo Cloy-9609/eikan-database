@@ -4,6 +4,29 @@
   "private": true,
   "main": "backend/app.js",
   "scripts": {
-    "start": "node backend/app.js"
-  }
+    "dev": "node scripts/dev-server.js",
+    "start": "node backend/app.js",
+    "db:reset": "node scripts/setup_db.js",
+    "db:migrate": "node scripts/migrate.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "sqlite3": "^6.0.1"
+  },
+  "description": "栄冠データベースの初期ディレクトリ構成です。",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cloy-9609/eikan-database.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Cloy-9609/eikan-database/issues"
+  },
+  "homepage": "https://github.com/Cloy-9609/eikan-database#readme"
 }

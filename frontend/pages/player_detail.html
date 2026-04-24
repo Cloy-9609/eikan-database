@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
@@ -6,13 +6,69 @@
   <title>選手詳細</title>
   <link rel="stylesheet" href="../css/base.css">
   <link rel="stylesheet" href="../css/layout.css">
+  <link rel="stylesheet" href="../css/components/admission_year_picker.css">
   <link rel="stylesheet" href="../css/player.css">
 </head>
-<body>
+<body class="player-page player-page--detail">
   <main class="page">
-    <h1>選手詳細</h1>
-    <div id="player-detail-root"></div>
+    <section class="player-page-shell player-detail-shell">
+      <div class="player-page-panel player-detail-hero">
+        <header class="player-page-header player-page-header--detail">
+          <div class="player-detail-hero-main">
+            <div class="player-detail-hero-copy">
+              <p class="player-page-kicker">Player Detail</p>
+              <h1 id="player-detail-title" class="player-page-title">選手詳細</h1>
+              <p id="player-detail-context" class="player-page-context">選手情報を読み込み中です。</p>
+            </div>
+            <aside class="player-detail-school" aria-labelledby="player-detail-school-name">
+              <p class="player-detail-school-label">所属学校</p>
+              <p id="player-detail-school-name" class="player-detail-school-name">読み込み中...</p>
+              <p id="player-detail-school-meta" class="player-detail-school-meta"></p>
+            </aside>
+          </div>
+          <div id="player-detail-actions" class="player-page-actions"></div>
+        </header>
+        <div
+          id="player-detail-message"
+          class="player-message"
+          role="alert"
+          aria-live="polite"
+        ></div>
+      </div>
+      <div id="player-detail-root" class="player-detail"></div>
+    </section>
   </main>
+  <div
+    id="player-detail-toast-region"
+    class="player-toast-region"
+    aria-live="polite"
+    aria-relevant="additions text"
+    aria-atomic="false"
+  ></div>
+  <div id="player-detail-modal" class="player-modal" hidden>
+    <div class="player-modal-backdrop" data-modal-close></div>
+    <section
+      class="player-modal-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="player-detail-modal-title"
+    >
+      <header class="player-modal-header">
+        <div class="player-modal-header-copy">
+          <p id="player-detail-modal-kicker" class="player-modal-kicker">Section Edit</p>
+          <h2 id="player-detail-modal-title" class="player-modal-title">セクション編集</h2>
+        </div>
+        <button type="button" class="player-modal-close" data-modal-close aria-label="閉じる">閉じる</button>
+      </header>
+      <div
+        id="player-detail-modal-message"
+        class="player-message"
+        role="alert"
+        aria-live="polite"
+      ></div>
+      <div id="player-detail-modal-body" class="player-modal-body"></div>
+    </section>
+  </div>
   <script type="module" src="../js/pages/player_detail.js"></script>
 </body>
 </html>
