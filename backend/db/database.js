@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 const { TRANSITIONAL_SNAPSHOT_LABELS } = require("../constants/playerSnapshots");
+const { ensureManagementCodeSchema } = require("./managementCodeMigration");
 
 const defaultDatabasePath = path.join(__dirname, "../../database/eikan-app.sqlite");
 const databasePath = process.env.EIKAN_DB_PATH
@@ -68,6 +69,28 @@ function connectDatabase() {
   });
 
   return databaseInstance;
+}
+
+function closeDatabase() {
+  if (!databaseInstance) {
+    initializationPromise = null;
+    return Promise.resolve();
+  }
+
+  const db = databaseInstance;
+
+  return new Promise((resolve, reject) => {
+    db.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      databaseInstance = null;
+      initializationPromise = null;
+      resolve();
+    });
+  });
 }
 
 function exec(sql) {
@@ -465,6 +488,8 @@ function initializeDatabase() {
       await migratePlayerSnapshotSchema();
     }
 
+    await ensureManagementCodeSchema({ all, get, run, transaction });
+
     const refreshedTables = await getUserTables();
     const refreshedTableNames = new Set(refreshedTables.map((table) => table.name));
     const missingTables = expectedTables.filter((tableName) => !refreshedTableNames.has(tableName));
@@ -518,4 +543,5 @@ module.exports = {
   databasePath,
   exec,
   initializeDatabase,
+  closeDatabase,
 };

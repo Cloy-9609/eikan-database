@@ -1,4 +1,7 @@
 const { all, get, run } = require("../db/database");
+const { generateSchoolCodeCandidate } = require("../helpers/managementCodes");
+
+const SCHOOL_CODE_INSERT_ATTEMPTS = 20;
 
 function buildSortClause(sortBy, sortOrder) {
   if (sortBy === "name") {
@@ -35,6 +38,7 @@ async function findAllActive({ name = null, prefecture = null, playStyle = null,
   const sql = `
     SELECT
       id,
+      school_code,
       name,
       prefecture,
       play_style,
@@ -56,6 +60,7 @@ async function findById(id) {
   const sql = `
     SELECT
       id,
+      school_code,
       name,
       prefecture,
       play_style,
@@ -74,12 +79,37 @@ async function findById(id) {
 
 async function createSchool({ name, prefecture, playStyle, startYear, currentYear, memo }) {
   const sql = `
-    INSERT INTO schools (name, prefecture, play_style, start_year, current_year, memo)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO schools (school_code, name, prefecture, play_style, start_year, current_year, memo)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
 
-  const result = await run(sql, [name, prefecture, playStyle, startYear, currentYear, memo]);
-  return findById(result.lastID);
+  for (let attempt = 0; attempt < SCHOOL_CODE_INSERT_ATTEMPTS; attempt += 1) {
+    const schoolCode = generateSchoolCodeCandidate();
+
+    try {
+      const result = await run(sql, [
+        schoolCode,
+        name,
+        prefecture,
+        playStyle,
+        startYear,
+        currentYear,
+        memo,
+      ]);
+      return findById(result.lastID);
+    } catch (error) {
+      if (
+        error?.code === "SQLITE_CONSTRAINT" &&
+        String(error.message).includes("school_code")
+      ) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error("Unable to generate a unique school_code.");
 }
 
 async function updateSchool(id, { name, prefecture, playStyle, startYear, currentYear, memo }) {

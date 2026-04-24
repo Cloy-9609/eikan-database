@@ -245,3 +245,17 @@
 2. `player_detail` の返却データを「親 + スナップショット一覧 + 現在表示スナップショット」に整理する。
 3. `player_register` に「既存選手へ新規時点を追加する」モードを追加する。
 4. 旧 `post_tournament` の扱いを決める移行方針を先に潰す。
+
+## Phase 2: snapshot_key と表示コード
+
+Phase 2 以降、docs / API 契約 / 新規説明では snapshot の時点識別子を `snapshot_key` と呼ぶ。現行 DB 列および既存実装名の `snapshot_label` は、当面 `snapshot_key` の互換名として扱う。
+
+`snapshot_order` は DB に保存しない。公式の並び順は `backend/constants/playerSnapshots.js` の `SNAPSHOT_TIMELINE` から導出する。
+
+snapshot 表示コードは `schools.school_code`、`player_series.series_no`、導出した snapshot order から生成する。
+
+```text
+A7K3M9Q2-014-S05
+```
+
+legacy 値の `post_tournament` は移行期間の `snapshot_label` として受け入れるが、`Sxx` 表示コード生成の対象となる公式 `snapshot_key` ではない。

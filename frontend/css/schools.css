@@ -498,6 +498,10 @@
     justify-self: start;
   }
 
+  #school-create-form .school-form-row--year .admission-year-digits {
+    justify-content: center;
+  }
+
   .school-form-actions {
     flex-direction: column;
   }

@@ -3,6 +3,7 @@ PRAGMA foreign_keys = ON;
 BEGIN TRANSACTION;
 
 INSERT INTO schools (
+  school_code,
   name,
   prefecture,
   play_style,
@@ -11,6 +12,7 @@ INSERT INTO schools (
   memo,
   is_archived
 ) VALUES (
+  'A7K3M9Q2',
   'サンプル',
   '東京都',
   'three_year',
@@ -23,6 +25,7 @@ INSERT INTO schools (
 INSERT INTO player_series (
   id,
   school_id,
+  series_no,
   name,
   prefecture,
   player_type,
@@ -32,6 +35,7 @@ INSERT INTO player_series (
   batting_hand,
   note
 ) VALUES (
+  1,
   1,
   1,
   'サンプル太郎',

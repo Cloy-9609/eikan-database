@@ -12,6 +12,7 @@ DROP TABLE IF EXISTS schools;
 
 CREATE TABLE schools (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  school_code TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   prefecture TEXT,
   play_style TEXT NOT NULL CHECK (play_style IN ('three_year', 'continuous')),
@@ -26,6 +27,7 @@ CREATE TABLE schools (
 CREATE TABLE player_series (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   school_id INTEGER NOT NULL,
+  series_no INTEGER NOT NULL,
   name TEXT NOT NULL,
   prefecture TEXT NOT NULL,
   player_type TEXT NOT NULL CHECK (player_type IN ('normal', 'genius', 'reincarnated')),
@@ -36,6 +38,7 @@ CREATE TABLE player_series (
   note TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (school_id, series_no),
   FOREIGN KEY (school_id) REFERENCES schools(id) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 

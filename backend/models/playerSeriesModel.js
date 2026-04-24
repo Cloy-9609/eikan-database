@@ -1,8 +1,10 @@
-const { get, run } = require("../db/database");
+const { all, get, run } = require("../db/database");
+const { resolveNextSeriesNo } = require("../helpers/managementCodes");
 
 const PLAYER_SERIES_SELECT_COLUMNS = `
   player_series.id,
   player_series.school_id,
+  player_series.series_no,
   player_series.name,
   player_series.prefecture,
   player_series.player_type,
@@ -13,9 +15,24 @@ const PLAYER_SERIES_SELECT_COLUMNS = `
   player_series.note,
   player_series.created_at,
   player_series.updated_at,
+  schools.school_code AS school_code,
   schools.name AS school_name,
   schools.is_archived AS school_is_archived
 `;
+
+async function getNextSeriesNoBySchoolId(schoolId) {
+  const rows = await all(
+    `
+      SELECT series_no
+      FROM player_series
+      WHERE school_id = ? AND series_no IS NOT NULL
+      ORDER BY series_no ASC
+    `,
+    [schoolId]
+  );
+
+  return resolveNextSeriesNo(rows.map((row) => row.series_no));
+}
 
 async function findById(id) {
   const sql = `
@@ -41,6 +58,7 @@ async function createPlayerSeries(series, options = {}) {
 
   columns.push(
     "school_id",
+    "series_no",
     "name",
     "prefecture",
     "player_type",
@@ -50,8 +68,10 @@ async function createPlayerSeries(series, options = {}) {
     "batting_hand",
     "note"
   );
+  const seriesNo = series.series_no ?? (await getNextSeriesNoBySchoolId(series.school_id));
   values.push(
     series.school_id,
+    seriesNo,
     series.name,
     series.prefecture,
     series.player_type,
@@ -139,6 +159,7 @@ async function syncSnapshotsWithSeries(seriesId, series) {
 
 module.exports = {
   findById,
+  getNextSeriesNoBySchoolId,
   createPlayerSeries,
   updatePlayerSeries,
   syncSnapshotsWithSeries,

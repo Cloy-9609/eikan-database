@@ -106,3 +106,19 @@
 
 ## 補足
 - 実装上の正本は `backend/db/schema.sql` とし、本書はその設計意図を説明する補助資料として扱う。
+
+## Phase 2: ID / 管理コード設計
+
+Phase 2 の正式な ID / 管理コード設計は `docs/design/id_management_code_design.md` に集約する。
+
+内部主キーは `schools.id`、`player_series.id`、`players.id` の整数 ID のまま維持する。人が扱う管理コードは、`schools.school_code` と `player_series.series_no` として別に保持する。
+
+追加列と制約:
+
+- `schools.school_code`: `TEXT NOT NULL UNIQUE`
+- `player_series.series_no`: `INTEGER NOT NULL`
+- `UNIQUE(player_series.school_id, player_series.series_no)`
+
+表示用の複合コードは DB に保存せず helper で生成する。学校表示コードは `school_code`、選手系列表示コードは `school_code` と表示用にゼロ埋めした `series_no`、snapshot 表示コードはそれらに共通 timeline から導出した snapshot order を組み合わせる。
+
+`snapshot_key` を docs / API / 新規説明での正式名称とする。現行の `players.snapshot_label` は当面 `snapshot_key` の互換名として扱う。`snapshot_order` は DB 列として追加しない。
