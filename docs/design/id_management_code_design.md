@@ -102,3 +102,33 @@ Phase 2 では、内部処理の安定性と、人が扱うときの探しやす
 - 一覧 UI / 詳細 UI を大きく作り替える。
 - `school_detail` の 1年経過 core を実装する。
 - OCR 本体 MVP を実装する。
+
+## 既存 DB migration での NOT NULL 扱い
+
+新規 DB を `schema.sql` から作成する場合、`schools.school_code` と `player_series.series_no` は `NOT NULL` を前提とする。
+
+一方で、既存 DB に対する migration では、SQLite の制約上 `ALTER TABLE ... ADD COLUMN ... NOT NULL` を安全に後付けしづらい。そのため Phase 2 時点では以下の方針を正式運用とする。
+
+- 既存 DB には nullable 列として追加する。
+- migration 内で既存行へ backfill を行う。
+- `school_code` には UNIQUE 制約を付与する。
+- `(school_id, series_no)` には UNIQUE 制約を付与する。
+- 新規作成処理では、アプリ層で `school_code` / `series_no` を必ず生成する。
+
+したがって、既存 DB migration 後の列定義だけを見ると nullable のまま残る可能性がある。ただし実運用上は、backfill、UNIQUE 制約、アプリ層保証により欠損と重複を防ぐ。
+
+将来的に管理コードを URL / API / CSV / OCR 連携で本格利用する段階、または migration 基盤をより強化する段階では、必要に応じてテーブル再作成 migration により `NOT NULL` を厳密化することを再検討する。
+
+Phase 2 では、テーブル再作成を伴う厳密な `NOT NULL` 化は後続検討とする。
+
+補助確認として、migration 後は以下のクエリで欠損がないことを確認する。期待値はどちらも `0` 件である。
+
+```sql
+SELECT COUNT(*) AS null_school_code
+FROM schools
+WHERE school_code IS NULL;
+
+SELECT COUNT(*) AS null_series_no
+FROM player_series
+WHERE series_no IS NULL;
+```
