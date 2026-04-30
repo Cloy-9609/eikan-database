@@ -44,6 +44,11 @@ const SNAPSHOT_LABEL_OPTIONS = [
   { value: "y3_summer", label: "3年夏大会後" },
   { value: "graduation", label: "卒業時" },
 ];
+const SNAPSHOT_UNLOCK_GROUPS = [
+  ["entrance", "y1_summer", "y1_autumn", "y1_spring"],
+  ["y2_summer", "y2_autumn", "y2_spring"],
+  ["y3_summer", "graduation"],
+];
 const LEGACY_SNAPSHOT_LABELS = {
   post_tournament: "大会後",
 };
@@ -271,6 +276,21 @@ function formatYearValue(value) {
   return Number.isInteger(numericValue) ? `${numericValue}年` : "未設定";
 }
 
+function parseIntegerValue(value) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const text = String(value).trim();
+
+  if (!text) {
+    return null;
+  }
+
+  const numericValue = Number(text);
+  return Number.isInteger(numericValue) ? numericValue : null;
+}
+
 function formatSnapshotLabel(value) {
   return formatValue(SNAPSHOT_LABELS[value] ?? value);
 }
@@ -280,6 +300,70 @@ function getOfficialSnapshotDefinitions() {
     key: value,
     label,
   }));
+}
+
+function resolveSnapshotUnlockLevelFromYears(schoolCurrentYear, admissionYear) {
+  if (!Number.isInteger(schoolCurrentYear) || !Number.isInteger(admissionYear)) {
+    return null;
+  }
+
+  const elapsedYears = schoolCurrentYear - admissionYear;
+
+  if (elapsedYears >= 2) {
+    return 3;
+  }
+
+  if (elapsedYears >= 1) {
+    return 2;
+  }
+
+  return 1;
+}
+
+function resolveSnapshotUnlockLevelFromSchoolGrade(schoolGrade) {
+  const numericSchoolGrade = parseIntegerValue(schoolGrade);
+
+  if (!Number.isInteger(numericSchoolGrade)) {
+    return null;
+  }
+
+  if (numericSchoolGrade >= 3) {
+    return 3;
+  }
+
+  if (numericSchoolGrade === 2) {
+    return 2;
+  }
+
+  return 1;
+}
+
+function resolveSnapshotUnlockLevel(seriesResponse) {
+  const playerSeries = seriesResponse?.playerSeries ?? {};
+  const currentSnapshot = seriesResponse?.currentSnapshot ?? {};
+  const schoolCurrentYear = parseIntegerValue(
+    playerSeries.school_current_year ?? currentSnapshot.school_current_year
+  );
+  const admissionYear = parseIntegerValue(
+    playerSeries.admission_year ?? currentSnapshot.admission_year
+  );
+
+  return (
+    resolveSnapshotUnlockLevelFromYears(schoolCurrentYear, admissionYear) ??
+    resolveSnapshotUnlockLevelFromSchoolGrade(playerSeries.school_grade) ??
+    1
+  );
+}
+
+function getVisibleOfficialSnapshotDefinitions(seriesResponse) {
+  const unlockLevel = resolveSnapshotUnlockLevel(seriesResponse);
+  const visibleSnapshotKeys = new Set(
+    SNAPSHOT_UNLOCK_GROUPS.slice(0, unlockLevel).flat()
+  );
+
+  return getOfficialSnapshotDefinitions().filter((definition) =>
+    visibleSnapshotKeys.has(definition.key)
+  );
 }
 
 function getSnapshotOptionDefinitionsLegacy(currentSnapshotLabel = "") {
@@ -634,8 +718,10 @@ function buildLegacySnapshotNoticeLegacy(seriesResponse) {
 function buildSnapshotTimelineButtonsLegacy(seriesResponse) {
   const snapshots = Array.isArray(seriesResponse?.snapshots) ? seriesResponse.snapshots : [];
   const currentSnapshot = seriesResponse?.currentSnapshot ?? null;
+  const visibleSnapshotDefinitions = getVisibleOfficialSnapshotDefinitions(seriesResponse);
+  const visibleSnapshotKeys = new Set(visibleSnapshotDefinitions.map((definition) => definition.key));
 
-  const buttonsHtml = getOfficialSnapshotDefinitions()
+  const buttonsHtml = visibleSnapshotDefinitions
     .map(({ key, label }) => {
       const registered = isSnapshotRegistered(key, snapshots);
       const current = isCurrentSnapshot(key, currentSnapshot);
@@ -664,7 +750,9 @@ function buildSnapshotTimelineButtonsLegacy(seriesResponse) {
     .join("");
 
   const promptHtml =
-    DETAIL_STATE.pendingCreateSnapshotKey && DETAIL_STATE.confirmBeforeCreateSnapshot
+    DETAIL_STATE.pendingCreateSnapshotKey &&
+    visibleSnapshotKeys.has(DETAIL_STATE.pendingCreateSnapshotKey) &&
+    DETAIL_STATE.confirmBeforeCreateSnapshot
       ? buildSnapshotCreatePrompt(DETAIL_STATE.pendingCreateSnapshotKey)
       : "";
 
@@ -814,8 +902,10 @@ function buildLegacySnapshotNotice(seriesResponse) {
 function buildSnapshotTimelineButtons(seriesResponse) {
   const snapshots = Array.isArray(seriesResponse?.snapshots) ? seriesResponse.snapshots : [];
   const currentSnapshot = seriesResponse?.currentSnapshot ?? null;
+  const visibleSnapshotDefinitions = getVisibleOfficialSnapshotDefinitions(seriesResponse);
+  const visibleSnapshotKeys = new Set(visibleSnapshotDefinitions.map((definition) => definition.key));
 
-  const buttonsHtml = getOfficialSnapshotDefinitions()
+  const buttonsHtml = visibleSnapshotDefinitions
     .map(({ key, label }) => {
       const buttonState = resolveSnapshotButtonState(key, snapshots, currentSnapshot);
       const className = [
@@ -845,7 +935,9 @@ function buildSnapshotTimelineButtons(seriesResponse) {
     .join("");
 
   const promptHtml =
-    DETAIL_STATE.pendingCreateSnapshotKey && DETAIL_STATE.confirmBeforeCreateSnapshot
+    DETAIL_STATE.pendingCreateSnapshotKey &&
+    visibleSnapshotKeys.has(DETAIL_STATE.pendingCreateSnapshotKey) &&
+    DETAIL_STATE.confirmBeforeCreateSnapshot
       ? buildSnapshotCreatePrompt(DETAIL_STATE.pendingCreateSnapshotKey)
       : "";
 

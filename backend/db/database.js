@@ -14,6 +14,8 @@ const schemaPath = path.join(__dirname, "schema.sql");
 const expectedTables = [
   "schools",
   "player_series",
+  "school_year_progress_logs",
+  "school_year_progress_log_players",
   "players",
   "player_pitch_types",
   "player_special_abilities",

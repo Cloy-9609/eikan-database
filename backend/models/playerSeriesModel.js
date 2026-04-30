@@ -70,6 +70,34 @@ async function findBySchoolId(schoolId) {
   return all(sql, [schoolId]);
 }
 
+async function countBySchoolId(schoolId) {
+  const row = await get(
+    `
+      SELECT COUNT(*) AS count
+      FROM player_series
+      WHERE school_id = ?
+    `,
+    [schoolId]
+  );
+
+  return Number(row?.count ?? 0);
+}
+
+async function findProgressionStateBySchoolId(schoolId) {
+  return all(
+    `
+      SELECT
+        id,
+        school_grade,
+        roster_status
+      FROM player_series
+      WHERE school_id = ?
+      ORDER BY id ASC
+    `,
+    [schoolId]
+  );
+}
+
 async function createPlayerSeries(series, options = {}) {
   const useExplicitId = options.id !== undefined && options.id !== null;
   const columns = [];
@@ -177,6 +205,24 @@ async function progressSchoolGradesBySchoolId(schoolId) {
   };
 }
 
+async function restoreProgressionState({ schoolId, playerSeriesId, schoolGrade, rosterStatus }) {
+  const result = await run(
+    `
+      UPDATE player_series
+      SET
+        school_grade = ?,
+        roster_status = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE
+        id = ?
+        AND school_id = ?
+    `,
+    [schoolGrade, rosterStatus, playerSeriesId, schoolId]
+  );
+
+  return result.changes;
+}
+
 async function updatePlayerSeries(seriesId, series) {
   await run(
     `
@@ -242,9 +288,12 @@ async function syncSnapshotsWithSeries(seriesId, series) {
 module.exports = {
   findById,
   findBySchoolId,
+  countBySchoolId,
+  findProgressionStateBySchoolId,
   getNextSeriesNoBySchoolId,
   createPlayerSeries,
   progressSchoolGradesBySchoolId,
+  restoreProgressionState,
   updatePlayerSeries,
   syncSnapshotsWithSeries,
 };

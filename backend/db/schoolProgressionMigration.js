@@ -105,6 +105,61 @@ async function assertSchoolProgressionBackfillComplete(get) {
   }
 }
 
+async function ensureSchoolProgressionUndoTables(run) {
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS school_year_progress_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        school_id INTEGER NOT NULL,
+        previous_year INTEGER NOT NULL,
+        current_year INTEGER NOT NULL,
+        snapshots_created INTEGER NOT NULL DEFAULT 0 CHECK (snapshots_created >= 0),
+        is_undo_available INTEGER NOT NULL DEFAULT 1 CHECK (is_undo_available IN (0, 1)),
+        undone_at TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (school_id) REFERENCES schools(id) ON UPDATE CASCADE ON DELETE RESTRICT
+      )
+    `
+  );
+
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS school_year_progress_log_players (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        log_id INTEGER NOT NULL,
+        player_series_id INTEGER NOT NULL,
+        before_school_grade INTEGER NOT NULL CHECK (before_school_grade BETWEEN 1 AND 3),
+        before_roster_status TEXT NOT NULL CHECK (before_roster_status IN ('active', 'graduated')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (log_id, player_series_id),
+        FOREIGN KEY (log_id) REFERENCES school_year_progress_logs(id) ON UPDATE CASCADE ON DELETE CASCADE,
+        FOREIGN KEY (player_series_id) REFERENCES player_series(id) ON UPDATE CASCADE ON DELETE RESTRICT
+      )
+    `
+  );
+
+  await run(
+    `
+      CREATE INDEX IF NOT EXISTS idx_school_year_progress_logs_school_undo
+      ON school_year_progress_logs(school_id, is_undo_available, undone_at, id)
+    `
+  );
+
+  await run(
+    `
+      CREATE INDEX IF NOT EXISTS idx_school_year_progress_log_players_log_id
+      ON school_year_progress_log_players(log_id)
+    `
+  );
+
+  await run(
+    `
+      CREATE INDEX IF NOT EXISTS idx_school_year_progress_log_players_player_series_id
+      ON school_year_progress_log_players(player_series_id)
+    `
+  );
+}
+
 async function ensureSchoolProgressionSchema({ all, get, run, transaction }) {
   const hasSchools = await tableExists(all, "schools");
   const hasPlayerSeries = await tableExists(all, "player_series");
@@ -115,6 +170,7 @@ async function ensureSchoolProgressionSchema({ all, get, run, transaction }) {
 
   await transaction(async () => {
     const addedColumns = await ensureSchoolProgressionColumns(all, run);
+    await ensureSchoolProgressionUndoTables(run);
 
     if (addedColumns.length > 0) {
       await backfillSchoolProgressionState(run);

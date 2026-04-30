@@ -78,6 +78,19 @@ async function progressSchoolYear(req, res, next) {
   }
 }
 
+async function undoSchoolYearProgression(req, res, next) {
+  try {
+    const schoolProgressionUndo = await schoolService.undoSchoolYearProgression(req.params.id);
+    res.json({
+      success: true,
+      data: schoolProgressionUndo,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function deleteSchool(req, res, next) {
   try {
     const school = await schoolService.deleteSchool(req.params.id);
@@ -98,5 +111,6 @@ module.exports = {
   createSchool,
   updateSchool,
   progressSchoolYear,
+  undoSchoolYearProgression,
   deleteSchool,
 };

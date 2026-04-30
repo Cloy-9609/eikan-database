@@ -234,6 +234,119 @@
   gap: 12px;
 }
 
+.school-button.progression-action-button:disabled {
+  opacity: 1;
+}
+
+.school-button.progression-action-button--loading:disabled {
+  background: #eef5fb;
+  border-color: #a8bfd5;
+  color: #1f4566;
+  cursor: wait;
+  box-shadow: none;
+}
+
+.school-button.progression-action-button--blocked:disabled,
+.school-button.progression-action-button--unavailable:disabled,
+.school-button.progression-action-button--limit:disabled {
+  background: #e5e7eb;
+  border-color: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.school-button.progression-action-button--loading:disabled:hover {
+  background: #eef5fb;
+  border-color: #a8bfd5;
+  color: #1f4566;
+  transform: none;
+}
+
+.school-button.progression-action-button--blocked:disabled:hover,
+.school-button.progression-action-button--unavailable:disabled:hover,
+.school-button.progression-action-button--limit:disabled:hover {
+  background: #e5e7eb;
+  border-color: #cbd5e1;
+  color: #64748b;
+  transform: none;
+}
+
+.school-button.progression-undo-button:disabled {
+  background: #f3f4f6;
+  border-color: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+  opacity: 1;
+  box-shadow: none;
+}
+
+.school-button.progression-undo-button:disabled:hover {
+  background: #f3f4f6;
+  border-color: #cbd5e1;
+  color: #64748b;
+  transform: none;
+}
+
+.progression-undo-note {
+  margin: -4px 0 0;
+  color: #617488;
+  line-height: 1.6;
+}
+
+.progression-undo-note--ready {
+  color: #1f4566;
+  font-weight: 700;
+}
+
+.progression-state-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  line-height: 1.6;
+}
+
+.progression-state-note p {
+  margin: 0;
+}
+
+.progression-state-note--loading {
+  justify-content: flex-start;
+  border: 1px solid #cfe0ef;
+  background: #f4f9fd;
+  color: #1f4566;
+}
+
+.progression-state-note--blocked {
+  border: 1px solid #d5dbe3;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.progression-spinner {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #c7d8e8;
+  border-top-color: #175f9f;
+  border-radius: 50%;
+  animation: progression-spin 0.9s linear infinite;
+}
+
+.progression-register-link {
+  flex: 0 0 auto;
+}
+
+@keyframes progression-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .school-form-row {
   display: grid;
   gap: 8px;
@@ -591,6 +704,11 @@
 
   .progression-summary {
     grid-template-columns: 1fr;
+  }
+
+  .progression-state-note {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .school-button,

@@ -1,5 +1,5 @@
 ﻿import { fetchSchoolById } from "../api/schoolApi.js";
-import { deleteSchool, fetchSchoolPlayerSeriesSummaries, progressSchoolYear, updateSchool } from "../api/schoolApi.js";
+import { deleteSchool, fetchSchoolPlayerSeriesSummaries, progressSchoolYear, undoSchoolYearProgression, updateSchool } from "../api/schoolApi.js";
 import { buildYearPicker, setupYearPickers } from "../components/admissionYearPicker.js";
 import { PREFECTURE_GROUPS } from "../constants/prefectures.js";
 import { formatDate, formatSchoolName } from "../utils/formatter.js";
@@ -285,16 +285,71 @@ function buildProgressionMessage(progression) {
   };
 }
 
-function renderProgressionPanel(root, school, progression = null, message = null) {
+function buildUndoStatusText(undoState, isUndoLoaded) {
+  if (!isUndoLoaded) {
+    return "取り消し可能な年度進行履歴を確認中です。";
+  }
+
+  if (!undoState?.canUndo) {
+    return "取り消し可能な年度進行履歴がありません。";
+  }
+
+  return `${undoState.previousYear}年から${undoState.currentYear}年への直前の年度進行を取り消せます。`;
+}
+
+function renderProgressionPanel(
+  root,
+  school,
+  progression = null,
+  message = null,
+  {
+    playerSeriesCount = null,
+    isPlayerSeriesLoaded = false,
+    undoState = null,
+    isUndoLoaded = false,
+  } = {}
+) {
   const baseYear = getProgressionBaseYear(school);
   const nextYear = baseYear === null ? null : baseYear + 1;
   const messageData = message ?? buildProgressionMessage(progression);
   const isYearLimitReached = Number.isInteger(baseYear) && baseYear >= 2039;
-  const canProgress = Number.isInteger(baseYear) && !isYearLimitReached;
+  const hasErrorMessage = message?.type === "error";
+  const normalizedPlayerSeriesCount = Number(playerSeriesCount);
+  const hasPlayerSeriesCount = Number.isInteger(normalizedPlayerSeriesCount);
+  const hasRegisteredPlayerSeries = hasPlayerSeriesCount && normalizedPlayerSeriesCount > 0;
+  const isCheckingPlayerSeries = !isPlayerSeriesLoaded && !hasErrorMessage;
+  const canProgress =
+    Number.isInteger(baseYear) &&
+    !isYearLimitReached &&
+    isPlayerSeriesLoaded &&
+    hasRegisteredPlayerSeries;
+  const progressionState = canProgress
+    ? "ready"
+    : isCheckingPlayerSeries
+      ? "loading"
+      : hasErrorMessage
+        ? "unavailable"
+        : !hasRegisteredPlayerSeries
+          ? "blocked"
+          : "limit";
+  const buttonLabel = isCheckingPlayerSeries ? "所属選手を確認中..." : "1年経過を実行";
+  const canUndoProgression = isUndoLoaded && Boolean(undoState?.canUndo);
+  const undoButtonLabel = isUndoLoaded ? "年度進行を取り消す" : "履歴を確認中...";
+  const undoStatusText = buildUndoStatusText(undoState, isUndoLoaded);
+  const disabledNote = isCheckingPlayerSeries
+    ? "所属選手一覧を確認中です。"
+    : hasErrorMessage
+      ? "所属選手一覧を読み込めないため年度進行できません。"
+      : !hasRegisteredPlayerSeries
+        ? "所属選手がいないため年度進行できません。選手登録後に実行してください。"
+        : isYearLimitReached
+          ? "現在年度が上限のため、この画面からは年度進行できません。"
+          : "";
+  const registerHref = `./player_register.html?school_id=${encodeURIComponent(school.id)}`;
 
   root.innerHTML = `
     <div id="school-progression-message" class="message-box detail-message" hidden></div>
-    <div class="progression-panel">
+    <div class="progression-panel progression-panel--${progressionState}">
       <div class="progression-summary">
         <div class="progression-summary-item">
           <span class="progression-label">現在年度</span>
@@ -316,15 +371,44 @@ function renderProgressionPanel(root, school, progression = null, message = null
         <button
           type="button"
           id="school-progress-year-button"
-          class="school-button school-button-primary"
+          class="school-button school-button-primary progression-action-button progression-action-button--${progressionState}"
+          data-progress-state="${progressionState}"
           ${canProgress ? "" : "disabled"}
         >
-          1年経過を実行
+          ${escapeHtml(buttonLabel)}
+        </button>
+        <button
+          type="button"
+          id="school-undo-progress-year-button"
+          class="school-button school-button-secondary progression-undo-button"
+          ${canUndoProgression ? "" : "disabled"}
+        >
+          ${escapeHtml(undoButtonLabel)}
         </button>
       </div>
+      <p class="progression-undo-note${canUndoProgression ? " progression-undo-note--ready" : ""}">
+        ${escapeHtml(undoStatusText)}
+      </p>
       ${
-        isYearLimitReached
-          ? '<p class="progression-note progression-note--limit">現在年度が上限のため、この画面からは年度進行できません。</p>'
+        isCheckingPlayerSeries
+          ? `
+            <div class="progression-state-note progression-state-note--loading" role="status">
+              <span class="progression-spinner" aria-hidden="true"></span>
+              <span>${escapeHtml(disabledNote)}</span>
+            </div>
+          `
+          : disabledNote
+            ? `
+              <div class="progression-state-note progression-state-note--blocked">
+                <p>${escapeHtml(disabledNote)}</p>
+                ${
+                  !hasRegisteredPlayerSeries
+                    && !hasErrorMessage
+                    ? `<a class="school-button school-button-secondary progression-register-link" href="${escapeAttribute(registerHref)}">選手を登録する</a>`
+                    : ""
+                }
+              </div>
+            `
           : ""
       }
     </div>
@@ -570,44 +654,112 @@ function bindSchoolEditor(summaryRoot, editRoot, schoolId) {
 }
 
 function bindSchoolProgression(summaryRoot, progressionRoot, editRoot, playersRoot, schoolId, school) {
-  const button = progressionRoot.querySelector("#school-progress-year-button");
+  const progressButton = progressionRoot.querySelector("#school-progress-year-button");
+  const undoButton = progressionRoot.querySelector("#school-undo-progress-year-button");
   const messageElement = progressionRoot.querySelector("#school-progression-message");
 
-  if (!button || button.disabled) {
-    return;
+  if (progressButton && !progressButton.disabled) {
+    progressButton.addEventListener("click", async () => {
+      const baseYear = getProgressionBaseYear(school);
+      const nextYear = baseYear === null ? null : baseYear + 1;
+      const shouldProgress = window.confirm(
+        `学校年度を${formatYearValue(baseYear)}から${formatYearValue(nextYear)}へ進めます。\n` +
+          "所属選手の学校管理学年は更新されますが、snapshot は自動生成されません。"
+      );
+
+      if (!shouldProgress) {
+        return;
+      }
+
+      progressButton.disabled = true;
+      progressButton.textContent = "進行中...";
+      if (undoButton) {
+        undoButton.disabled = true;
+      }
+      setMessage(messageElement, "");
+
+      try {
+        const result = await progressSchoolYear(schoolId);
+        const playerSeriesCount = Array.isArray(result.playerSeriesSummaries)
+          ? result.playerSeriesSummaries.length
+          : 0;
+        document.title = `${formatSchoolName(result.school.name)} | 学校詳細`;
+        renderSchoolSummary(summaryRoot, result.school);
+        renderProgressionPanel(progressionRoot, result.school, result.progression, null, {
+          playerSeriesCount,
+          isPlayerSeriesLoaded: true,
+          undoState: result.yearProgressUndo,
+          isUndoLoaded: true,
+        });
+        bindSchoolProgression(summaryRoot, progressionRoot, editRoot, playersRoot, schoolId, result.school);
+        renderSchoolEditor(editRoot, result.school);
+        bindSchoolEditor(summaryRoot, editRoot, schoolId);
+        renderPlayerSeriesSummaries(playersRoot, result.playerSeriesSummaries, result.school);
+      } catch (error) {
+        progressButton.disabled = false;
+        progressButton.textContent = "1年経過を実行";
+        if (undoButton) {
+          undoButton.disabled = false;
+        }
+        setMessage(messageElement, error.message, "error");
+      }
+    });
   }
 
-  button.addEventListener("click", async () => {
-    const baseYear = getProgressionBaseYear(school);
-    const nextYear = baseYear === null ? null : baseYear + 1;
-    const shouldProgress = window.confirm(
-      `学校年度を${formatYearValue(baseYear)}から${formatYearValue(nextYear)}へ進めます。\n` +
-        "所属選手の学校管理学年は更新されますが、snapshot は自動生成されません。"
-    );
+  if (undoButton && !undoButton.disabled) {
+    undoButton.addEventListener("click", async () => {
+      const shouldUndo = window.confirm(
+        "直前の年度進行を取り消します。\n" +
+          "学校の現在年度と所属選手の学校管理学年・在籍状態を元に戻します。snapshot は変更しません。"
+      );
 
-    if (!shouldProgress) {
-      return;
-    }
+      if (!shouldUndo) {
+        return;
+      }
 
-    button.disabled = true;
-    button.textContent = "進行中...";
-    setMessage(messageElement, "");
+      undoButton.disabled = true;
+      undoButton.textContent = "取り消し中...";
+      if (progressButton) {
+        progressButton.disabled = true;
+      }
+      setMessage(messageElement, "");
 
-    try {
-      const result = await progressSchoolYear(schoolId);
-      document.title = `${formatSchoolName(result.school.name)} | 学校詳細`;
-      renderSchoolSummary(summaryRoot, result.school);
-      renderProgressionPanel(progressionRoot, result.school, result.progression);
-      bindSchoolProgression(summaryRoot, progressionRoot, editRoot, playersRoot, schoolId, result.school);
-      renderSchoolEditor(editRoot, result.school);
-      bindSchoolEditor(summaryRoot, editRoot, schoolId);
-      renderPlayerSeriesSummaries(playersRoot, result.playerSeriesSummaries, result.school);
-    } catch (error) {
-      button.disabled = false;
-      button.textContent = "1年経過を実行";
-      setMessage(messageElement, error.message, "error");
-    }
-  });
+      try {
+        const result = await undoSchoolYearProgression(schoolId);
+        const playerSeriesCount = Array.isArray(result.playerSeriesSummaries)
+          ? result.playerSeriesSummaries.length
+          : 0;
+        document.title = `${formatSchoolName(result.school.name)} | 学校詳細`;
+        renderSchoolSummary(summaryRoot, result.school);
+        renderProgressionPanel(
+          progressionRoot,
+          result.school,
+          null,
+          {
+            text: "直前の年度進行を取り消しました。",
+            type: "success",
+          },
+          {
+            playerSeriesCount,
+            isPlayerSeriesLoaded: true,
+            undoState: result.yearProgressUndo,
+            isUndoLoaded: true,
+          }
+        );
+        bindSchoolProgression(summaryRoot, progressionRoot, editRoot, playersRoot, schoolId, result.school);
+        renderSchoolEditor(editRoot, result.school);
+        bindSchoolEditor(summaryRoot, editRoot, schoolId);
+        renderPlayerSeriesSummaries(playersRoot, result.playerSeriesSummaries, result.school);
+      } catch (error) {
+        undoButton.disabled = false;
+        undoButton.textContent = "年度進行を取り消す";
+        if (progressButton) {
+          progressButton.disabled = false;
+        }
+        setMessage(messageElement, error.message, "error");
+      }
+    });
+  }
 }
 
 async function init() {
@@ -625,8 +777,12 @@ async function init() {
 
     document.title = `${formatSchoolName(school.name)} | 学校詳細`;
     renderSchoolSummary(summaryRoot, school);
-    renderProgressionPanel(progressionRoot, school);
-    bindSchoolProgression(summaryRoot, progressionRoot, editRoot, playersRoot, schoolId, school);
+    renderProgressionPanel(progressionRoot, school, null, null, {
+      playerSeriesCount: null,
+      isPlayerSeriesLoaded: false,
+      undoState: null,
+      isUndoLoaded: false,
+    });
     renderSchoolEditor(editRoot, school);
     bindSchoolEditor(summaryRoot, editRoot, schoolId);
 
@@ -635,8 +791,41 @@ async function init() {
 
     try {
       const schoolPlayerSeries = await fetchSchoolPlayerSeriesSummaries(schoolId);
+      const playerSeriesSummaries = schoolPlayerSeries.playerSeriesSummaries;
+      const playerSeriesCount = Array.isArray(playerSeriesSummaries)
+        ? playerSeriesSummaries.length
+        : 0;
+      renderProgressionPanel(progressionRoot, schoolPlayerSeries.school, null, null, {
+        playerSeriesCount,
+        isPlayerSeriesLoaded: true,
+        undoState: schoolPlayerSeries.yearProgressUndo,
+        isUndoLoaded: true,
+      });
+      bindSchoolProgression(
+        summaryRoot,
+        progressionRoot,
+        editRoot,
+        playersRoot,
+        schoolId,
+        schoolPlayerSeries.school
+      );
       renderPlayerSeriesSummaries(playersRoot, schoolPlayerSeries.playerSeriesSummaries, schoolPlayerSeries.school);
     } catch (error) {
+      renderProgressionPanel(
+        progressionRoot,
+        school,
+        null,
+        {
+          text: "所属選手一覧を読み込めないため年度進行できません。",
+          type: "error",
+        },
+        {
+          playerSeriesCount: null,
+          isPlayerSeriesLoaded: false,
+          undoState: null,
+          isUndoLoaded: false,
+        }
+      );
       renderPlayersError(playersRoot, error.message);
     }
   } catch (error) {
