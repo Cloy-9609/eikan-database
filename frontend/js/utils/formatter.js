@@ -5,12 +5,28 @@ const SCHOOL_PLAY_STYLE_LABELS = {
   continuous: "継続プレイ",
 };
 
+const SQLITE_UTC_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?$/;
+
+function parseDateValue(value) {
+  if (typeof value !== "string") {
+    return new Date(value);
+  }
+
+  const trimmedValue = value.trim();
+
+  if (SQLITE_UTC_TIMESTAMP_PATTERN.test(trimmedValue)) {
+    return new Date(`${trimmedValue.replace(" ", "T")}Z`);
+  }
+
+  return new Date(value);
+}
+
 export function formatDate(value, fallback = "未設定") {
   if (value === undefined || value === null || value === "") {
     return fallback;
   }
 
-  const parsedDate = new Date(value);
+  const parsedDate = parseDateValue(value);
 
   if (Number.isNaN(parsedDate.getTime())) {
     return String(value);
