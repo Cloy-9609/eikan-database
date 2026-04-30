@@ -106,6 +106,69 @@
   letter-spacing: 0.01em;
 }
 
+.detail-accordion-heading {
+  margin: 0;
+}
+
+.detail-accordion-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.detail-accordion-toggle:focus-visible {
+  outline: 3px solid rgba(23, 95, 159, 0.18);
+  outline-offset: 6px;
+  border-radius: 12px;
+}
+
+.detail-accordion-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.detail-accordion-title {
+  margin: 0;
+  color: #14334e;
+  font-size: 1.12rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.detail-accordion-description {
+  margin: 0;
+  color: #56687d;
+  line-height: 1.55;
+}
+
+.detail-accordion-icon {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  border-right: 2px solid #175f9f;
+  border-bottom: 2px solid #175f9f;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.detail-accordion-toggle[aria-expanded="true"] .detail-accordion-icon {
+  transform: rotate(225deg);
+}
+
+.detail-accordion-body {
+  margin-top: 18px;
+}
+
 .message-box {
   padding: 16px;
   border-radius: 12px;

@@ -184,6 +184,11 @@ function setMessage(element, message, type = "") {
   }
 }
 
+function setAccordionExpanded(toggleButton, panelBody, expanded) {
+  toggleButton.setAttribute("aria-expanded", String(expanded));
+  panelBody.hidden = !expanded;
+}
+
 function renderSchoolError(root, message) {
   root.innerHTML = `
     <div class="message-box error-message">
@@ -766,10 +771,17 @@ async function init() {
   const summaryRoot = document.getElementById("school-summary-root");
   const progressionRoot = document.getElementById("school-progression-root");
   const editRoot = document.getElementById("school-edit-root");
+  const editToggle = document.getElementById("school-edit-toggle");
+  const editPanelBody = document.getElementById("school-edit-panel-body");
   const playersRoot = document.getElementById("school-players-root");
   const playerRegisterLink = document.getElementById("player-register-link");
 
   playerRegisterLink.hidden = true;
+  setAccordionExpanded(editToggle, editPanelBody, false);
+  editToggle.addEventListener("click", () => {
+    const expanded = editToggle.getAttribute("aria-expanded") === "true";
+    setAccordionExpanded(editToggle, editPanelBody, !expanded);
+  });
 
   try {
     const schoolId = getSchoolIdFromQuery();

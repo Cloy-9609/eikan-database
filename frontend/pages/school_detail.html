@@ -41,16 +41,27 @@
         <div id="school-progression-root"></div>
       </section>
 
-      <section class="detail-section detail-section--edit">
-        <div class="section-header section-header--stack">
-          <div>
-            <h2 class="section-title">学校情報を編集</h2>
-            <p class="section-description">
-              学校名・都道府県・プレイ方針・開始年度・メモを更新できます。現在年度はこの画面で直接変更しません。
-            </p>
-          </div>
+      <section class="detail-section detail-section--edit detail-section--accordion">
+        <h2 class="detail-accordion-heading">
+          <button
+            type="button"
+            id="school-edit-toggle"
+            class="detail-accordion-toggle"
+            aria-expanded="false"
+            aria-controls="school-edit-panel-body"
+          >
+            <span class="detail-accordion-copy">
+              <span class="detail-accordion-title">学校情報を編集</span>
+              <span class="detail-accordion-description">
+                学校名・都道府県・プレイ方針・開始年度・メモを必要な時だけ開いて更新します。
+              </span>
+            </span>
+            <span class="detail-accordion-icon" aria-hidden="true"></span>
+          </button>
+        </h2>
+        <div id="school-edit-panel-body" class="detail-accordion-body" hidden>
+          <div id="school-edit-root"></div>
         </div>
-        <div id="school-edit-root"></div>
       </section>
 
       <section class="detail-section detail-section--players">
