@@ -229,26 +229,32 @@ function renderSchoolSummary(root, school) {
     {
       label: "都道府県",
       value: formatOptionalValue(school.prefecture),
+      classes: "school-summary-row school-summary-row--prefecture",
     },
     {
       label: "開始年度",
       value: formatYearValue(school.start_year),
+      classes: "school-summary-row school-summary-row--start-year",
     },
     {
       label: "現在年度",
       value: formatYearValue(school.current_year),
+      classes: "school-summary-row school-summary-row--current-year",
     },
     {
       label: "経過年数",
       value: formatElapsedYears(school.start_year, school.current_year),
+      classes: "school-summary-row school-summary-row--elapsed",
     },
     {
       label: "作成日時",
       value: formatDate(school.created_at),
+      classes: "school-summary-row school-summary-row--created-at school-summary-row--datetime",
     },
     {
       label: "更新日時",
       value: formatDate(school.updated_at),
+      classes: "school-summary-row school-summary-row--updated-at school-summary-row--datetime",
     },
     {
       label: "メモ",

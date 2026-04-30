@@ -230,8 +230,15 @@
   line-height: 1.6;
 }
 
+.school-summary-row--name {
+  grid-column: span 2;
+  padding: 14px 16px;
+  border-color: #bdd0e1;
+  background: rgba(255, 255, 255, 0.95);
+}
+
 .school-summary-row--name dd {
-  font-size: 1.05rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #14334e;
 }
@@ -750,7 +757,53 @@
   }
 
   .school-summary-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .school-summary-row {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .school-summary-row--name {
+    grid-column: span 6;
+    padding: 12px;
+    border-color: #bdd0e1;
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .school-summary-row--prefecture {
+    grid-column: span 4;
+    align-self: stretch;
+    padding: 10px;
+  }
+
+  .school-summary-row--start-year,
+  .school-summary-row--current-year,
+  .school-summary-row--datetime {
+    grid-column: span 5;
+  }
+
+  .school-summary-row--elapsed,
+  .school-summary-row-full {
+    grid-column: 1 / -1;
+  }
+
+  .school-summary-row--datetime {
+    padding: 10px;
+  }
+
+  .school-summary-row--datetime dt,
+  .school-summary-row--datetime dd {
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .school-summary-row--name dd {
+    font-size: 1.5rem;
+    line-height: 1.45;
+    text-align: center;
   }
 
   .school-name-input {
