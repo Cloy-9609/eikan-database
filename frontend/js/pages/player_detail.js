@@ -71,6 +71,24 @@ const BATTING_HAND_OPTIONS = [
 
 const POSITION_OPTIONS = ["投手", "捕手", "一塁手", "二塁手", "三塁手", "遊撃手", "外野手"];
 const PITCHER_MAIN_POSITION = "投手";
+const DEFENSE_POSITION_COORDINATES = {
+  pitcher: { x: 50, y: 54 },
+  catcher: { x: 50, y: 91 },
+  first: { x: 83, y: 53 },
+  second: { x: 62, y: 34 },
+  third: { x: 17, y: 53 },
+  shortstop: { x: 38, y: 34 },
+  outfield: { x: 50, y: 14 },
+};
+const DEFENSE_POSITION_SLOTS = [
+  { position: "外野手", label: "外野手", shortLabel: "外", className: "outfield", ...DEFENSE_POSITION_COORDINATES.outfield },
+  { position: "遊撃手", label: "遊撃手", shortLabel: "遊", className: "shortstop", ...DEFENSE_POSITION_COORDINATES.shortstop },
+  { position: "二塁手", label: "二塁手", shortLabel: "二", className: "second", ...DEFENSE_POSITION_COORDINATES.second },
+  { position: "三塁手", label: "三塁手", shortLabel: "三", className: "third", ...DEFENSE_POSITION_COORDINATES.third },
+  { position: "投手", label: "投手", shortLabel: "投", className: "pitcher", ...DEFENSE_POSITION_COORDINATES.pitcher },
+  { position: "一塁手", label: "一塁手", shortLabel: "一", className: "first", ...DEFENSE_POSITION_COORDINATES.first },
+  { position: "捕手", label: "捕手", shortLabel: "捕", className: "catcher", ...DEFENSE_POSITION_COORDINATES.catcher },
+];
 
 const ABILITY_RANK_GROUPS = [
   { rank: "G", min: 1, max: 19 },
@@ -1342,6 +1360,134 @@ function renderSubPositionSection(snapshot, { archivedSchool = false } = {}) {
   });
 }
 
+function getSubPositionByName(snapshot) {
+  const subPositionByName = new Map();
+  const subPositions = Array.isArray(snapshot?.sub_positions) ? snapshot.sub_positions : [];
+
+  subPositions.forEach((item) => {
+    const positionName = String(item?.position_name ?? "").trim();
+
+    if (positionName && !subPositionByName.has(positionName)) {
+      subPositionByName.set(positionName, item);
+    }
+  });
+
+  return subPositionByName;
+}
+
+function renderDefenseGroundSvg() {
+  return `
+    <svg
+      class="defense-ground-svg"
+      viewBox="0 0 100 100"
+      role="presentation"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect class="defense-svg-grass" x="0" y="0" width="100" height="100" rx="4"></rect>
+      <path class="defense-svg-outfield-band" d="M0 0 H100 V45 C82 24 65 10 50 10 C35 10 18 24 0 45 Z"></path>
+      <path class="defense-svg-infield-grass" d="M50 16 L84 51 L50 86 L16 51 Z"></path>
+      <ellipse class="defense-svg-mound-dirt" cx="50" cy="54" rx="11.5" ry="7.4"></ellipse>
+      <ellipse class="defense-svg-home-dirt" cx="50" cy="87" rx="12.4" ry="8.2"></ellipse>
+      <path class="defense-svg-foul-line" d="M50 87 L-8 28"></path>
+      <path class="defense-svg-foul-line" d="M50 87 L108 28"></path>
+      <path class="defense-svg-baseline" d="M50 87 L84 51 L50 16 L16 51 Z"></path>
+      <path class="defense-svg-home-plate" d="M50 91 L55 87 L54 82 L46 82 L45 87 Z"></path>
+      <rect class="defense-svg-base defense-svg-base--first" x="80.6" y="47.6" width="6.8" height="6.8" transform="rotate(45 84 51)"></rect>
+      <rect class="defense-svg-base defense-svg-base--second" x="46.6" y="12.6" width="6.8" height="6.8" transform="rotate(45 50 16)"></rect>
+      <rect class="defense-svg-base defense-svg-base--third" x="12.6" y="47.6" width="6.8" height="6.8" transform="rotate(45 16 51)"></rect>
+      <rect class="defense-svg-mound-rubber" x="44.2" y="52.6" width="11.6" height="2.8" rx="0.5"></rect>
+    </svg>
+  `;
+}
+
+function renderDefensePositionNode(slot, { mainPosition, subPositionByName }) {
+  const subPosition = subPositionByName.get(slot.position);
+  const isMain = slot.position === mainPosition;
+  const isSub = Boolean(subPosition) && !isMain;
+  const stateClass = isMain ? "is-main" : isSub ? "is-sub" : "is-empty";
+  const roleLabel = isMain ? "メイン" : isSub ? "サブ" : "未設定";
+  const suitability = isSub && subPosition?.suitability_value
+    ? `<span class="defense-position-suitability">${escapeHtml(subPosition.suitability_value)}</span>`
+    : "";
+
+  return `
+    <div
+      class="defense-position-node defense-position-node--${escapeAttribute(slot.className)} ${stateClass}"
+      data-defense-position="${escapeAttribute(slot.position)}"
+      style="--defense-x: ${escapeAttribute(slot.x)}%; --defense-y: ${escapeAttribute(slot.y)}%;"
+      aria-label="${escapeAttribute(`${slot.label}: ${roleLabel}`)}"
+    >
+      <span class="defense-position-abbr" aria-hidden="true">${escapeHtml(slot.shortLabel)}</span>
+      <span class="defense-position-name">${escapeHtml(slot.label)}</span>
+      <span class="defense-position-role">${escapeHtml(roleLabel)}</span>
+      ${suitability}
+    </div>
+  `;
+}
+
+function renderDefenseSummary(snapshot, subPositionByName) {
+  const mainPosition = snapshot?.main_position;
+  const subPositions = Array.from(subPositionByName.values());
+  const subPositionText = subPositions.length > 0
+    ? subPositions
+        .map((item) => {
+          const positionName = item.position_name ?? "不明";
+          const suitability = item.suitability_value ? ` ${item.suitability_value}` : "";
+          return `${positionName}${suitability}`;
+        })
+        .join(" / ")
+    : "なし";
+
+  return `
+    <div class="defense-summary">
+      <div class="defense-summary-item defense-summary-item--main">
+        <span class="defense-summary-label">メイン</span>
+        <strong>${formatValue(mainPosition)}</strong>
+      </div>
+      <div class="defense-summary-item">
+        <span class="defense-summary-label">サブ</span>
+        <span>${escapeHtml(subPositionText)}</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderDefensePositionMapSection(snapshot) {
+  const mainPosition = snapshot?.main_position ?? "";
+  const subPositionByName = getSubPositionByName(snapshot);
+  const nodesHtml = DEFENSE_POSITION_SLOTS.map((slot) =>
+    renderDefensePositionNode(slot, { mainPosition, subPositionByName })
+  ).join("");
+
+  return renderDetailCard({
+    title: "守備位置図",
+    sectionKey: "defense-map",
+    bodyClass: "detail-card-body--defense-map",
+    content: `
+      <div class="defense-map-layout">
+        <div class="defense-field" role="img" aria-label="現在表示中の時点における守備位置図">
+          ${renderDefenseGroundSvg()}
+          <div class="defense-position-layer" aria-hidden="true">
+            ${nodesHtml}
+          </div>
+        </div>
+        <aside class="defense-map-side">
+          ${renderDefenseSummary(snapshot, subPositionByName)}
+          <div class="defense-map-legend" aria-label="守備位置図の凡例">
+            <span class="defense-legend-item defense-legend-item--main">メイン</span>
+            <span class="defense-legend-item defense-legend-item--sub">サブ</span>
+            <span class="defense-legend-item defense-legend-item--empty">未設定</span>
+          </div>
+          <p class="defense-map-note">
+            現在表示中の snapshot に登録されているメインポジションとサブポジションを表示しています。
+          </p>
+        </aside>
+      </div>
+    `,
+  });
+}
+
 function setMessage(messageElement, message, isError = false) {
   messageElement.textContent = message;
   messageElement.classList.toggle("is-visible", Boolean(message));
@@ -1974,6 +2120,7 @@ function renderPlayer(refs, seriesResponse) {
         { archivedSchool }
       )
     : "";
+  const defensePositionMapSection = renderDefensePositionMapSection(currentSnapshot);
   const specialAbilitiesSection = renderSpecialAbilitySection(currentSnapshot, { archivedSchool });
   const subPositionsSection = renderSubPositionSection(currentSnapshot, { archivedSchool });
 
@@ -2015,6 +2162,7 @@ function renderPlayer(refs, seriesResponse) {
   refs.root.innerHTML = `
     ${archivedNotice}
     ${basicSection}
+    ${defensePositionMapSection}
     ${pitcherOverviewSection}
     ${batterSection}
     ${specialAbilitiesSection}

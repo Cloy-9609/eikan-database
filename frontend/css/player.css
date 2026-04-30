@@ -1893,6 +1893,262 @@
   font-weight: 600;
 }
 
+.detail-card[data-detail-section="defense-map"] {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 16% 12%, rgba(23, 95, 159, 0.08), transparent 34%),
+    linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+}
+
+.detail-card-body--defense-map {
+  gap: 0;
+}
+
+.defense-map-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.35fr) minmax(220px, 0.75fr);
+  gap: var(--player-space-3xl);
+  align-items: stretch;
+}
+
+.defense-field {
+  position: relative;
+  min-height: 390px;
+  aspect-ratio: 1.12 / 1;
+  border: 1px solid rgba(36, 128, 36, 0.4);
+  border-radius: var(--player-radius-3xl);
+  background: #38a90f;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 4px rgba(12, 20, 18, 0.86),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+    inset 0 -32px 72px rgba(12, 86, 34, 0.14),
+    0 16px 32px rgba(15, 74, 45, 0.12);
+}
+
+.defense-ground-svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.defense-svg-grass {
+  fill: #38b50a;
+}
+
+.defense-svg-outfield-band {
+  fill: #43c20e;
+  opacity: 0.72;
+}
+
+.defense-svg-infield-grass {
+  fill: #2fa008;
+  opacity: 0.28;
+}
+
+.defense-svg-home-dirt,
+.defense-svg-mound-dirt {
+  fill: #d7a322;
+  opacity: 0.92;
+  stroke: rgba(108, 65, 22, 0.24);
+  stroke-width: 0.55;
+}
+
+.defense-svg-foul-line,
+.defense-svg-baseline {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.defense-svg-foul-line {
+  stroke-width: 1.85;
+}
+
+.defense-svg-baseline {
+  stroke-width: 1.65;
+}
+
+.defense-svg-base,
+.defense-svg-home-plate,
+.defense-svg-mound-rubber {
+  fill: #ffffff;
+  stroke: rgba(22, 35, 54, 0.2);
+  stroke-width: 0.28;
+}
+
+.defense-position-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.defense-position-node {
+  position: absolute;
+  left: var(--defense-x);
+  top: var(--defense-y);
+  display: grid;
+  gap: 3px;
+  place-items: center;
+  min-width: 58px;
+  min-height: 52px;
+  padding: var(--player-space-xs) var(--player-space-sm);
+  border: 1px solid rgba(221, 230, 240, 0.94);
+  border-radius: var(--player-radius-xl);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--player-color-text-subtle);
+  box-shadow:
+    0 10px 20px rgba(17, 55, 90, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.72) inset;
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.defense-position-abbr {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--player-radius-pill);
+  background: #eef3f8;
+  color: #526071;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.defense-position-name,
+.defense-position-role,
+.defense-position-suitability {
+  line-height: var(--player-line-height-tight);
+}
+
+.defense-position-name {
+  font-size: var(--player-font-size-sm-plus);
+  font-weight: 700;
+}
+
+.defense-position-role,
+.defense-position-suitability {
+  font-size: var(--player-font-size-xs);
+  font-weight: 700;
+}
+
+.defense-position-node.is-main {
+  min-width: 74px;
+  min-height: 66px;
+  border-color: rgba(23, 95, 159, 0.48);
+  background:
+    linear-gradient(180deg, rgba(232, 242, 252, 0.98) 0%, rgba(255, 255, 255, 0.96) 100%);
+  color: var(--player-color-accent-strong);
+  box-shadow: 0 12px 26px rgba(23, 95, 159, 0.14);
+}
+
+.defense-position-node.is-main .defense-position-abbr {
+  width: 38px;
+  height: 38px;
+  background: var(--player-color-accent);
+  color: #ffffff;
+  font-size: var(--player-font-size-lg);
+}
+
+.defense-position-node.is-sub {
+  border-color: rgba(15, 118, 110, 0.34);
+  background:
+    linear-gradient(180deg, rgba(236, 253, 243, 0.94) 0%, rgba(255, 255, 255, 0.9) 100%);
+  color: #0f766e;
+}
+
+.defense-position-node.is-sub .defense-position-abbr {
+  background: #dcfce7;
+  color: #0f766e;
+}
+
+.defense-position-node.is-empty {
+  opacity: 0.72;
+}
+
+.defense-map-side {
+  display: grid;
+  align-content: start;
+  gap: var(--player-space-lg);
+  min-width: 0;
+}
+
+.defense-summary {
+  display: grid;
+  gap: var(--player-space-md);
+}
+
+.defense-summary-item {
+  display: grid;
+  gap: var(--player-space-xs);
+  padding: var(--player-space-lg);
+  border: 1px solid var(--player-color-border-soft);
+  border-radius: var(--player-radius-xl);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.defense-summary-label {
+  color: var(--player-color-text-subtle);
+  font-size: var(--player-font-size-sm-plus);
+  font-weight: 700;
+}
+
+.defense-summary-item strong,
+.defense-summary-item span:last-child {
+  color: var(--player-color-text);
+  font-weight: 700;
+  line-height: var(--player-line-height-relaxed);
+}
+
+.defense-summary-item--main strong {
+  color: var(--player-color-accent-strong);
+  font-size: var(--player-font-size-lg);
+}
+
+.defense-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--player-space-xs);
+}
+
+.defense-legend-item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--player-space-sm);
+  border: 1px solid var(--player-color-border-soft);
+  border-radius: var(--player-radius-pill);
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--player-color-text-muted);
+  font-size: var(--player-font-size-xs);
+  font-weight: 700;
+}
+
+.defense-legend-item--main {
+  border-color: rgba(23, 95, 159, 0.4);
+  background: rgba(232, 242, 252, 0.9);
+  color: var(--player-color-accent-strong);
+}
+
+.defense-legend-item--sub {
+  border-color: rgba(15, 118, 110, 0.34);
+  background: rgba(236, 253, 243, 0.9);
+  color: #0f766e;
+}
+
+.defense-map-note {
+  margin: 0;
+  color: var(--player-color-text-subtle);
+  font-size: var(--player-font-size-sm-plus);
+  line-height: var(--player-line-height-relaxed);
+}
+
 .detail-value {
   display: block;
   min-height: 1.4em;
@@ -3476,6 +3732,57 @@
 
   .detail-grid--basic {
     grid-template-columns: 1fr;
+  }
+
+  .detail-card[data-detail-section="defense-map"] {
+    padding: var(--player-space-lg);
+  }
+
+  .defense-map-layout {
+    grid-template-columns: 1fr;
+    gap: var(--player-space-lg);
+  }
+
+  .defense-field {
+    min-height: 300px;
+    aspect-ratio: 1 / 1.08;
+    border-radius: var(--player-radius-xl);
+  }
+
+  .defense-position-node {
+    min-width: 44px;
+    min-height: 50px;
+    padding: 4px;
+    border-radius: var(--player-radius-md);
+  }
+
+  .defense-position-abbr {
+    width: 26px;
+    height: 26px;
+  }
+
+  .defense-position-node.is-main {
+    min-width: 58px;
+    min-height: 62px;
+  }
+
+  .defense-position-node.is-main .defense-position-abbr {
+    width: 32px;
+    height: 32px;
+  }
+
+  .defense-position-name,
+  .defense-position-role,
+  .defense-position-suitability {
+    font-size: 0.68rem;
+  }
+
+  .defense-summary {
+    gap: var(--player-space-sm);
+  }
+
+  .defense-summary-item {
+    padding: var(--player-space-md);
   }
 
   .detail-card[data-detail-section="pitcher-overview"] {
