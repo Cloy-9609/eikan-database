@@ -551,6 +551,10 @@
   align-items: start;
 }
 
+.player-relation-row-grid--sub-position {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 3fr);
+}
+
 .player-relation-field {
   display: grid;
   gap: var(--player-space-xs);
@@ -639,6 +643,10 @@
 .player-sub-position-defense-preview {
   color: var(--player-color-accent-strong);
   font-weight: 700;
+}
+
+.player-sub-position-defense-pair {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
 }
 
 .player-form--edit .player-relation-editor {
@@ -3849,6 +3857,7 @@ button.defense-position-node {
   }
 
   .player-form-inline-controls,
+  .player-relation-row-grid--sub-position,
   .player-ability-pair {
     grid-template-columns: 1fr;
   }

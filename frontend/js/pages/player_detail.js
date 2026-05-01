@@ -186,6 +186,7 @@ const DETAIL_STATE = {
   activeModalScope: "",
   lastFocusedElement: null,
   nextToastId: 0,
+  activeToastKeys: new Set(),
 };
 
 function isArchivedSchool(player) {
@@ -1581,9 +1582,24 @@ function showToast(message, options = {}) {
     minVisibleMs = 0,
     persistent = false,
     role = variant === "error" ? "alert" : "status",
+    dedupeKey = "",
   } = options;
+
+  if (dedupeKey && DETAIL_STATE.activeToastKeys.has(dedupeKey)) {
+    return {
+      close: async () => {},
+      closed: Promise.resolve(),
+      element: null,
+    };
+  }
+
   const toastId = `player-toast-${DETAIL_STATE.nextToastId++}`;
   const toastElement = document.createElement("div");
+
+  if (dedupeKey) {
+    DETAIL_STATE.activeToastKeys.add(dedupeKey);
+    toastElement.dataset.toastKey = dedupeKey;
+  }
 
   toastElement.className = `player-toast player-toast--${variant}`;
   toastElement.dataset.toastId = toastId;
@@ -1618,6 +1634,9 @@ function showToast(message, options = {}) {
     toastElement.classList.add("is-exiting");
     window.setTimeout(() => {
       toastElement.remove();
+      if (dedupeKey) {
+        DETAIL_STATE.activeToastKeys.delete(dedupeKey);
+      }
       finishClose();
     }, TOAST_TRANSITION_MS);
   }
@@ -2649,7 +2668,7 @@ function focusSubPositionModalTarget(form, targetPosition = "") {
   targetRow.scrollIntoView({ block: "center", behavior: "smooth" });
 
   const focusTarget =
-    targetRow.querySelector("[data-sub-position-suitability]") ??
+    targetRow.querySelector("[data-sub-position-defense-rank]") ??
     targetRow.querySelector("[data-sub-position-defense-value]") ??
     targetRow.querySelector("[data-sub-position-name]");
 
@@ -3369,7 +3388,10 @@ function handleDetailRootClick(event) {
 
     if (isMainPosition) {
       const message = "メインポジションはこのモーダルでは編集できません。サブポジションは未設定の位置から追加できます。";
-      showToast(message, { duration: 2200 });
+      showToast(message, {
+        duration: 2200,
+        dedupeKey: "defense-main-position-readonly",
+      });
       setMessage(DETAIL_STATE.refs.messageElement, message);
       return;
     }
