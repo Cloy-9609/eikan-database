@@ -3609,6 +3609,103 @@ button.defense-position-node {
   white-space: nowrap;
 }
 
+.player-form--modal[data-section-edit-scope="sub_positions"] {
+  gap: var(--player-space-lg);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-form-section {
+  gap: var(--player-space-md);
+  padding: var(--player-space-lg);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-form-section-header {
+  gap: var(--player-space-xs);
+  padding-bottom: var(--player-space-sm);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-form-fields--relation,
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-editor {
+  gap: var(--player-space-sm);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-editor {
+  padding: var(--player-space-sm);
+  border-radius: var(--player-radius-lg);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-editor-header {
+  gap: var(--player-space-xs);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-editor-copy {
+  gap: 2px;
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-editor-description,
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-form-section-description {
+  font-size: var(--player-font-size-sm);
+  line-height: var(--player-line-height-base);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-editor-list {
+  gap: var(--player-space-xs);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-row {
+  gap: var(--player-space-xs);
+  padding: var(--player-space-sm);
+  border-radius: var(--player-radius-md);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-row-grid--sub-position {
+  gap: var(--player-space-xs) var(--player-space-sm);
+  grid-template-columns: minmax(0, 2.6fr) minmax(0, 3.4fr);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-sub-position-defense-pair {
+  gap: var(--player-space-xs);
+  grid-template-columns: minmax(86px, 1.15fr) minmax(108px, 1.85fr);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-field,
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-ability-input {
+  gap: 3px;
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-label,
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-ability-input-label {
+  font-size: var(--player-font-size-xs);
+  line-height: var(--player-line-height-tight);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-field > select,
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-ability-input > select {
+  min-height: 34px;
+  padding-inline: var(--player-space-xs);
+  border-radius: var(--player-radius-md);
+  font-size: var(--player-font-size-sm);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-ability-input {
+  padding: var(--player-space-xs);
+  border-radius: var(--player-radius-md);
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-sub-position-defense-help,
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-sub-position-defense-preview {
+  line-height: 1.25;
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-row-actions {
+  margin-top: 2px;
+}
+
+.player-form--modal[data-section-edit-scope="sub_positions"] .player-button-inline {
+  min-height: 30px;
+  padding-inline: var(--player-space-sm);
+  font-size: var(--player-font-size-xs);
+}
+
 .player-form--modal [data-edit-section="pitcher"] .player-form-fields,
 .player-form--modal [data-edit-section="batter"] .player-form-fields {
   grid-template-columns: 1fr;
