@@ -31,6 +31,12 @@ const PLAYER_SERIES_MIGRATION_COLUMNS = [
   { name: "player_type_note", definition: "TEXT" },
   { name: "note", definition: "TEXT" },
 ];
+const PLAYER_SUB_POSITION_MIGRATION_COLUMNS = [
+  {
+    name: "defense_value",
+    definition: "INTEGER CHECK (defense_value IS NULL OR defense_value BETWEEN 0 AND 100)",
+  },
+];
 const snapshotCheckValuesSql = TRANSITIONAL_SNAPSHOT_LABELS.map((value) => `'${value}'`).join(", ");
 let databaseInstance;
 let initializationPromise;
@@ -244,6 +250,25 @@ async function ensurePlayerSeriesIndexes() {
   await run(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_players_series_snapshot_unique ON players(player_series_id, snapshot_label)"
   );
+}
+
+async function ensurePlayerSubPositionSchema() {
+  const tables = await getUserTables();
+  const tableNames = new Set(tables.map((table) => table.name));
+
+  if (!tableNames.has("player_sub_positions")) {
+    return;
+  }
+
+  const columns = await getTableColumns("player_sub_positions");
+  const columnNames = new Set(columns.map((column) => column.name));
+  const missingColumns = PLAYER_SUB_POSITION_MIGRATION_COLUMNS.filter(
+    (column) => !columnNames.has(column.name)
+  );
+
+  for (const column of missingColumns) {
+    await run(`ALTER TABLE player_sub_positions ADD COLUMN ${column.name} ${column.definition}`);
+  }
 }
 
 async function migratePlayerSnapshotSchema() {
@@ -490,6 +515,8 @@ function initializeDatabase() {
     if (tableNames.has("players")) {
       await migratePlayerSnapshotSchema();
     }
+
+    await ensurePlayerSubPositionSchema();
 
     await ensureManagementCodeSchema({ all, get, run, transaction });
     await ensureSchoolProgressionSchema({ all, get, run, transaction });

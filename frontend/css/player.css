@@ -629,6 +629,18 @@
   color: var(--player-color-error-soft-text);
 }
 
+.player-sub-position-defense-help,
+.player-sub-position-defense-preview {
+  margin: 0;
+  font-size: var(--player-font-size-xs);
+  line-height: var(--player-line-height-tight);
+}
+
+.player-sub-position-defense-preview {
+  color: var(--player-color-accent-strong);
+  font-weight: 700;
+}
+
 .player-form--edit .player-relation-editor {
   gap: var(--player-space-md);
   padding: var(--player-space-md);
@@ -656,6 +668,13 @@
   gap: var(--player-space-sm);
   padding: var(--player-space-sm) var(--player-space-md);
   border-radius: var(--player-radius-md);
+}
+
+.player-relation-row.is-targeted {
+  border-color: rgba(23, 95, 159, 0.42);
+  box-shadow:
+    0 0 0 3px rgba(23, 95, 159, 0.12),
+    0 12px 24px rgba(17, 55, 90, 0.08);
 }
 
 .player-form--edit .player-relation-row-grid {
@@ -2005,11 +2024,36 @@
   border-radius: var(--player-radius-xl);
   background: rgba(255, 255, 255, 0.94);
   color: var(--player-color-text-subtle);
+  font: inherit;
   box-shadow:
     0 10px 20px rgba(17, 55, 90, 0.12),
     0 1px 0 rgba(255, 255, 255, 0.72) inset;
   text-align: center;
   transform: translate(-50%, -50%);
+}
+
+button.defense-position-node {
+  appearance: none;
+}
+
+.defense-position-node.is-clickable {
+  cursor: pointer;
+}
+
+.defense-position-node.is-clickable:hover,
+.defense-position-node.is-clickable:focus-visible {
+  border-color: rgba(14, 116, 144, 0.5);
+  box-shadow:
+    0 14px 28px rgba(17, 55, 90, 0.18),
+    0 0 0 3px rgba(14, 116, 144, 0.14);
+}
+
+.defense-position-node.is-readonly {
+  cursor: not-allowed;
+}
+
+.defense-position-node:focus-visible {
+  outline: none;
 }
 
 .defense-position-abbr {
@@ -2083,36 +2127,111 @@
   max-width: 260px;
 }
 
-.defense-summary {
+.defense-info-list {
   display: grid;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--player-color-border-soft);
+  border-radius: var(--player-radius-lg);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.defense-info-head,
+.defense-info-row {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) 64px;
+  align-items: center;
   gap: var(--player-space-xs);
 }
 
-.defense-summary-item {
-  display: grid;
-  gap: var(--player-space-2xs);
-  padding: var(--player-space-sm) var(--player-space-md);
-  border: 1px solid var(--player-color-border-soft);
-  border-radius: var(--player-radius-lg);
-  background: rgba(255, 255, 255, 0.78);
-}
-
-.defense-summary-label {
+.defense-info-head {
+  min-height: 26px;
+  padding: 0 var(--player-space-sm);
+  background: rgba(239, 246, 255, 0.78);
   color: var(--player-color-text-subtle);
-  font-size: var(--player-font-size-xs);
-  font-weight: 700;
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
-.defense-summary-item strong,
-.defense-summary-item span:last-child {
-  color: var(--player-color-text);
-  font-weight: 700;
-  line-height: var(--player-line-height-relaxed);
+.defense-info-head span:nth-child(3) {
+  text-align: center;
 }
 
-.defense-summary-item--main strong {
+.defense-info-row {
+  min-height: 38px;
+  padding: var(--player-space-xs) var(--player-space-sm);
+  border-top: 1px solid rgba(210, 222, 235, 0.72);
+}
+
+.defense-info-row.is-empty {
+  color: var(--player-color-text-muted);
+}
+
+.defense-info-role {
   color: var(--player-color-accent-strong);
-  font-size: var(--player-font-size-md-plus);
+  font-size: var(--player-font-size-xs);
+  font-weight: 800;
+}
+
+.defense-info-position {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  color: var(--player-color-text);
+  font-size: var(--player-font-size-sm);
+  font-weight: 800;
+  line-height: var(--player-line-height-tight);
+}
+
+.defense-info-position-meta {
+  color: var(--player-color-text-subtle);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.defense-info-rating {
+  justify-self: stretch;
+  min-width: 0;
+}
+
+.defense-info-rating-value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8px minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+}
+
+.defense-info-rating-rank {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  border-radius: var(--player-radius-pill);
+  background: var(--player-color-accent);
+  color: #ffffff;
+  font-size: var(--player-font-size-sm);
+  font-weight: 800;
+  line-height: 1;
+  justify-self: end;
+  grid-column: 1;
+}
+
+.defense-info-rating-number {
+  justify-self: start;
+  grid-column: 3;
+}
+
+.defense-info-rating-number,
+.defense-info-rating-text {
+  color: var(--player-color-text-muted);
+  font-size: var(--player-font-size-xs);
+  font-weight: 800;
+}
+
+.defense-info-rating-text {
+  display: inline-grid;
+  place-items: center;
+  width: 100%;
 }
 
 .defense-map-legend {
@@ -3791,13 +3910,13 @@
     font-size: 0.68rem;
   }
 
-  .defense-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--player-space-sm);
+  .defense-info-head,
+  .defense-info-row {
+    grid-template-columns: 52px minmax(0, 1fr) 60px;
   }
 
-  .defense-summary-item {
-    padding: var(--player-space-sm);
+  .defense-info-row {
+    min-height: 36px;
   }
 
   .detail-card[data-detail-section="pitcher-overview"] {

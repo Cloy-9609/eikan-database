@@ -1401,20 +1401,34 @@ function renderDefenseGroundSvg() {
   `;
 }
 
-function renderDefensePositionNode(slot, { mainPosition, subPositionByName }) {
+function renderDefensePositionNode(slot, { mainPosition, subPositionByName, canEdit = false }) {
   const subPosition = subPositionByName.get(slot.position);
   const isMain = slot.position === mainPosition;
   const isSub = Boolean(subPosition) && !isMain;
   const stateClass = isMain ? "is-main" : isSub ? "is-sub" : "is-empty";
+  const interactionClass = canEdit
+    ? isMain
+      ? "is-readonly"
+      : "is-clickable"
+    : "";
   const roleLabel = isMain ? "メイン" : isSub ? "サブ" : "未設定";
   const suitability = isSub && subPosition?.suitability_value
     ? `<span class="defense-position-suitability">${escapeHtml(subPosition.suitability_value)}</span>`
     : "";
+  const tagName = canEdit ? "button" : "div";
+  const editAttributes = canEdit
+    ? `
+      type="button"
+      data-defense-position-button
+      data-defense-position-main="${isMain ? "true" : "false"}"
+    `
+    : "";
 
   return `
-    <div
-      class="defense-position-node defense-position-node--${escapeAttribute(slot.className)} ${stateClass}"
+    <${tagName}
+      class="defense-position-node defense-position-node--${escapeAttribute(slot.className)} ${stateClass} ${interactionClass}"
       data-defense-position="${escapeAttribute(slot.position)}"
+      ${editAttributes}
       style="--defense-x: ${escapeAttribute(slot.x)}%; --defense-y: ${escapeAttribute(slot.y)}%;"
       aria-label="${escapeAttribute(`${slot.label}: ${roleLabel}`)}"
     >
@@ -1422,65 +1436,113 @@ function renderDefensePositionNode(slot, { mainPosition, subPositionByName }) {
       <span class="defense-position-name">${escapeHtml(slot.label)}</span>
       <span class="defense-position-role">${escapeHtml(roleLabel)}</span>
       ${suitability}
-    </div>
+    </${tagName}>
   `;
 }
 
-function renderDefenseSummary(snapshot, subPositionByName) {
-  const mainPosition = snapshot?.main_position;
-  const subPositions = Array.from(subPositionByName.values());
-  const subPositionText = subPositions.length > 0
-    ? subPositions
-        .map((item) => {
-          const positionName = item.position_name ?? "不明";
-          const suitability = item.suitability_value ? ` ${item.suitability_value}` : "";
-          return `${positionName}${suitability}`;
-        })
-        .join(" / ")
-    : "なし";
+function renderDefenseRatingValue(value) {
+  const rankGroup = getAbilityRank(value);
+
+  if (!rankGroup) {
+    return `<span class="defense-info-rating-text">${formatValue(value, "-")}</span>`;
+  }
 
   return `
-    <div class="defense-summary">
-      <div class="defense-summary-item defense-summary-item--main">
-        <span class="defense-summary-label">メイン</span>
-        <strong>${formatValue(mainPosition)}</strong>
-      </div>
-      <div class="defense-summary-item">
-        <span class="defense-summary-label">サブ</span>
-        <span>${escapeHtml(subPositionText)}</span>
-      </div>
+    <span class="defense-info-rating-value">
+      <span class="defense-info-rating-rank">${rankGroup.rank}</span>
+      <span class="defense-info-rating-number">${escapeHtml(value)}</span>
+    </span>
+  `;
+}
+
+function getDefenseSubPositionRows(snapshot) {
+  return (Array.isArray(snapshot?.sub_positions) ? snapshot.sub_positions : [])
+    .map((item) => ({
+      positionName: String(item?.position_name ?? "").trim(),
+      suitability: item?.suitability_value ?? "",
+      defenseValue: item?.defense_value ?? null,
+    }))
+    .filter((item) => item.positionName);
+}
+
+function renderDefenseInfoRow({ roleLabel, positionName, suitability = "", defenseValue, empty = false }) {
+  const positionMeta = suitability
+    ? `<span class="defense-info-position-meta">適性 ${escapeHtml(suitability)}</span>`
+    : "";
+
+  return `
+    <div class="defense-info-row${empty ? " is-empty" : ""}">
+      <span class="defense-info-role">${escapeHtml(roleLabel)}</span>
+      <span class="defense-info-position">
+        <span>${formatValue(positionName, "なし")}</span>
+        ${positionMeta}
+      </span>
+      <span class="defense-info-rating">${renderDefenseRatingValue(defenseValue)}</span>
     </div>
   `;
 }
 
-function renderDefensePositionMapSection(snapshot) {
+function renderDefenseInfoList(snapshot) {
+  const defenseValue = snapshot?.fielding;
+  const subPositionRows = getDefenseSubPositionRows(snapshot);
+  const rows = [
+    renderDefenseInfoRow({
+      roleLabel: "メイン",
+      positionName: snapshot?.main_position,
+      defenseValue,
+    }),
+    ...subPositionRows.map((item, index) =>
+      renderDefenseInfoRow({
+        roleLabel: `サブ${index + 1}`,
+        positionName: item.positionName,
+        suitability: item.suitability,
+        defenseValue: item.defenseValue,
+      })
+    ),
+  ];
+
+  return `
+    <div class="defense-info-list" aria-label="守備位置と守備力">
+      <div class="defense-info-head" aria-hidden="true">
+        <span>種別</span>
+        <span>守備位置</span>
+        <span>守備力</span>
+      </div>
+      ${rows.join("")}
+    </div>
+  `;
+}
+
+function renderDefensePositionMapSection(snapshot, { archivedSchool = false } = {}) {
   const mainPosition = snapshot?.main_position ?? "";
   const subPositionByName = getSubPositionByName(snapshot);
+  const canEdit = !archivedSchool && Boolean(snapshot?.id);
   const nodesHtml = DEFENSE_POSITION_SLOTS.map((slot) =>
-    renderDefensePositionNode(slot, { mainPosition, subPositionByName })
+    renderDefensePositionNode(slot, { mainPosition, subPositionByName, canEdit })
   ).join("");
 
   return renderDetailCard({
-    title: "守備位置図",
+    title: "守備位置・守備力",
     sectionKey: "defense-map",
     bodyClass: "detail-card-body--defense-map",
+    headerActionHtml: buildRelationSectionActions("sub_positions", snapshot, { archivedSchool }),
     content: `
       <div class="defense-map-layout">
-        <div class="defense-field" role="img" aria-label="現在表示中の時点における守備位置図">
+        <div class="defense-field" role="group" aria-label="現在表示中の時点における守備位置図">
           ${renderDefenseGroundSvg()}
-          <div class="defense-position-layer" aria-hidden="true">
+          <div class="defense-position-layer">
             ${nodesHtml}
           </div>
         </div>
         <aside class="defense-map-side">
-          ${renderDefenseSummary(snapshot, subPositionByName)}
+          ${renderDefenseInfoList(snapshot)}
           <div class="defense-map-legend" aria-label="守備位置図の凡例">
             <span class="defense-legend-item defense-legend-item--main">メイン</span>
             <span class="defense-legend-item defense-legend-item--sub">サブ</span>
             <span class="defense-legend-item defense-legend-item--empty">未設定</span>
           </div>
           <p class="defense-map-note">
-            現在表示中の snapshot に登録されているメインポジションとサブポジションを表示しています。
+            守備位置図からサブポジションを追加・編集できます。
           </p>
         </aside>
       </div>
@@ -2120,9 +2182,8 @@ function renderPlayer(refs, seriesResponse) {
         { archivedSchool }
       )
     : "";
-  const defensePositionMapSection = renderDefensePositionMapSection(currentSnapshot);
+  const defensePositionMapSection = renderDefensePositionMapSection(currentSnapshot, { archivedSchool });
   const specialAbilitiesSection = renderSpecialAbilitySection(currentSnapshot, { archivedSchool });
-  const subPositionsSection = renderSubPositionSection(currentSnapshot, { archivedSchool });
 
   const archivedNotice = archivedSchool
     ? `
@@ -2166,7 +2227,6 @@ function renderPlayer(refs, seriesResponse) {
     ${pitcherOverviewSection}
     ${batterSection}
     ${specialAbilitiesSection}
-    ${subPositionsSection}
   `;
 }
 
@@ -2260,6 +2320,7 @@ function buildSectionUpdatePayload(scope, formData, form, player, relationOption
       sub_positions: serializeRelationInputs(form, relationOptions, {
         includePitchTypes: false,
         mainPosition: player.main_position,
+        mainDefenseValue: player.fielding,
       }).sub_positions,
     };
   }
@@ -2547,7 +2608,57 @@ function renderSectionEditFormLayout({ scope, player, content, note = "" }) {
   `;
 }
 
-function renderRelationModalSection(scope, player) {
+function getSubPositionRowsForModal(player, targetPosition = "") {
+  const subPositions = Array.isArray(player?.sub_positions) ? player.sub_positions : [];
+  const normalizedTargetPosition = String(targetPosition ?? "").trim();
+
+  if (
+    !normalizedTargetPosition ||
+    normalizedTargetPosition === String(player?.main_position ?? "").trim() ||
+    subPositions.some((item) => String(item?.position_name ?? "").trim() === normalizedTargetPosition)
+  ) {
+    return subPositions;
+  }
+
+  return [
+    ...subPositions,
+    {
+      position_name: normalizedTargetPosition,
+      suitability_value: "",
+      defense_value: null,
+    },
+  ];
+}
+
+function focusSubPositionModalTarget(form, targetPosition = "") {
+  const normalizedTargetPosition = String(targetPosition ?? "").trim();
+
+  if (!normalizedTargetPosition) {
+    return;
+  }
+
+  const targetRow = Array.from(
+    form.querySelectorAll('[data-relation-row="sub_positions"]')
+  ).find((row) => row.querySelector("[data-sub-position-name]")?.value === normalizedTargetPosition);
+
+  if (!targetRow) {
+    return;
+  }
+
+  targetRow.classList.add("is-targeted");
+  targetRow.scrollIntoView({ block: "center", behavior: "smooth" });
+
+  const focusTarget =
+    targetRow.querySelector("[data-sub-position-suitability]") ??
+    targetRow.querySelector("[data-sub-position-defense-value]") ??
+    targetRow.querySelector("[data-sub-position-name]");
+
+  if (focusTarget instanceof HTMLElement) {
+    focusTarget.focus();
+  }
+}
+
+function renderRelationModalSection(scope, player, { targetSubPosition = "" } = {}) {
   const relationOptions = DETAIL_STATE.relationOptions ?? normalizeRelationOptions(getFallbackRelationOptions());
   const editorIdPrefix = `player-detail-modal-${scope}-${player.id}`;
 
@@ -2587,10 +2698,11 @@ function renderRelationModalSection(scope, player) {
       description: "メインポジションと重複しないように、守備位置と適性を編集します。",
       fieldsClass: "player-form-fields player-form-fields--relation",
       content: renderSubPositionEditor({
-        subPositions: player.sub_positions,
+        subPositions: getSubPositionRowsForModal(player, targetSubPosition),
         relationOptions,
         editorIdPrefix,
         mainPosition: player.main_position,
+        mainDefenseValue: player.fielding,
       }),
     });
   }
@@ -2598,7 +2710,7 @@ function renderRelationModalSection(scope, player) {
   return "";
 }
 
-function buildSectionEditForm(scope, player) {
+function buildSectionEditForm(scope, player, options = {}) {
   if (scope === "basic") {
     const content = renderModalFormSection({
       sectionKey: "basic",
@@ -2695,7 +2807,7 @@ function buildSectionEditForm(scope, player) {
     return renderSectionEditFormLayout({
       scope,
       player,
-      content: renderRelationModalSection(scope, player),
+      content: renderRelationModalSection(scope, player, options),
     });
   }
 
@@ -2785,10 +2897,11 @@ function closeSectionEditModal() {
   return true;
 }
 
-function openSectionEditModal(scope, player) {
+function openSectionEditModal(scope, player, options = {}) {
   const refs = DETAIL_STATE.refs;
   const meta = SECTION_EDIT_META[scope];
   const modalPlayer = getCurrentEditablePlayer() ?? player;
+  const targetSubPosition = String(options.targetSubPosition ?? "").trim();
 
   if (!refs?.modalElement || !refs?.modalBodyElement || !meta || !modalPlayer) {
     return false;
@@ -2800,11 +2913,16 @@ function openSectionEditModal(scope, player) {
   DETAIL_STATE.activeModalScope = scope;
   refs.modalKickerElement.textContent = meta.kicker;
   refs.modalTitleElement.textContent = meta.title;
-  refs.modalBodyElement.innerHTML = buildSectionEditForm(scope, modalPlayer);
+  refs.modalBodyElement.innerHTML = buildSectionEditForm(scope, modalPlayer, { targetSubPosition });
   refs.modalElement.hidden = false;
   refs.modalElement.dataset.activeScope = scope;
   document.body.classList.add("player-page--modal-open");
-  setMessage(refs.modalMessageElement, meta.description);
+  setMessage(
+    refs.modalMessageElement,
+    targetSubPosition && scope === "sub_positions"
+      ? `${targetSubPosition}のサブポジションを編集します。`
+      : meta.description
+  );
 
   const form = refs.modalBodyElement.querySelector("[data-section-edit-form]");
 
@@ -2817,9 +2935,15 @@ function openSectionEditModal(scope, player) {
       {
         getMainPosition: () => modalPlayer.main_position,
         getThrowingHand: () => modalPlayer.throwing_hand,
+        getMainDefenseValue: () => modalPlayer.fielding,
       }
     );
     window.requestAnimationFrame(() => {
+      if (scope === "sub_positions" && targetSubPosition) {
+        focusSubPositionModalTarget(form, targetSubPosition);
+        return;
+      }
+
       const firstFocusable = form.querySelector("select, input:not([type='hidden']), textarea, button");
       if (firstFocusable instanceof HTMLElement) {
         firstFocusable.focus();
@@ -3227,6 +3351,30 @@ function handleDetailRootClick(event) {
       showErrorToast(message);
       setMessage(DETAIL_STATE.refs.messageElement, message, true);
     });
+    return;
+  }
+
+  const defensePositionButton = event.target.closest("[data-defense-position-button]");
+
+  if (defensePositionButton) {
+    event.preventDefault();
+
+    const editablePlayer = getCurrentEditablePlayer();
+    const positionName = String(defensePositionButton.dataset.defensePosition ?? "").trim();
+    const isMainPosition = defensePositionButton.dataset.defensePositionMain === "true";
+
+    if (!editablePlayer || !positionName) {
+      return;
+    }
+
+    if (isMainPosition) {
+      const message = "メインポジションはこのモーダルでは編集できません。サブポジションは未設定の位置から追加できます。";
+      showToast(message, { duration: 2200 });
+      setMessage(DETAIL_STATE.refs.messageElement, message);
+      return;
+    }
+
+    openSectionEditModal("sub_positions", editablePlayer, { targetSubPosition: positionName });
     return;
   }
 

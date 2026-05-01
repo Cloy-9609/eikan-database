@@ -154,6 +154,7 @@ CREATE TABLE player_sub_positions (
   player_id INTEGER NOT NULL,
   position_name TEXT NOT NULL,
   suitability_value TEXT NOT NULL,
+  defense_value INTEGER CHECK (defense_value IS NULL OR defense_value BETWEEN 0 AND 100),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (player_id) REFERENCES players(id) ON UPDATE CASCADE ON DELETE CASCADE

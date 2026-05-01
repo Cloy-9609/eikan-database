@@ -105,6 +105,31 @@ function pickEditablePlayerFields(player) {
   }, {});
 }
 
+function mergeSubPositionDefenseValues(currentSubPositions = [], updateSubPositions) {
+  if (!Array.isArray(updateSubPositions)) {
+    return updateSubPositions;
+  }
+
+  const currentByPosition = new Map(
+    currentSubPositions
+      .filter((item) => item?.position_name)
+      .map((item) => [item.position_name, item])
+  );
+
+  return updateSubPositions.map((item) => {
+    if (Object.prototype.hasOwnProperty.call(item, "defense_value")) {
+      return item;
+    }
+
+    const currentItem = currentByPosition.get(item?.position_name);
+
+    return {
+      ...item,
+      defense_value: currentItem?.defense_value ?? null,
+    };
+  });
+}
+
 function mergePlayerUpdatePayload(currentPlayer, updatePayload) {
   return {
     ...pickEditablePlayerFields(currentPlayer),
@@ -112,7 +137,9 @@ function mergePlayerUpdatePayload(currentPlayer, updatePayload) {
     school_id: currentPlayer.school_id,
     pitch_types: updatePayload.pitch_types ?? currentPlayer.pitch_types,
     special_abilities: updatePayload.special_abilities ?? currentPlayer.special_abilities,
-    sub_positions: updatePayload.sub_positions ?? currentPlayer.sub_positions,
+    sub_positions: updatePayload.sub_positions
+      ? mergeSubPositionDefenseValues(currentPlayer.sub_positions, updatePayload.sub_positions)
+      : currentPlayer.sub_positions,
   };
 }
 
@@ -146,8 +173,8 @@ function parseRequiredInteger(value, fieldName, options = {}) {
   return parseInteger(value, fieldName, { ...options, required: true });
 }
 
-function parseOptionalInteger(value, fieldName, { min } = {}) {
-  return parseInteger(value, fieldName, { min });
+function parseOptionalInteger(value, fieldName, { min, max } = {}) {
+  return parseInteger(value, fieldName, { min, max });
 }
 
 function parseOptionalText(value) {
@@ -279,6 +306,7 @@ function cloneSubPositions(items = []) {
   return items.map((item) => ({
     position_name: item.position_name,
     suitability_value: item.suitability_value,
+    defense_value: item.defense_value ?? null,
   }));
 }
 
@@ -428,6 +456,10 @@ function validateSubPositions(items) {
       item.suitability_value,
       `sub_positions[${index}].suitability_value`
     ),
+    defense_value: parseOptionalInteger(item.defense_value, `sub_positions[${index}].defense_value`, {
+      min: 0,
+      max: 100,
+    }),
   }));
 }
 

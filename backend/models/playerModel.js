@@ -6,6 +6,19 @@ const {
 const snapshotOrderSql = SNAPSHOT_TIMELINE.map(
   ({ value }, index) => `WHEN '${value}' THEN ${index + 1}`
 ).join(" ");
+const defenseRankSql = `
+  CASE
+    WHEN defense_value BETWEEN 90 AND 100 THEN 'S'
+    WHEN defense_value BETWEEN 80 AND 89 THEN 'A'
+    WHEN defense_value BETWEEN 70 AND 79 THEN 'B'
+    WHEN defense_value BETWEEN 60 AND 69 THEN 'C'
+    WHEN defense_value BETWEEN 50 AND 59 THEN 'D'
+    WHEN defense_value BETWEEN 40 AND 49 THEN 'E'
+    WHEN defense_value BETWEEN 20 AND 39 THEN 'F'
+    WHEN defense_value BETWEEN 1 AND 19 THEN 'G'
+    ELSE NULL
+  END
+`;
 
 const PLAYER_SELECT_COLUMNS = `
   players.id,
@@ -96,6 +109,8 @@ async function getRelationsByPlayerId(playerId) {
           player_id,
           position_name,
           suitability_value,
+          defense_value,
+          ${defenseRankSql} AS defense_rank,
           created_at,
           updated_at
         FROM player_sub_positions
@@ -243,10 +258,16 @@ async function insertPlayerRelations(playerId, player) {
         INSERT INTO player_sub_positions (
           player_id,
           position_name,
-          suitability_value
-        ) VALUES (?, ?, ?)
+          suitability_value,
+          defense_value
+        ) VALUES (?, ?, ?, ?)
       `,
-      [playerId, subPosition.position_name, subPosition.suitability_value]
+      [
+        playerId,
+        subPosition.position_name,
+        subPosition.suitability_value,
+        subPosition.defense_value,
+      ]
     );
   }
 }

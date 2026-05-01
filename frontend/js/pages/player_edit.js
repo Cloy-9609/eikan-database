@@ -1069,6 +1069,7 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
       relationOptions,
       editorIdPrefix: `player-edit-${player.id}`,
       mainPosition: player.main_position,
+      mainDefenseValue: player.fielding,
     }),
   });
 
@@ -1113,6 +1114,22 @@ function appendOptionalIntegerPayload(payload, formData, field) {
   }
 }
 
+function resolveMainDefenseValueFromForm(form, fallbackValue = "") {
+  const hiddenValue = form.querySelector('[data-ranked-value-hidden="fielding"]')?.value;
+  const fallbackNumericValue = Number(fallbackValue);
+  const hiddenNumericValue = Number(hiddenValue);
+
+  if (Number.isInteger(hiddenNumericValue) && hiddenNumericValue >= 1 && hiddenNumericValue <= 100) {
+    return hiddenNumericValue;
+  }
+
+  if (Number.isInteger(fallbackNumericValue) && fallbackNumericValue >= 1 && fallbackNumericValue <= 100) {
+    return fallbackNumericValue;
+  }
+
+  return "";
+}
+
 function buildPayload(formData, form, relationOptions) {
   const payload = {
     name: formData.get("name"),
@@ -1139,6 +1156,7 @@ function buildPayload(formData, form, relationOptions) {
     ...serializeRelationInputs(form, relationOptions, {
       includePitchTypes: isPitcherPosition(payload.main_position),
       mainPosition: payload.main_position,
+      mainDefenseValue: resolveMainDefenseValueFromForm(form, payload.fielding),
     }),
   };
 }
@@ -1210,6 +1228,7 @@ async function init() {
     bindRelationEditors(form, relationOptions, {
       getMainPosition: () => form.querySelector("#main_position")?.value ?? player.main_position,
       getThrowingHand: () => form.querySelector("#throwing_hand")?.value ?? player.throwing_hand,
+      getMainDefenseValue: () => resolveMainDefenseValueFromForm(form, player.fielding),
     });
     bindAbilitySectionVisibility(form);
     applyRequestedEditScope(form);
