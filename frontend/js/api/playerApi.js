@@ -32,7 +32,9 @@ export async function fetchPlayers(params = {}) {
   });
 
   const query = searchParams.toString();
-  const response = await fetch(query ? `${PLAYER_API_BASE}?${query}` : PLAYER_API_BASE);
+  const response = await fetch(query ? `${PLAYER_API_BASE}?${query}` : PLAYER_API_BASE, {
+    cache: "no-store",
+  });
   return parseResponse(response);
 }
 

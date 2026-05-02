@@ -7,6 +7,8 @@ const PLAYER_SEARCH_QUERY_KEYS = [
   "name",
   "school_name",
   "admission_year",
+  "player_type",
+  "main_position",
   "position_type",
   "school_grade",
   "roster_status",
@@ -19,6 +21,17 @@ const POSITION_TYPE_OPTIONS = [
   { value: "pitcher", label: "投手" },
   { value: "fielder", label: "野手" },
 ];
+
+const PLAYER_TYPE_OPTIONS = [
+  { value: "normal", label: "通常" },
+  { value: "genius", label: "天才" },
+  { value: "reincarnated", label: "転生" },
+];
+
+const MAIN_POSITION_OPTIONS = ["投手", "捕手", "一塁手", "二塁手", "三塁手", "遊撃手", "外野手"].map((position) => ({
+  value: position,
+  label: position,
+}));
 
 const SCHOOL_GRADE_OPTIONS = [
   { value: "1", label: "1年" },
@@ -38,13 +51,21 @@ const SORT_OPTIONS = [
   { value: "name:desc", sortBy: "name", sortOrder: "desc", label: "選手名 降順" },
   { value: "admission_year:desc", sortBy: "admission_year", sortOrder: "desc", label: "入学年が新しい順" },
   { value: "admission_year:asc", sortBy: "admission_year", sortOrder: "asc", label: "入学年が古い順" },
+  { value: "school_grade:asc", sortBy: "school_grade", sortOrder: "asc", label: "管理学年 昇順" },
+  { value: "school_grade:desc", sortBy: "school_grade", sortOrder: "desc", label: "管理学年 降順" },
+  { value: "roster_status:asc", sortBy: "roster_status", sortOrder: "asc", label: "在籍状態 昇順" },
+  { value: "roster_status:desc", sortBy: "roster_status", sortOrder: "desc", label: "在籍状態 降順" },
 ];
+
+let latestPlayersRequestId = 0;
 
 function createDefaultSearchState() {
   return {
     name: "",
     schoolName: "",
     admissionYear: "",
+    playerType: "",
+    mainPosition: "",
     positionType: "",
     schoolGrade: "",
     rosterStatus: "",
@@ -109,6 +130,8 @@ function normalizeSearchState(searchState = {}) {
     name: String(searchState.name ?? "").trim(),
     schoolName: String(searchState.schoolName ?? "").trim(),
     admissionYear: String(searchState.admissionYear ?? "").trim(),
+    playerType: String(searchState.playerType ?? "").trim(),
+    mainPosition: String(searchState.mainPosition ?? "").trim(),
     positionType: String(searchState.positionType ?? "").trim(),
     schoolGrade: String(searchState.schoolGrade ?? "").trim(),
     rosterStatus: String(searchState.rosterStatus ?? "").trim(),
@@ -128,6 +151,8 @@ function readSearchStateFromUrl() {
     name: params.get("name") ?? "",
     schoolName: params.get("school_name") ?? "",
     admissionYear: params.get("admission_year") ?? "",
+    playerType: params.get("player_type") ?? "",
+    mainPosition: params.get("main_position") ?? "",
     positionType: params.get("position_type") ?? "",
     schoolGrade: params.get("school_grade") ?? "",
     rosterStatus: params.get("roster_status") ?? "",
@@ -141,6 +166,8 @@ function buildPlayerListParams(searchState) {
     name: searchState.name,
     school_name: searchState.schoolName,
     admission_year: searchState.admissionYear,
+    player_type: searchState.playerType,
+    main_position: searchState.mainPosition,
     position_type: searchState.positionType,
     school_grade: searchState.schoolGrade,
     roster_status: searchState.rosterStatus,
@@ -173,6 +200,8 @@ function hasActiveSearchFilters(searchState) {
     searchState.name ||
       searchState.schoolName ||
       searchState.admissionYear ||
+      searchState.playerType ||
+      searchState.mainPosition ||
       searchState.positionType ||
       searchState.schoolGrade ||
       searchState.rosterStatus
@@ -264,6 +293,14 @@ function buildActiveFilterItems(searchState) {
 
   if (searchState.admissionYear) {
     items.push({ label: "入学年", value: `${searchState.admissionYear}年` });
+  }
+
+  if (searchState.playerType) {
+    items.push({ label: "選手タイプ", value: getOptionLabel(PLAYER_TYPE_OPTIONS, searchState.playerType) });
+  }
+
+  if (searchState.mainPosition) {
+    items.push({ label: "主ポジション", value: getOptionLabel(MAIN_POSITION_OPTIONS, searchState.mainPosition) });
   }
 
   if (searchState.positionType) {
@@ -366,6 +403,18 @@ function renderShell(root, searchState) {
             <fieldset class="players-search-group">
               <legend>状態・表示</legend>
               <div class="players-search-grid">
+                <div class="players-form-row">
+                  <label for="player-search-player-type">選手タイプ</label>
+                  <select id="player-search-player-type" name="player_type">
+                    ${buildSelectOptions(PLAYER_TYPE_OPTIONS, searchState.playerType)}
+                  </select>
+                </div>
+                <div class="players-form-row">
+                  <label for="player-search-main-position">主ポジション</label>
+                  <select id="player-search-main-position" name="main_position">
+                    ${buildSelectOptions(MAIN_POSITION_OPTIONS, searchState.mainPosition)}
+                  </select>
+                </div>
                 <div class="players-form-row">
                   <label for="player-search-position-type">選手種別</label>
                   <select id="player-search-position-type" name="position_type">
@@ -525,16 +574,27 @@ function setMessage(element, message = "", type = "error") {
 }
 
 async function loadPlayers(listRoot, messageElement, searchState) {
+  const requestId = latestPlayersRequestId + 1;
+  latestPlayersRequestId = requestId;
   listRoot.innerHTML = `<p class="players-empty-message">選手一覧を読み込んでいます。</p>`;
 
   try {
     const players = await fetchPlayers(buildPlayerListParams(searchState));
+
+    if (requestId !== latestPlayersRequestId) {
+      return;
+    }
+
     renderPlayerList(listRoot, players, {
       hasFilters: hasActiveSearchFilters(searchState),
       searchState,
     });
     setMessage(messageElement, "");
   } catch (error) {
+    if (requestId !== latestPlayersRequestId) {
+      return;
+    }
+
     listRoot.innerHTML = "";
     setMessage(messageElement, `選手一覧の取得に失敗しました。 ${error.message}`, "error");
   }
@@ -547,6 +607,8 @@ function readSearchStateFromForm(form) {
     name: form.elements.name.value,
     schoolName: form.elements.school_name.value,
     admissionYear: form.elements.admission_year.value,
+    playerType: form.elements.player_type.value,
+    mainPosition: form.elements.main_position.value,
     positionType: form.elements.position_type.value,
     schoolGrade: form.elements.school_grade.value,
     rosterStatus: form.elements.roster_status.value,
@@ -559,6 +621,8 @@ function applySearchStateToForm(form, searchState) {
   form.elements.name.value = searchState.name;
   form.elements.school_name.value = searchState.schoolName;
   form.elements.admission_year.value = searchState.admissionYear;
+  form.elements.player_type.value = searchState.playerType;
+  form.elements.main_position.value = searchState.mainPosition;
   form.elements.position_type.value = searchState.positionType;
   form.elements.school_grade.value = searchState.schoolGrade;
   form.elements.roster_status.value = searchState.rosterStatus;
