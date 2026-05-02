@@ -6,11 +6,43 @@
   <title>栄冠データベース</title>
   <link rel="stylesheet" href="../css/base.css">
   <link rel="stylesheet" href="../css/layout.css">
+  <link rel="stylesheet" href="../css/index.css">
 </head>
 <body>
-  <main class="page">
-    <h1>栄冠データベース</h1>
-    <p>トップページ</p>
+  <main class="page home-page">
+    <section class="home-hero" aria-labelledby="home-title">
+      <p class="home-kicker">Eikan Database</p>
+      <h1 id="home-title">栄冠データベース</h1>
+      <p class="home-description">
+        学校運営と選手スナップショットを、時系列で見返しながら管理するためのトップ画面です。
+      </p>
+    </section>
+
+    <section class="home-actions" aria-labelledby="home-actions-title">
+      <div class="home-actions-header">
+        <p class="home-section-label">Main Routes</p>
+        <h2 id="home-actions-title">主要機能</h2>
+      </div>
+      <div class="home-nav">
+        <a class="home-card home-card--players" href="./players.html">
+          <span class="home-card-label">選手管理</span>
+          <span class="home-card-title">選手一覧</span>
+          <span class="home-card-description">
+            選手名・学校名・入学年・学年などで検索し、詳細画面へ移動します。
+          </span>
+          <span class="home-card-action">一覧を見る</span>
+        </a>
+
+        <a class="home-card home-card--schools" href="./schools.html">
+          <span class="home-card-label">高校運営</span>
+          <span class="home-card-title">高校マネジメント</span>
+          <span class="home-card-description">
+            学校の作成、検索、詳細確認、年度進行の入口です。
+          </span>
+          <span class="home-card-action">学校を管理する</span>
+        </a>
+      </div>
+    </section>
   </main>
 </body>
 </html>

@@ -6,6 +6,62 @@
   display: none !important;
 }
 
+.schools-page {
+  display: grid;
+  gap: 22px;
+}
+
+.schools-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.schools-page-kicker {
+  margin: 0 0 6px;
+  color: #2f6f4f;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.schools-page h1 {
+  margin: 0;
+  color: #14334e;
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+}
+
+.schools-page-description {
+  max-width: 680px;
+  margin: 8px 0 0;
+  color: #56687d;
+  line-height: 1.65;
+}
+
+.schools-top-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #b9cfe2;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #175f9f;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.schools-top-link:focus-visible,
+.schools-top-link:hover {
+  border-color: #7ba9ce;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(23, 95, 159, 0.12);
+}
+
 .schools-layout {
   display: grid;
   gap: 24px;
@@ -481,6 +537,14 @@
 }
 
 @media (max-width: 640px) {
+  .schools-page-header {
+    display: grid;
+  }
+
+  .schools-top-link {
+    justify-self: start;
+  }
+
   .schools-panel {
     padding: 18px 16px;
     border-radius: 16px;

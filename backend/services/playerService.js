@@ -19,6 +19,19 @@ const {
 } = require("../constants/playerSnapshots");
 
 const ALLOWED_PLAYER_TYPES = ["normal", "genius", "reincarnated"];
+const ALLOWED_PLAYER_ROSTER_STATUSES = ["active", "graduated"];
+const ALLOWED_PLAYER_POSITION_TYPES = ["pitcher", "fielder"];
+const ALLOWED_PLAYER_SORT_BY = [
+  "updated_at",
+  "name",
+  "school_name",
+  "admission_year",
+  "school_grade",
+  "roster_status",
+  "snapshot",
+];
+const ALLOWED_SORT_ORDERS = ["asc", "desc"];
+const SCHOOL_SUFFIX = "高校";
 // NOTE:
 // Writes still accept the legacy `post_tournament` label during the transition period
 // so existing clients/data can be updated without forced reclassification.
@@ -196,6 +209,20 @@ function parseRequiredText(value, fieldName) {
   return text;
 }
 
+function normalizeSchoolSearchName(value) {
+  const text = parseOptionalText(value);
+
+  if (!text) {
+    return null;
+  }
+
+  const normalizedName = text.endsWith(SCHOOL_SUFFIX)
+    ? text.slice(0, -SCHOOL_SUFFIX.length).trim()
+    : text;
+
+  return normalizedName || null;
+}
+
 function parseBooleanFlag(value, fieldName) {
   if (value === undefined || value === null || value === "") {
     return 0;
@@ -218,6 +245,16 @@ function validateEnum(value, fieldName, allowedValues) {
   }
 
   return value;
+}
+
+function validateOptionalEnum(value, fieldName, allowedValues) {
+  const text = parseOptionalText(value);
+
+  if (text === null) {
+    return null;
+  }
+
+  return validateEnum(text, fieldName, allowedValues);
 }
 
 function validatePrefecture(value) {
@@ -308,6 +345,32 @@ function cloneSubPositions(items = []) {
     suitability_value: item.suitability_value,
     defense_value: item.defense_value ?? null,
   }));
+}
+
+function validateOptionalAdmissionYear(value) {
+  const admissionYear = parseOptionalInteger(value, "admission_year", {
+    min: ADMISSION_YEAR_MIN,
+    max: ADMISSION_YEAR_MAX,
+  });
+
+  return admissionYear;
+}
+
+function normalizePlayerListQuery(query = {}) {
+  return {
+    schoolId: parseOptionalInteger(query.school_id, "school_id", { min: 1 }),
+    name: parseOptionalText(query.name),
+    schoolName: normalizeSchoolSearchName(query.school_name),
+    admissionYear: validateOptionalAdmissionYear(query.admission_year),
+    playerType: validateOptionalEnum(query.player_type, "player_type", ALLOWED_PLAYER_TYPES),
+    schoolGrade: parseOptionalInteger(query.school_grade, "school_grade", { min: 1, max: 3 }),
+    rosterStatus: validateOptionalEnum(query.roster_status, "roster_status", ALLOWED_PLAYER_ROSTER_STATUSES),
+    mainPosition: validateOptionalEnum(query.main_position, "main_position", ALLOWED_POSITIONS),
+    positionType: validateOptionalEnum(query.position_type, "position_type", ALLOWED_PLAYER_POSITION_TYPES),
+    snapshotLabel: validateOptionalEnum(query.snapshot_label, "snapshot_label", ALLOWED_SNAPSHOT_LABELS),
+    sortBy: validateOptionalEnum(query.sort_by, "sort_by", ALLOWED_PLAYER_SORT_BY) ?? "updated_at",
+    sortOrder: validateOptionalEnum(query.sort_order, "sort_order", ALLOWED_SORT_ORDERS) ?? "desc",
+  };
 }
 
 function buildSnapshotSeedFromPrevious(previousSnapshot, snapshotLabel) {
@@ -702,19 +765,17 @@ async function getPlayerById(id) {
 }
 
 async function getPlayers(query = {}) {
-  const schoolId = parseInteger(query.school_id, "school_id", { min: 1 });
+  const normalizedQuery = normalizePlayerListQuery(query);
 
-  if (schoolId !== null) {
-    const school = await schoolModel.findById(schoolId);
+  if (normalizedQuery.schoolId !== null) {
+    const school = await schoolModel.findById(normalizedQuery.schoolId);
 
     if (!school || school.is_archived === 1) {
       throw createHttpError(404, "School not found.");
     }
-
-    return playerModel.findBySchoolId(schoolId);
   }
 
-  return playerModel.findAll();
+  return playerModel.findAllActive(normalizedQuery);
 }
 
 async function getPlayerSeriesById(id, query = {}) {

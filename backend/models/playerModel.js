@@ -141,32 +141,137 @@ async function attachRelations(player) {
   };
 }
 
-async function findAll() {
+function buildPlayerSortClause(sortBy = "updated_at", sortOrder = "desc") {
+  const direction = String(sortOrder).toLowerCase() === "asc" ? "ASC" : "DESC";
+
+  if (sortBy === "name") {
+    return `player_series.name ${direction}, players.id DESC`;
+  }
+
+  if (sortBy === "school_name") {
+    return `schools.name ${direction}, player_series.name ASC, players.id DESC`;
+  }
+
+  if (sortBy === "admission_year") {
+    return `CASE WHEN player_series.admission_year IS NULL THEN 1 ELSE 0 END ASC, player_series.admission_year ${direction}, players.id DESC`;
+  }
+
+  if (sortBy === "school_grade") {
+    return `player_series.school_grade ${direction}, player_series.name ASC, players.id DESC`;
+  }
+
+  if (sortBy === "roster_status") {
+    return `
+      CASE player_series.roster_status
+        WHEN 'active' THEN 0
+        WHEN 'graduated' THEN 1
+        ELSE 2
+      END ${direction},
+      player_series.school_grade ASC,
+      player_series.name ASC,
+      players.id DESC
+    `;
+  }
+
+  if (sortBy === "snapshot") {
+    return `CASE WHEN snapshot_order IS NULL THEN 1 ELSE 0 END ASC, snapshot_order ${direction}, players.id DESC`;
+  }
+
+  return `players.updated_at ${direction}, players.id DESC`;
+}
+
+function buildPlayerListQuery({
+  schoolId = null,
+  name = null,
+  schoolName = null,
+  admissionYear = null,
+  playerType = null,
+  schoolGrade = null,
+  rosterStatus = null,
+  mainPosition = null,
+  positionType = null,
+  snapshotLabel = null,
+  sortBy = "updated_at",
+  sortOrder = "desc",
+} = {}) {
+  const conditions = ["schools.is_archived = 0"];
+  const params = [];
+
+  if (schoolId !== null && schoolId !== undefined) {
+    conditions.push("player_series.school_id = ?");
+    params.push(schoolId);
+  }
+
+  if (name) {
+    conditions.push("player_series.name LIKE ?");
+    params.push(`%${name}%`);
+  }
+
+  if (schoolName) {
+    conditions.push("schools.name LIKE ?");
+    params.push(`%${schoolName}%`);
+  }
+
+  if (admissionYear !== null && admissionYear !== undefined) {
+    conditions.push("player_series.admission_year = ?");
+    params.push(admissionYear);
+  }
+
+  if (playerType) {
+    conditions.push("player_series.player_type = ?");
+    params.push(playerType);
+  }
+
+  if (schoolGrade !== null && schoolGrade !== undefined) {
+    conditions.push("player_series.school_grade = ?");
+    params.push(schoolGrade);
+  }
+
+  if (rosterStatus) {
+    conditions.push("player_series.roster_status = ?");
+    params.push(rosterStatus);
+  }
+
+  if (mainPosition) {
+    conditions.push("players.main_position = ?");
+    params.push(mainPosition);
+  } else if (positionType === "pitcher") {
+    conditions.push("players.main_position = ?");
+    params.push("投手");
+  } else if (positionType === "fielder") {
+    conditions.push("players.main_position <> ?");
+    params.push("投手");
+  }
+
+  if (snapshotLabel) {
+    conditions.push("players.snapshot_label = ?");
+    params.push(snapshotLabel);
+  }
+
   const sql = `
     SELECT
       ${PLAYER_SELECT_COLUMNS}
     FROM players
     INNER JOIN player_series ON player_series.id = players.player_series_id
     INNER JOIN schools ON schools.id = player_series.school_id
-    WHERE schools.is_archived = 0
-    ORDER BY players.id DESC
+    WHERE ${conditions.join(" AND ")}
+    ORDER BY ${buildPlayerSortClause(sortBy, sortOrder)}
   `;
 
-  return all(sql);
+  return { sql, params };
+}
+
+async function findAllActive(query = {}) {
+  const { sql, params } = buildPlayerListQuery(query);
+  return all(sql, params);
+}
+
+async function findAll() {
+  return findAllActive();
 }
 
 async function findBySchoolId(schoolId) {
-  const sql = `
-    SELECT
-      ${PLAYER_SELECT_COLUMNS}
-    FROM players
-    INNER JOIN player_series ON player_series.id = players.player_series_id
-    INNER JOIN schools ON schools.id = player_series.school_id
-    WHERE player_series.school_id = ? AND schools.is_archived = 0
-    ORDER BY players.id DESC
-  `;
-
-  return all(sql, [schoolId]);
+  return findAllActive({ schoolId });
 }
 
 async function findById(id) {
@@ -424,6 +529,7 @@ async function updateSnapshot(playerId, player) {
 }
 
 module.exports = {
+  findAllActive,
   findAll,
   findBySchoolId,
   findById,
