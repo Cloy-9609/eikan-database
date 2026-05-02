@@ -4100,16 +4100,18 @@ button.defense-position-node {
     --pitch-meter-step: 6px;
     --pitch-meter-thickness: 7px;
     --pitch-meter-label-width: 52px;
+    --pitch-chart-center-y: 54%;
     --pitch-non-top-y-shift: 20px;
-    --pitch-direction-radius: 66px;
+    --pitch-direction-radius: 62px;
     --pitch-direction-diagonal-offset: 48px;
+    --pitch-label-offset: 26px;
     --pitch-spoke-long: 54px;
     --pitch-spoke-diagonal: 50px;
     width: 340px;
     min-width: 340px;
-    min-height: 252px;
+    min-height: 276px;
     margin-inline: auto;
-    padding: var(--player-space-xs);
+    padding: var(--player-space-md) var(--player-space-xs) var(--player-space-xs);
   }
 
   .pitch-movement-center {
@@ -4218,17 +4220,31 @@ button.defense-position-node {
     border-radius: var(--player-radius-xl);
   }
 
+  .player-modal[data-active-scope="pitches"] {
+    padding: var(--player-space-md);
+    place-items: center;
+  }
+
   .player-modal[data-active-scope="pitches"] .player-modal-dialog {
-    width: 100%;
-    max-height: 100dvh;
-    min-height: 100dvh;
-    gap: var(--player-space-lg);
-    padding: 0;
-    border-radius: 0;
+    width: min(600px, 100%);
+    max-height: calc(100dvh - (var(--player-space-md) * 2));
+    min-height: 0;
+    gap: var(--player-space-md);
+    padding: var(--player-space-md);
+    border-radius: var(--player-radius-2xl);
   }
 
   .player-modal[data-active-scope="pitches"] .player-modal-header {
-    padding: var(--player-space-xl) var(--player-size-panel-mobile-padding-x) var(--player-space-sm);
+    padding: var(--player-space-sm) 0 var(--player-space-md);
+    background: transparent;
+  }
+
+  .player-modal[data-active-scope="pitches"] .player-modal-dialog > .player-message {
+    margin: 0;
+  }
+
+  .player-modal[data-active-scope="pitches"] .player-modal-body {
+    padding: 0;
   }
 
   .player-form--modal[data-section-edit-scope="pitches"] .player-form-section {
@@ -4236,12 +4252,23 @@ button.defense-position-node {
     border-radius: var(--player-radius-xl);
   }
 
+  .player-form--modal[data-section-edit-scope="pitches"] .player-form-fields--relation,
+  .player-form--modal[data-section-edit-scope="pitches"] .player-relation-editor,
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-scroll {
+    min-width: 0;
+  }
+
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
   .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-grid {
     --pitch-editor-step: 10px;
     --pitch-editor-thickness: 9px;
-    grid-template-columns: minmax(186px, 1fr) minmax(158px, 0.85fr) minmax(186px, 1fr);
-    grid-template-rows: minmax(54px, auto) minmax(60px, auto) minmax(54px, auto);
-    min-width: 620px;
+    grid-template-columns: minmax(166px, 1fr) minmax(138px, 0.82fr) minmax(166px, 1fr);
+    grid-template-rows: minmax(50px, auto) minmax(58px, auto) minmax(50px, auto);
+    min-width: 540px;
     gap: 6px;
     padding: 6px;
   }
@@ -4280,10 +4307,142 @@ button.defense-position-node {
     grid-column: 1;
   }
 
+  .player-modal[data-active-scope="sub_positions"] {
+    padding: var(--player-space-md);
+    place-items: center;
+  }
+
+  .player-modal[data-active-scope="sub_positions"] .player-modal-dialog {
+    width: min(560px, 100%);
+    max-height: calc(100dvh - (var(--player-space-md) * 2));
+    min-height: 0;
+    gap: var(--player-space-md);
+    padding: var(--player-space-md);
+    border-radius: var(--player-radius-2xl);
+  }
+
+  .player-modal[data-active-scope="sub_positions"] .player-modal-header {
+    padding: var(--player-space-sm) 0 var(--player-space-md);
+    background: transparent;
+  }
+
+  .player-modal[data-active-scope="sub_positions"] .player-modal-dialog > .player-message {
+    margin: 0;
+  }
+
+  .player-modal[data-active-scope="sub_positions"] .player-modal-body {
+    padding: 0;
+  }
+
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-form-section {
+    padding: var(--player-space-md);
+  }
+
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-row-grid--sub-position {
+    grid-template-columns: 1fr;
+  }
+
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-sub-position-defense-pair {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-field,
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-sub-position-defense-field,
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-ability-input,
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-field > select,
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-ability-input > select {
+    min-width: 0;
+  }
+
   .player-modal-actions {
     display: grid;
   }
 
+}
+
+@media (max-width: 480px) {
+  .player-modal[data-active-scope="pitches"] {
+    padding: var(--player-space-sm);
+  }
+
+  .player-modal[data-active-scope="pitches"] .player-modal-dialog {
+    max-height: calc(100dvh - (var(--player-space-sm) * 2));
+    padding: var(--player-space-sm);
+    border-radius: var(--player-radius-xl);
+  }
+
+  .player-form--modal[data-section-edit-scope="pitches"] .player-form-section,
+  .player-form--modal[data-section-edit-scope="pitches"] .player-relation-editor {
+    padding: var(--player-space-sm);
+  }
+
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-grid {
+    --pitch-editor-step: 9px;
+    --pitch-editor-thickness: 8px;
+    grid-template-columns: minmax(142px, 1fr) minmax(118px, 0.8fr) minmax(142px, 1fr);
+    grid-template-rows: minmax(48px, auto) minmax(56px, auto) minmax(48px, auto);
+    min-width: 462px;
+    gap: 5px;
+    padding: 5px;
+  }
+
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-direction {
+    padding-inline: 5px;
+  }
+
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-slot {
+    gap: 4px;
+    padding-left: 5px;
+  }
+
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-slot-top {
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    gap: 4px;
+  }
+
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-slot-index {
+    width: 20px;
+    height: 20px;
+  }
+
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-controls,
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-meter-block,
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-original,
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-controls select,
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-original-summary input {
+    min-width: 0;
+  }
+
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-controls select,
+  .player-form--modal[data-section-edit-scope="pitches"] .pitch-editor-original-summary input {
+    padding-inline: 6px;
+  }
+
+  .player-modal[data-active-scope="sub_positions"] {
+    padding: var(--player-space-sm);
+  }
+
+  .player-modal[data-active-scope="sub_positions"] .player-modal-dialog {
+    max-height: calc(100dvh - (var(--player-space-sm) * 2));
+    padding: var(--player-space-sm);
+    border-radius: var(--player-radius-xl);
+  }
+
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-form-section,
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-editor,
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-row {
+    padding: var(--player-space-sm);
+  }
+
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-sub-position-defense-pair {
+    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-relation-field > select,
+  .player-form--modal[data-section-edit-scope="sub_positions"] .player-ability-input > select {
+    padding-inline: 6px;
+  }
 }
 
 @media (max-width: 380px) {
@@ -4292,6 +4451,10 @@ button.defense-position-node {
   }
 
   .pitch-movement-chart {
-    min-height: 236px;
+    --pitch-chart-center-y: 56%;
+    --pitch-direction-radius: 58px;
+    --pitch-label-offset: 22px;
+    min-height: 264px;
+    padding-top: var(--player-space-md);
   }
 }
