@@ -1,4 +1,5 @@
 import { fetchPlayers } from "../api/playerApi.js";
+import { buildYearPicker, setYearPickerValue, setupYearPickers } from "../components/admissionYearPicker.js";
 
 const SCHOOL_SUFFIX = "高校";
 const DEFAULT_SORT_BY = "updated_at";
@@ -7,6 +8,8 @@ const PLAYER_SEARCH_QUERY_KEYS = [
   "name",
   "school_name",
   "admission_year",
+  "admission_year_from",
+  "admission_year_to",
   "player_type",
   "main_position",
   "position_type",
@@ -58,7 +61,8 @@ function createDefaultSearchState() {
   return {
     name: "",
     schoolName: "",
-    admissionYear: "",
+    admissionYearFrom: "",
+    admissionYearTo: "",
     playerType: "",
     mainPosition: "",
     schoolGrade: "",
@@ -123,7 +127,8 @@ function normalizeSearchState(searchState = {}) {
   return {
     name: String(searchState.name ?? "").trim(),
     schoolName: String(searchState.schoolName ?? "").trim(),
-    admissionYear: String(searchState.admissionYear ?? "").trim(),
+    admissionYearFrom: String(searchState.admissionYearFrom ?? "").trim(),
+    admissionYearTo: String(searchState.admissionYearTo ?? "").trim(),
     playerType: String(searchState.playerType ?? "").trim(),
     mainPosition: String(searchState.mainPosition ?? "").trim(),
     schoolGrade: String(searchState.schoolGrade ?? "").trim(),
@@ -141,11 +146,13 @@ function readSearchStateFromUrl() {
   const parsedSort = legacySort ? parseSortValue(legacySort) : { sortBy, sortOrder };
   const legacyPositionType = params.get("position_type") ?? "";
   const mainPosition = params.get("main_position") || (legacyPositionType === "pitcher" ? "投手" : legacyPositionType === "fielder" ? "全野手" : "");
+  const legacyAdmissionYear = params.get("admission_year") ?? "";
 
   return normalizeSearchState({
     name: params.get("name") ?? "",
     schoolName: params.get("school_name") ?? "",
-    admissionYear: params.get("admission_year") ?? "",
+    admissionYearFrom: params.get("admission_year_from") ?? legacyAdmissionYear,
+    admissionYearTo: params.get("admission_year_to") ?? legacyAdmissionYear,
     playerType: params.get("player_type") ?? "",
     mainPosition,
     schoolGrade: params.get("school_grade") ?? "",
@@ -159,7 +166,8 @@ function buildPlayerListParams(searchState) {
   return {
     name: searchState.name,
     school_name: searchState.schoolName,
-    admission_year: searchState.admissionYear,
+    admission_year_from: searchState.admissionYearFrom,
+    admission_year_to: searchState.admissionYearTo,
     player_type: searchState.playerType,
     main_position: searchState.mainPosition,
     school_grade: searchState.schoolGrade,
@@ -192,7 +200,8 @@ function hasActiveSearchFilters(searchState) {
   return Boolean(
     searchState.name ||
       searchState.schoolName ||
-      searchState.admissionYear ||
+      searchState.admissionYearFrom ||
+      searchState.admissionYearTo ||
       searchState.playerType ||
       searchState.mainPosition ||
       searchState.schoolGrade ||
@@ -220,6 +229,25 @@ function formatSchoolDisplayName(value, fallback = "未設定") {
 
 function formatYear(value) {
   return value === undefined || value === null || value === "" ? "未設定" : `${value}年`;
+}
+
+function formatAdmissionYearRange(searchState) {
+  const yearFrom = searchState.admissionYearFrom;
+  const yearTo = searchState.admissionYearTo;
+
+  if (yearFrom && yearTo) {
+    return yearFrom === yearTo ? `${yearFrom}年` : `${yearFrom}年〜${yearTo}年`;
+  }
+
+  if (yearFrom) {
+    return `${yearFrom}年以降`;
+  }
+
+  if (yearTo) {
+    return `${yearTo}年以前`;
+  }
+
+  return "";
 }
 
 function formatSchoolGrade(value) {
@@ -283,8 +311,10 @@ function buildActiveFilterItems(searchState) {
     items.push({ label: "学校名", value: searchState.schoolName });
   }
 
-  if (searchState.admissionYear) {
-    items.push({ label: "入学年", value: `${searchState.admissionYear}年` });
+  const admissionYearRange = formatAdmissionYearRange(searchState);
+
+  if (admissionYearRange) {
+    items.push({ label: "入学年", value: admissionYearRange });
   }
 
   if (searchState.playerType) {
@@ -336,6 +366,31 @@ function renderActiveFilterSummary(searchState) {
   `;
 }
 
+function buildOptionalAdmissionYearPicker({ name, id, label, value }) {
+  const selectedYear = value || new Date().getFullYear();
+
+  return `
+    <div class="players-year-range-item">
+      <div class="players-year-range-heading">
+        <span class="players-year-range-label">${escapeHtml(label)}</span>
+        <button
+          type="button"
+          class="players-year-clear-button"
+          data-year-clear="${escapeAttribute(name)}"
+        >未指定</button>
+      </div>
+      ${buildYearPicker({
+        inputName: name,
+        inputId: id,
+        selectedYear,
+        groupLabel: `入学年 ${label}`,
+        selectionLabel: label,
+        variant: "compact",
+      })}
+    </div>
+  `;
+}
+
 function renderShell(root, searchState) {
   root.innerHTML = `
     <div id="players-page-message" class="players-message players-message--error" hidden></div>
@@ -351,7 +406,7 @@ function renderShell(root, searchState) {
           <div class="players-search-groups">
             <fieldset class="players-search-group">
               <legend>基本条件</legend>
-              <div class="players-search-grid">
+              <div class="players-search-grid players-search-grid--basic">
                 <div class="players-form-row players-search-field--wide">
                   <label for="player-search-name">選手名</label>
                   <input
@@ -372,18 +427,22 @@ function renderShell(root, searchState) {
                     placeholder="例: 栄冠"
                   >
                 </div>
-                <div class="players-form-row players-search-field--mobile-wide">
-                  <label for="player-search-admission-year">入学年</label>
-                  <input
-                    id="player-search-admission-year"
-                    name="admission_year"
-                    type="number"
-                    inputmode="numeric"
-                    min="1932"
-                    max="2039"
-                    value="${escapeAttribute(searchState.admissionYear)}"
-                    placeholder="2026"
-                  >
+                <div class="players-form-row players-form-row--admission-year players-search-field--wide">
+                  <span class="players-form-label">入学年</span>
+                  <div class="players-year-range">
+                    ${buildOptionalAdmissionYearPicker({
+                      name: "admission_year_from",
+                      id: "player-search-admission-year-from",
+                      label: "開始年",
+                      value: searchState.admissionYearFrom,
+                    })}
+                    ${buildOptionalAdmissionYearPicker({
+                      name: "admission_year_to",
+                      id: "player-search-admission-year-to",
+                      label: "終了年",
+                      value: searchState.admissionYearTo,
+                    })}
+                  </div>
                 </div>
               </div>
             </fieldset>
@@ -588,7 +647,8 @@ function readSearchStateFromForm(form) {
   return normalizeSearchState({
     name: form.elements.name.value,
     schoolName: form.elements.school_name.value,
-    admissionYear: form.elements.admission_year.value,
+    admissionYearFrom: form.elements.admission_year_from.value,
+    admissionYearTo: form.elements.admission_year_to.value,
     playerType: form.elements.player_type.value,
     mainPosition: form.elements.main_position.value,
     schoolGrade: form.elements.school_grade.value,
@@ -601,12 +661,72 @@ function readSearchStateFromForm(form) {
 function applySearchStateToForm(form, searchState) {
   form.elements.name.value = searchState.name;
   form.elements.school_name.value = searchState.schoolName;
-  form.elements.admission_year.value = searchState.admissionYear;
+  setOptionalYearPickerValue(form.elements.admission_year_from, searchState.admissionYearFrom);
+  setOptionalYearPickerValue(form.elements.admission_year_to, searchState.admissionYearTo);
   form.elements.player_type.value = searchState.playerType;
   form.elements.main_position.value = searchState.mainPosition;
   form.elements.school_grade.value = searchState.schoolGrade;
   form.elements.roster_status.value = searchState.rosterStatus;
   form.elements.sort.value = serializeSortValue(searchState.sortBy, searchState.sortOrder);
+}
+
+function setOptionalYearPickerValue(input, value) {
+  const picker = input?.closest("[data-year-picker]");
+
+  if (!picker || !input) {
+    return;
+  }
+
+  const normalizedValue = String(value ?? "").trim();
+  const label = picker.querySelector("[data-year-label]");
+
+  if (normalizedValue) {
+    setYearPickerValue(picker, normalizedValue);
+    picker.classList.remove("players-year-picker--empty");
+    return;
+  }
+
+  input.value = "";
+  picker.classList.add("players-year-picker--empty");
+
+  if (label) {
+    label.textContent = "未指定";
+  }
+}
+
+function setupOptionalYearPickers(form) {
+  setupYearPickers(form);
+
+  form.querySelectorAll("[data-year-input]").forEach((input) => {
+    setOptionalYearPickerValue(input, input.value);
+  });
+
+  form.addEventListener(
+    "click",
+    (event) => {
+      const stepButton = event.target.closest("[data-year-step]");
+      const clearButton = event.target.closest("[data-year-clear]");
+
+      if (clearButton) {
+        const input = form.elements[clearButton.dataset.yearClear];
+        setOptionalYearPickerValue(input, "");
+        return;
+      }
+
+      if (!stepButton) {
+        return;
+      }
+
+      const picker = stepButton.closest("[data-year-picker]");
+      const input = picker?.querySelector("[data-year-input]");
+
+      if (picker?.classList.contains("players-year-picker--empty") && input) {
+        setYearPickerValue(picker, new Date().getFullYear());
+        picker.classList.remove("players-year-picker--empty");
+      }
+    },
+    true
+  );
 }
 
 function init() {
@@ -624,6 +744,8 @@ function init() {
   const listRoot = document.getElementById("players-list-root");
   const messageElement = document.getElementById("players-page-message");
 
+  setupOptionalYearPickers(form);
+  applySearchStateToForm(form, searchState);
   writeSearchStateToUrl(searchState, { replace: true });
   loadPlayers(listRoot, messageElement, searchState);
 

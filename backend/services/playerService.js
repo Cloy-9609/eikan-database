@@ -350,23 +350,34 @@ function cloneSubPositions(items = []) {
 }
 
 function validateOptionalAdmissionYear(value) {
-  const admissionYear = parseOptionalInteger(value, "admission_year", {
+  return parseOptionalInteger(value, "admission_year", {
     min: ADMISSION_YEAR_MIN,
     max: ADMISSION_YEAR_MAX,
   });
+}
 
-  return admissionYear;
+function validateOptionalAdmissionYearSearch(value, fieldName) {
+  return parseOptionalInteger(value, fieldName, {
+    min: ADMISSION_YEAR_MIN,
+    max: ADMISSION_YEAR_MAX,
+  });
 }
 
 function normalizePlayerListQuery(query = {}) {
   const legacyPositionType = validateOptionalEnum(query.position_type, "position_type", ALLOWED_PLAYER_POSITION_TYPES);
   const mainPositionFallback = legacyPositionType === "pitcher" ? "投手" : legacyPositionType === "fielder" ? "全野手" : null;
+  const legacyAdmissionYear = validateOptionalAdmissionYearSearch(query.admission_year, "admission_year");
 
   return {
     schoolId: parseOptionalInteger(query.school_id, "school_id", { min: 1 }),
     name: parseOptionalText(query.name),
     schoolName: normalizeSchoolSearchName(query.school_name),
-    admissionYear: validateOptionalAdmissionYear(query.admission_year),
+    admissionYearFrom:
+      validateOptionalAdmissionYearSearch(query.admission_year_from, "admission_year_from") ??
+      legacyAdmissionYear,
+    admissionYearTo:
+      validateOptionalAdmissionYearSearch(query.admission_year_to, "admission_year_to") ??
+      legacyAdmissionYear,
     playerType: validateOptionalEnum(query.player_type, "player_type", ALLOWED_PLAYER_TYPES),
     schoolGrade: parseOptionalInteger(query.school_grade, "school_grade", { min: 1, max: 3 }),
     rosterStatus: validateOptionalEnum(query.roster_status, "roster_status", ALLOWED_PLAYER_ROSTER_STATUSES),

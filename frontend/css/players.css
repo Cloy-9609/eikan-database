@@ -141,13 +141,18 @@
   gap: 14px 16px;
 }
 
+.players-search-grid--basic {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .players-form-row {
   display: grid;
   gap: 8px;
   min-width: 0;
 }
 
-.players-form-row label {
+.players-form-row label,
+.players-form-label {
   color: #243447;
   font-weight: 800;
 }
@@ -172,6 +177,101 @@
   outline: none;
   border-color: #175f9f;
   box-shadow: 0 0 0 3px rgba(23, 95, 159, 0.12);
+}
+
+.players-year-range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.players-year-range-item {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.players-year-range-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.players-year-range-label {
+  color: #41556c;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.players-year-clear-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid #bfd0df;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1f4566;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.players-year-clear-button:hover,
+.players-year-clear-button:focus-visible {
+  border-color: #7ba9ce;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(23, 95, 159, 0.12);
+}
+
+.players-year-range .admission-year-picker {
+  --admission-year-picker-width: 100%;
+  --admission-year-picker-gap: 7px;
+  --admission-year-picker-padding: 9px;
+  --admission-year-picker-inner-inset: 3px;
+  --admission-year-picker-border-width: 1px;
+  --admission-year-picker-border-radius: 12px;
+  --admission-year-picker-inner-radius: 9px;
+  --admission-year-picker-digits-gap: 6px;
+  --admission-year-picker-digits-padding: 6px;
+  --admission-year-picker-digit-gap: 5px;
+  --admission-year-picker-button-height: 24px;
+  --admission-year-picker-number-height: 34px;
+  --admission-year-picker-button-radius: 8px;
+  --admission-year-picker-number-radius: 8px;
+  --admission-year-picker-button-font-size: 0.76rem;
+  --admission-year-picker-number-font-size: 1rem;
+  --admission-year-picker-label-font-size: 0.72rem;
+  --admission-year-picker-label-value-font-size: 0.84rem;
+  --admission-year-picker-error-font-size: 0.72rem;
+  --admission-year-picker-grid-template: repeat(4, minmax(0, 1fr));
+  --admission-year-picker-compact-digit-min-width: 0;
+  background: #fbfdff;
+  box-shadow: none;
+}
+
+.players-year-range .admission-year-current {
+  padding: 3px 8px;
+}
+
+.players-year-range .admission-year-error {
+  min-height: 0;
+}
+
+.players-year-picker--empty .admission-year-current {
+  border-style: dashed;
+  color: #6a7c90;
+}
+
+.players-year-picker--empty .admission-year-current output {
+  color: #6a7c90;
 }
 
 .players-search-actions {
@@ -559,22 +659,22 @@
 }
 
 @media (min-width: 760px) {
-  .players-search-grid {
+  .players-search-grid:not(.players-search-grid--basic) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: end;
   }
 
-  .players-search-field--wide {
+  .players-search-grid:not(.players-search-grid--basic) .players-search-field--wide {
     grid-column: span 1;
   }
 }
 
 @media (min-width: 980px) {
-  .players-search-grid {
+  .players-search-grid:not(.players-search-grid--basic) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .players-search-field--wide {
+  .players-search-grid:not(.players-search-grid--basic) .players-search-field--wide {
     grid-column: span 2;
   }
 }
@@ -604,9 +704,23 @@
     align-items: end;
   }
 
+  .players-search-grid--basic {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .players-search-field--wide,
   .players-search-field--mobile-wide {
     grid-column: span 2;
+  }
+
+  .players-search-grid--basic .players-search-field--wide,
+  .players-search-grid--basic .players-search-field--mobile-wide {
+    grid-column: auto;
+  }
+
+  .players-year-range {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 
   .players-form-row {
@@ -736,5 +850,11 @@
   .players-position-stack,
   .players-status-stack {
     min-width: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .players-year-range {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

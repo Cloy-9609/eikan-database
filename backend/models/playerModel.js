@@ -184,7 +184,8 @@ function buildPlayerListQuery({
   schoolId = null,
   name = null,
   schoolName = null,
-  admissionYear = null,
+  admissionYearFrom = null,
+  admissionYearTo = null,
   playerType = null,
   schoolGrade = null,
   rosterStatus = null,
@@ -211,9 +212,14 @@ function buildPlayerListQuery({
     params.push(`%${schoolName}%`);
   }
 
-  if (admissionYear !== null && admissionYear !== undefined) {
-    conditions.push("player_series.admission_year = ?");
-    params.push(admissionYear);
+  if (admissionYearFrom !== null && admissionYearFrom !== undefined) {
+    conditions.push("player_series.admission_year >= ?");
+    params.push(admissionYearFrom);
+  }
+
+  if (admissionYearTo !== null && admissionYearTo !== undefined) {
+    conditions.push("player_series.admission_year <= ?");
+    params.push(admissionYearTo);
   }
 
   if (playerType) {
