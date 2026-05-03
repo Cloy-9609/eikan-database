@@ -189,7 +189,6 @@ function buildPlayerListQuery({
   schoolGrade = null,
   rosterStatus = null,
   mainPosition = null,
-  positionType = null,
   snapshotLabel = null,
   sortBy = "updated_at",
   sortOrder = "desc",
@@ -232,15 +231,15 @@ function buildPlayerListQuery({
     params.push(rosterStatus);
   }
 
-  if (mainPosition) {
-    conditions.push("players.main_position = ?");
-    params.push(mainPosition);
-  } else if (positionType === "pitcher") {
-    conditions.push("players.main_position = ?");
-    params.push("投手");
-  } else if (positionType === "fielder") {
+  if (mainPosition === "全野手") {
     conditions.push("players.main_position <> ?");
     params.push("投手");
+  } else if (mainPosition === "全内野手") {
+    conditions.push("players.main_position IN (?, ?, ?, ?)");
+    params.push("一塁手", "二塁手", "三塁手", "遊撃手");
+  } else if (mainPosition) {
+    conditions.push("players.main_position = ?");
+    params.push(mainPosition);
   }
 
   if (snapshotLabel) {

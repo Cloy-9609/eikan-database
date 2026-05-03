@@ -21,6 +21,7 @@ const {
 const ALLOWED_PLAYER_TYPES = ["normal", "genius", "reincarnated"];
 const ALLOWED_PLAYER_ROSTER_STATUSES = ["active", "graduated"];
 const ALLOWED_PLAYER_POSITION_TYPES = ["pitcher", "fielder"];
+const POSITION_SEARCH_CATEGORIES = ["全野手", "全内野手"];
 const ALLOWED_PLAYER_SORT_BY = [
   "updated_at",
   "name",
@@ -40,6 +41,7 @@ const ALLOWED_SNAPSHOT_LABELS = TRANSITIONAL_SNAPSHOT_LABELS;
 const ALLOWED_THROWING_HANDS = ["right", "left"];
 const ALLOWED_BATTING_HANDS = ["right", "left", "both"];
 const ALLOWED_POSITIONS = PLAYER_POSITION_OPTIONS;
+const ALLOWED_PLAYER_SEARCH_POSITIONS = [...ALLOWED_POSITIONS, ...POSITION_SEARCH_CATEGORIES];
 const ADMISSION_YEAR_MIN = 1932;
 const ADMISSION_YEAR_MAX = 2039;
 const REQUIRED_UPDATE_FIELDS = [
@@ -357,6 +359,9 @@ function validateOptionalAdmissionYear(value) {
 }
 
 function normalizePlayerListQuery(query = {}) {
+  const legacyPositionType = validateOptionalEnum(query.position_type, "position_type", ALLOWED_PLAYER_POSITION_TYPES);
+  const mainPositionFallback = legacyPositionType === "pitcher" ? "投手" : legacyPositionType === "fielder" ? "全野手" : null;
+
   return {
     schoolId: parseOptionalInteger(query.school_id, "school_id", { min: 1 }),
     name: parseOptionalText(query.name),
@@ -365,8 +370,9 @@ function normalizePlayerListQuery(query = {}) {
     playerType: validateOptionalEnum(query.player_type, "player_type", ALLOWED_PLAYER_TYPES),
     schoolGrade: parseOptionalInteger(query.school_grade, "school_grade", { min: 1, max: 3 }),
     rosterStatus: validateOptionalEnum(query.roster_status, "roster_status", ALLOWED_PLAYER_ROSTER_STATUSES),
-    mainPosition: validateOptionalEnum(query.main_position, "main_position", ALLOWED_POSITIONS),
-    positionType: validateOptionalEnum(query.position_type, "position_type", ALLOWED_PLAYER_POSITION_TYPES),
+    mainPosition:
+      validateOptionalEnum(query.main_position, "main_position", ALLOWED_PLAYER_SEARCH_POSITIONS) ??
+      mainPositionFallback,
     snapshotLabel: validateOptionalEnum(query.snapshot_label, "snapshot_label", ALLOWED_SNAPSHOT_LABELS),
     sortBy: validateOptionalEnum(query.sort_by, "sort_by", ALLOWED_PLAYER_SORT_BY) ?? "updated_at",
     sortOrder: validateOptionalEnum(query.sort_order, "sort_order", ALLOWED_SORT_ORDERS) ?? "desc",

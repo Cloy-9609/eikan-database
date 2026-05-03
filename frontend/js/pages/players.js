@@ -17,18 +17,13 @@ const PLAYER_SEARCH_QUERY_KEYS = [
   "sort",
 ];
 
-const POSITION_TYPE_OPTIONS = [
-  { value: "pitcher", label: "投手" },
-  { value: "fielder", label: "野手" },
-];
-
 const PLAYER_TYPE_OPTIONS = [
   { value: "normal", label: "通常" },
   { value: "genius", label: "天才" },
   { value: "reincarnated", label: "転生" },
 ];
 
-const MAIN_POSITION_OPTIONS = ["投手", "捕手", "一塁手", "二塁手", "三塁手", "遊撃手", "外野手"].map((position) => ({
+const MAIN_POSITION_OPTIONS = ["投手", "捕手", "一塁手", "二塁手", "三塁手", "遊撃手", "外野手", "全野手", "全内野手"].map((position) => ({
   value: position,
   label: position,
 }));
@@ -66,7 +61,6 @@ function createDefaultSearchState() {
     admissionYear: "",
     playerType: "",
     mainPosition: "",
-    positionType: "",
     schoolGrade: "",
     rosterStatus: "",
     sortBy: DEFAULT_SORT_BY,
@@ -132,7 +126,6 @@ function normalizeSearchState(searchState = {}) {
     admissionYear: String(searchState.admissionYear ?? "").trim(),
     playerType: String(searchState.playerType ?? "").trim(),
     mainPosition: String(searchState.mainPosition ?? "").trim(),
-    positionType: String(searchState.positionType ?? "").trim(),
     schoolGrade: String(searchState.schoolGrade ?? "").trim(),
     rosterStatus: String(searchState.rosterStatus ?? "").trim(),
     sortBy,
@@ -146,14 +139,15 @@ function readSearchStateFromUrl() {
   const sortOrder = params.get("sort_order") ?? DEFAULT_SORT_ORDER;
   const legacySort = params.get("sort");
   const parsedSort = legacySort ? parseSortValue(legacySort) : { sortBy, sortOrder };
+  const legacyPositionType = params.get("position_type") ?? "";
+  const mainPosition = params.get("main_position") || (legacyPositionType === "pitcher" ? "投手" : legacyPositionType === "fielder" ? "全野手" : "");
 
   return normalizeSearchState({
     name: params.get("name") ?? "",
     schoolName: params.get("school_name") ?? "",
     admissionYear: params.get("admission_year") ?? "",
     playerType: params.get("player_type") ?? "",
-    mainPosition: params.get("main_position") ?? "",
-    positionType: params.get("position_type") ?? "",
+    mainPosition,
     schoolGrade: params.get("school_grade") ?? "",
     rosterStatus: params.get("roster_status") ?? "",
     sortBy: parsedSort.sortBy,
@@ -168,7 +162,6 @@ function buildPlayerListParams(searchState) {
     admission_year: searchState.admissionYear,
     player_type: searchState.playerType,
     main_position: searchState.mainPosition,
-    position_type: searchState.positionType,
     school_grade: searchState.schoolGrade,
     roster_status: searchState.rosterStatus,
     sort_by: searchState.sortBy,
@@ -202,7 +195,6 @@ function hasActiveSearchFilters(searchState) {
       searchState.admissionYear ||
       searchState.playerType ||
       searchState.mainPosition ||
-      searchState.positionType ||
       searchState.schoolGrade ||
       searchState.rosterStatus
   );
@@ -300,11 +292,7 @@ function buildActiveFilterItems(searchState) {
   }
 
   if (searchState.mainPosition) {
-    items.push({ label: "主ポジション", value: getOptionLabel(MAIN_POSITION_OPTIONS, searchState.mainPosition) });
-  }
-
-  if (searchState.positionType) {
-    items.push({ label: "選手種別", value: getOptionLabel(POSITION_TYPE_OPTIONS, searchState.positionType) });
+    items.push({ label: "ポジション", value: getOptionLabel(MAIN_POSITION_OPTIONS, searchState.mainPosition) });
   }
 
   if (searchState.schoolGrade) {
@@ -374,7 +362,7 @@ function renderShell(root, searchState) {
                     placeholder="例: 山田"
                   >
                 </div>
-                <div class="players-form-row">
+                <div class="players-form-row players-search-field--mobile-wide">
                   <label for="player-search-school-name">学校名</label>
                   <input
                     id="player-search-school-name"
@@ -384,7 +372,7 @@ function renderShell(root, searchState) {
                     placeholder="例: 栄冠"
                   >
                 </div>
-                <div class="players-form-row">
+                <div class="players-form-row players-search-field--mobile-wide">
                   <label for="player-search-admission-year">入学年</label>
                   <input
                     id="player-search-admission-year"
@@ -410,15 +398,9 @@ function renderShell(root, searchState) {
                   </select>
                 </div>
                 <div class="players-form-row">
-                  <label for="player-search-main-position">主ポジション</label>
+                  <label for="player-search-main-position">ポジション</label>
                   <select id="player-search-main-position" name="main_position">
                     ${buildSelectOptions(MAIN_POSITION_OPTIONS, searchState.mainPosition)}
-                  </select>
-                </div>
-                <div class="players-form-row">
-                  <label for="player-search-position-type">選手種別</label>
-                  <select id="player-search-position-type" name="position_type">
-                    ${buildSelectOptions(POSITION_TYPE_OPTIONS, searchState.positionType)}
                   </select>
                 </div>
                 <div class="players-form-row">
@@ -609,7 +591,6 @@ function readSearchStateFromForm(form) {
     admissionYear: form.elements.admission_year.value,
     playerType: form.elements.player_type.value,
     mainPosition: form.elements.main_position.value,
-    positionType: form.elements.position_type.value,
     schoolGrade: form.elements.school_grade.value,
     rosterStatus: form.elements.roster_status.value,
     sortBy,
@@ -623,7 +604,6 @@ function applySearchStateToForm(form, searchState) {
   form.elements.admission_year.value = searchState.admissionYear;
   form.elements.player_type.value = searchState.playerType;
   form.elements.main_position.value = searchState.mainPosition;
-  form.elements.position_type.value = searchState.positionType;
   form.elements.school_grade.value = searchState.schoolGrade;
   form.elements.roster_status.value = searchState.rosterStatus;
   form.elements.sort.value = serializeSortValue(searchState.sortBy, searchState.sortOrder);

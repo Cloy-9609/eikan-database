@@ -290,7 +290,8 @@
 .players-filter-chip-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px 8px;
+  align-items: center;
   min-width: 0;
 }
 
@@ -299,34 +300,48 @@
 .players-filter-empty {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
+  max-width: 100%;
+  overflow: hidden;
+  min-height: 30px;
   border-radius: 999px;
   font-size: 0.84rem;
-  line-height: 1.3;
+  line-height: 1;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .players-filter-chip {
-  overflow: hidden;
+  min-width: 0;
   border: 1px solid #c7d8e8;
   background: #ffffff;
 }
 
 .players-filter-chip-label {
-  padding: 5px 8px;
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
+  flex: 0 0 auto;
+  padding: 0 8px;
   background: #eef6fc;
   color: #175f9f;
   font-weight: 800;
 }
 
 .players-filter-chip-value {
-  padding: 5px 9px;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 9px;
   color: #243447;
   font-weight: 700;
+  text-overflow: ellipsis;
 }
 
 .players-sort-chip {
   width: fit-content;
-  padding: 5px 10px;
+  padding: 0 10px;
   border: 1px solid #d3dec0;
   background: #f4f8ec;
   color: #476d28;
@@ -335,7 +350,7 @@
 
 .players-filter-empty {
   width: fit-content;
-  padding: 5px 10px;
+  padding: 0 10px;
   border: 1px dashed #c7d8e8;
   background: #ffffff;
   color: #6a7c90;
@@ -581,6 +596,31 @@
   .players-search-group {
     padding: 14px 12px;
     border-radius: 12px;
+  }
+
+  .players-search-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 10px;
+    align-items: end;
+  }
+
+  .players-search-field--wide,
+  .players-search-field--mobile-wide {
+    grid-column: span 2;
+  }
+
+  .players-form-row {
+    gap: 6px;
+  }
+
+  .players-form-row label {
+    font-size: 0.88rem;
+  }
+
+  .players-form-row input,
+  .players-form-row select {
+    min-height: 42px;
+    padding: 9px 10px;
   }
 
   .players-search-actions {
