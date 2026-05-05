@@ -371,14 +371,6 @@ function buildOptionalAdmissionYearPicker({ name, id, label, value }) {
 
   return `
     <div class="players-year-range-item">
-      <div class="players-year-range-heading">
-        <span class="players-year-range-label">${escapeHtml(label)}</span>
-        <button
-          type="button"
-          class="players-year-clear-button"
-          data-year-clear="${escapeAttribute(name)}"
-        >未指定</button>
-      </div>
       ${buildYearPicker({
         inputName: name,
         inputId: id,
@@ -428,7 +420,14 @@ function renderShell(root, searchState) {
                   >
                 </div>
                 <div class="players-form-row players-form-row--admission-year players-search-field--wide">
-                  <span class="players-form-label">入学年</span>
+                  <div class="players-year-range-header">
+                    <span class="players-form-label">範囲指定：入学年</span>
+                    <button
+                      type="button"
+                      class="players-year-clear-button"
+                      data-year-range-clear
+                    >未指定に戻す</button>
+                  </div>
                   <div class="players-year-range">
                     ${buildOptionalAdmissionYearPicker({
                       name: "admission_year_from",
@@ -436,6 +435,7 @@ function renderShell(root, searchState) {
                       label: "開始年",
                       value: searchState.admissionYearFrom,
                     })}
+                    <span class="players-year-range-separator" aria-hidden="true">~</span>
                     ${buildOptionalAdmissionYearPicker({
                       name: "admission_year_to",
                       id: "player-search-admission-year-to",
@@ -705,11 +705,11 @@ function setupOptionalYearPickers(form) {
     "click",
     (event) => {
       const stepButton = event.target.closest("[data-year-step]");
-      const clearButton = event.target.closest("[data-year-clear]");
+      const clearButton = event.target.closest("[data-year-range-clear]");
 
       if (clearButton) {
-        const input = form.elements[clearButton.dataset.yearClear];
-        setOptionalYearPickerValue(input, "");
+        setOptionalYearPickerValue(form.elements.admission_year_from, "");
+        setOptionalYearPickerValue(form.elements.admission_year_to, "");
         return;
       }
 

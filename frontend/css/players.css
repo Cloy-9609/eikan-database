@@ -179,31 +179,38 @@
   box-shadow: 0 0 0 3px rgba(23, 95, 159, 0.12);
 }
 
+.players-year-range-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
 .players-year-range {
   display: grid;
-  grid-template-columns: repeat(2, minmax(240px, 1fr));
-  gap: 12px;
-  align-items: start;
+  grid-template-columns: minmax(0, 220px) auto minmax(0, 220px);
+  gap: 10px;
+  align-items: center;
+  justify-content: start;
+  max-width: 520px;
 }
 
 .players-year-range-item {
   display: grid;
-  gap: 7px;
+  width: min(220px, 100%);
   min-width: 0;
 }
 
-.players-year-range-heading {
-  display: flex;
+.players-year-range-separator {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
-
-.players-year-range-label {
-  color: #41556c;
-  font-size: 0.86rem;
+  justify-content: center;
+  min-width: 18px;
+  color: #52667b;
+  font-size: 1rem;
   font-weight: 800;
+  line-height: 1;
 }
 
 .players-year-clear-button {
@@ -233,21 +240,21 @@
 
 .players-year-range .admission-year-picker {
   --admission-year-picker-width: 100%;
-  --admission-year-picker-gap: 7px;
-  --admission-year-picker-padding: 9px;
+  --admission-year-picker-gap: 6px;
+  --admission-year-picker-padding: 8px;
   --admission-year-picker-inner-inset: 3px;
   --admission-year-picker-border-width: 1px;
   --admission-year-picker-border-radius: 12px;
   --admission-year-picker-inner-radius: 9px;
-  --admission-year-picker-digits-gap: 6px;
+  --admission-year-picker-digits-gap: 5px;
   --admission-year-picker-digits-padding: 6px;
-  --admission-year-picker-digit-gap: 5px;
-  --admission-year-picker-button-height: 24px;
-  --admission-year-picker-number-height: 34px;
-  --admission-year-picker-button-radius: 8px;
+  --admission-year-picker-digit-gap: 4px;
+  --admission-year-picker-button-height: 22px;
+  --admission-year-picker-number-height: 33px;
+  --admission-year-picker-button-radius: 7px;
   --admission-year-picker-number-radius: 8px;
-  --admission-year-picker-button-font-size: 0.76rem;
-  --admission-year-picker-number-font-size: 1rem;
+  --admission-year-picker-button-font-size: 0.7rem;
+  --admission-year-picker-number-font-size: 0.94rem;
   --admission-year-picker-label-font-size: 0.72rem;
   --admission-year-picker-label-value-font-size: 0.84rem;
   --admission-year-picker-error-font-size: 0.72rem;
@@ -255,6 +262,26 @@
   --admission-year-picker-compact-digit-min-width: 0;
   background: #fbfdff;
   box-shadow: none;
+}
+
+.players-year-range .admission-year-digit {
+  grid-template-rows:
+    minmax(var(--admission-year-picker-button-height), 2fr)
+    minmax(var(--admission-year-picker-number-height), 3fr)
+    minmax(var(--admission-year-picker-button-height), 2fr);
+}
+
+.players-year-range .admission-year-button,
+.players-year-range .admission-year-number {
+  min-height: 0;
+}
+
+.players-year-range .admission-year-button {
+  aspect-ratio: 2 / 1;
+}
+
+.players-year-range .admission-year-number {
+  aspect-ratio: 4 / 3;
 }
 
 .players-year-range .admission-year-current {
@@ -718,11 +745,6 @@
     grid-column: auto;
   }
 
-  .players-year-range {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-
   .players-form-row {
     gap: 6px;
   }
@@ -856,5 +878,15 @@
 @media (max-width: 480px) {
   .players-year-range {
     grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch;
+    max-width: none;
+  }
+
+  .players-year-range-item {
+    width: 100%;
+  }
+
+  .players-year-range-separator {
+    min-height: 10px;
   }
 }
