@@ -111,6 +111,8 @@ const backendWatchers = createWatchers(BACKEND_ROOT, (fileName) => {
   scheduleRestart(typeof fileName === "string" ? fileName : "");
 });
 
+console.log("Development server enabled: watching backend/ for automatic restarts.");
+
 async function shutdown(signal) {
   if (shuttingDown) {
     return;

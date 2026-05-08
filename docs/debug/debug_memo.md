@@ -1,8 +1,12 @@
 # サーバーの起動方法（Phase1 時点）
-1. ターミナルにて "node backend/app.js" を入力
-2. ターミナルを増設し、そこで "npm run dev" を入力
-3. ブラウザで"http://localhost:3000/pages/schools.html"に入る。
-4. 取り敢えず F12 にてコンソールを開き、問題の有無を確認する。
+1. ターミナルにて `npm run dev` を入力
+2. ブラウザで `http://localhost:3000/` または `http://localhost:3000/pages/schools.html` に入る。
+3. 取り敢えず F12 にてコンソールを開き、問題の有無を確認する。
+
+補足:
+- backend 変更時の自動再起動を使う場合は `npm run dev` だけを起動する。
+- `node backend/app.js` と `npm run dev` を同時に起動すると、同じ port を取り合うため避ける。
+- watch なしで単純起動したい場合のみ `npm start` を使う。
 
 ## 修正プロンプトをするときの有効なテンプレ
 ### 確認について

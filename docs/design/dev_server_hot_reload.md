@@ -8,6 +8,8 @@
 npm run dev
 ```
 
+`npm run dev:watch` も同じ開発サーバーを起動する明示的な alias です。
+
 2. ブラウザで以下にアクセスします。
 
 - トップページ: `http://localhost:3000/`
@@ -18,6 +20,8 @@ npm run dev
 - `backend/` 配下のファイルを変更すると、Node サーバーが自動で再起動します。
 - `frontend/` 配下の HTML / CSS / JS を変更すると、開いているページが自動で再読込されます。
 - 追加の開発依存パッケージは不要です。
+
+`npm start` は watch なしの通常起動です。backend 変更時に自動再起動したい場合は `npm run dev` を使います。
 
 4. 停止するときは `Ctrl + C` を使います。
 
@@ -52,6 +56,7 @@ cmd /c npm run dev
 ### `package.json`
 
 - `scripts.dev` に `node scripts/dev-server.js` を追加しました。
+- `scripts.dev:watch` は `npm run dev` と同じ開発サーバーを起動する alias です。
 - 既存の `start` と `db:reset` はそのまま維持しています。
 
 ### `scripts/dev-server.js`
@@ -60,6 +65,14 @@ cmd /c npm run dev
 - `backend/` 配下を監視し、変更があれば現在のサーバーを停止して再起動します。
 - `require.cache` をクリアしてから `backend/app.js` を再読込することで、コード変更を次回起動へ反映します。
 - 終了時には watcher とサーバーを安全に停止します。
+
+処理フロー:
+
+1. `scripts/dev-server.js` が `HOT_RELOAD=1` を設定します。
+2. `backend/` watcher を作成します。
+3. `backend/app.js` を読み込み、`startServer()` で Express サーバーを起動します。
+4. backend 変更時は debounce 後に `server.close()`、hot reload watcher の cleanup、`require.cache` 削除、`startServer()` の順に再起動します。
+5. frontend 変更時は `backend/dev/hotReload.js` 側の watcher が SSE でブラウザへ reload を通知します。
 
 ### `backend/dev/hotReload.js`
 

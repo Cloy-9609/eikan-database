@@ -12,15 +12,29 @@
 
 ## 起動方法
 
-### サーバー起動
+### 開発サーバー起動
 
-- 通常: `npm start`
-- PowerShell の実行ポリシーで `npm.ps1` が止まる場合: `cmd /c npm start`
+- 開発用: `npm run dev`
+- 明示的な watch 起動: `npm run dev:watch`
+- PowerShell の実行ポリシーで `npm.ps1` が止まる場合: `cmd /c npm run dev`
 
 起動後は以下を開きます。
 
 - トップ: `http://localhost:3000/`
 - 学校一覧: `http://localhost:3000/pages/schools.html`
+
+開発サーバーでは以下が自動で行われます。
+
+- `backend/` 配下の変更: Node サーバーを停止し、`require.cache` をクリアして再起動します。
+- `frontend/` 配下の HTML / CSS / JS 変更: 開いているページへ reload イベントを送り、ブラウザを再読込します。
+- 追加の開発依存は使わず、Node.js 標準の `fs.watch` ベースで動作します。
+
+### 通常サーバー起動
+
+- 通常: `npm start`
+- PowerShell の実行ポリシーで `npm.ps1` が止まる場合: `cmd /c npm start`
+
+`npm start` は watch なしの単純起動です。backend 変更を反映するには手動再起動が必要です。
 
 ## Database
 
