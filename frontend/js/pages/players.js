@@ -512,6 +512,9 @@ function renderPlayerRows(players) {
   return players
     .map((player) => {
       const positionType = getPositionType(player);
+      const detailHref = player.id
+        ? `./player_detail.html?id=${encodeURIComponent(player.id)}`
+        : "";
       const schoolHref = player.school_id
         ? `./school_detail.html?id=${encodeURIComponent(player.school_id)}`
         : "";
@@ -519,9 +522,11 @@ function renderPlayerRows(players) {
       return `
         <tr class="players-table-row">
           <td class="players-table-cell--name" data-label="選手名">
-            <a class="players-table-link" href="./player_detail.html?id=${encodeURIComponent(player.id)}">
-              ${escapeHtml(formatOptionalValue(player.name))}
-            </a>
+            ${
+              detailHref
+                ? `<a class="players-table-link" href="${detailHref}">${escapeHtml(formatOptionalValue(player.name))}</a>`
+                : `<span>${escapeHtml(formatOptionalValue(player.name))}</span>`
+            }
           </td>
           <td class="players-table-cell--school" data-label="学校名">
             ${

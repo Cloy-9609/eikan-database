@@ -6,6 +6,27 @@ const {
 const snapshotOrderSql = SNAPSHOT_TIMELINE.map(
   ({ value }, index) => `WHEN '${value}' THEN ${index + 1}`
 ).join(" ");
+const officialSnapshotLabelsSql = SNAPSHOT_TIMELINE.map(({ value }) => `'${value}'`).join(", ");
+const latestSnapshotJoinSql = `
+  LEFT JOIN players ON players.id = (
+    SELECT candidate_players.id
+    FROM players AS candidate_players
+    WHERE candidate_players.player_series_id = player_series.id
+    ORDER BY
+      CASE
+        WHEN candidate_players.snapshot_label IN (${officialSnapshotLabelsSql}) THEN 0
+        ELSE 1
+      END ASC,
+      CASE candidate_players.snapshot_label
+        ${snapshotOrderSql}
+        ELSE NULL
+      END DESC,
+      candidate_players.updated_at DESC,
+      candidate_players.created_at DESC,
+      candidate_players.id DESC
+    LIMIT 1
+  )
+`;
 const defenseRankSql = `
   CASE
     WHEN defense_value BETWEEN 90 AND 100 THEN 'S'
@@ -22,7 +43,7 @@ const defenseRankSql = `
 
 const PLAYER_SELECT_COLUMNS = `
   players.id,
-  players.player_series_id,
+  player_series.id AS player_series_id,
   player_series.school_id AS school_id,
   schools.school_code AS school_code,
   schools.current_year AS school_current_year,
@@ -145,19 +166,19 @@ function buildPlayerSortClause(sortBy = "updated_at", sortOrder = "desc") {
   const direction = String(sortOrder).toLowerCase() === "asc" ? "ASC" : "DESC";
 
   if (sortBy === "name") {
-    return `player_series.name ${direction}, players.id DESC`;
+    return `player_series.name ${direction}, player_series.id DESC`;
   }
 
   if (sortBy === "school_name") {
-    return `schools.name ${direction}, player_series.name ASC, players.id DESC`;
+    return `schools.name ${direction}, player_series.name ASC, player_series.id DESC`;
   }
 
   if (sortBy === "admission_year") {
-    return `CASE WHEN player_series.admission_year IS NULL THEN 1 ELSE 0 END ASC, player_series.admission_year ${direction}, players.id DESC`;
+    return `CASE WHEN player_series.admission_year IS NULL THEN 1 ELSE 0 END ASC, player_series.admission_year ${direction}, player_series.id DESC`;
   }
 
   if (sortBy === "school_grade") {
-    return `player_series.school_grade ${direction}, player_series.name ASC, players.id DESC`;
+    return `player_series.school_grade ${direction}, player_series.name ASC, player_series.id DESC`;
   }
 
   if (sortBy === "roster_status") {
@@ -169,15 +190,15 @@ function buildPlayerSortClause(sortBy = "updated_at", sortOrder = "desc") {
       END ${direction},
       player_series.school_grade ASC,
       player_series.name ASC,
-      players.id DESC
+      player_series.id DESC
     `;
   }
 
   if (sortBy === "snapshot") {
-    return `CASE WHEN snapshot_order IS NULL THEN 1 ELSE 0 END ASC, snapshot_order ${direction}, players.id DESC`;
+    return `CASE WHEN snapshot_order IS NULL THEN 1 ELSE 0 END ASC, snapshot_order ${direction}, player_series.id DESC`;
   }
 
-  return `players.updated_at ${direction}, players.id DESC`;
+  return `COALESCE(players.updated_at, player_series.updated_at) ${direction}, player_series.id DESC`;
 }
 
 function buildPlayerListQuery({
@@ -256,8 +277,8 @@ function buildPlayerListQuery({
   const sql = `
     SELECT
       ${PLAYER_SELECT_COLUMNS}
-    FROM players
-    INNER JOIN player_series ON player_series.id = players.player_series_id
+    FROM player_series
+    ${latestSnapshotJoinSql}
     INNER JOIN schools ON schools.id = player_series.school_id
     WHERE ${conditions.join(" AND ")}
     ORDER BY ${buildPlayerSortClause(sortBy, sortOrder)}
@@ -276,7 +297,23 @@ async function findAll() {
 }
 
 async function findBySchoolId(schoolId) {
-  return findAllActive({ schoolId });
+  const sql = `
+    SELECT
+      ${PLAYER_SELECT_COLUMNS}
+    FROM players
+    INNER JOIN player_series ON player_series.id = players.player_series_id
+    INNER JOIN schools ON schools.id = player_series.school_id
+    WHERE player_series.school_id = ? AND schools.is_archived = 0
+    ORDER BY
+      player_series.id ASC,
+      CASE players.snapshot_label
+        ${snapshotOrderSql}
+        ELSE 999
+      END ASC,
+      players.id ASC
+  `;
+
+  return all(sql, [schoolId]);
 }
 
 async function findById(id) {
