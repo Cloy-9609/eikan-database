@@ -1,4 +1,4 @@
-import { fetchPlayers } from "../api/playerApi.js";
+import { fetchPlayerById, fetchPlayers } from "../api/playerApi.js";
 import { buildYearPicker, setYearPickerValue, setupYearPickers } from "../components/admissionYearPicker.js";
 
 const SCHOOL_SUFFIX = "高校";
@@ -56,6 +56,20 @@ const SORT_OPTIONS = [
 ];
 
 let latestPlayersRequestId = 0;
+const PLAYER_DETAIL_CACHE = new Map();
+const PLAYER_DETAIL_LOADING = new Map();
+
+const SNAPSHOT_LABELS = {
+  entrance: "入学時",
+  y1_summer: "1年夏大会後",
+  y1_autumn: "1年秋大会後",
+  y2_summer: "2年夏大会後",
+  y2_autumn: "2年秋大会後",
+  y3_summer: "3年夏大会後",
+  y3_autumn: "3年秋大会後",
+  graduation: "卒業時",
+  post_tournament: "大会後",
+};
 
 function createDefaultSearchState() {
   return {
@@ -283,6 +297,244 @@ function getRosterStatusBadgeClass(value) {
   return "";
 }
 
+function isPitcher(player) {
+  return getPositionType(player).badgeClass === "players-badge--pitcher";
+}
+
+function formatSnapshotLabel(value) {
+  const normalizedValue = String(value ?? "").trim();
+  return SNAPSHOT_LABELS[normalizedValue] ?? formatOptionalValue(normalizedValue);
+}
+
+function formatStatValue(value) {
+  return value === undefined || value === null || value === "" ? "-" : String(value);
+}
+
+function buildPlayerDetailUrl(player) {
+  if (!player?.id) {
+    return "";
+  }
+
+  return `./player_detail.html?id=${encodeURIComponent(player.id)}`;
+}
+
+function buildPlayerEditUrl(player) {
+  if (!player?.id) {
+    return "";
+  }
+
+  return `./player_edit.html?id=${encodeURIComponent(player.id)}`;
+}
+
+function renderMiniDefinitionList(items) {
+  return items
+    .map(
+      (item) => `
+        <div class="players-mini-definition">
+          <dt>${escapeHtml(item.label)}</dt>
+          <dd>${escapeHtml(item.value)}</dd>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function renderStatGrid(items) {
+  return `
+    <div class="players-stat-grid">
+      ${items
+        .map(
+          (item) => `
+            <div class="players-stat-item">
+              <span class="players-stat-label">${escapeHtml(item.label)}</span>
+              <span class="players-stat-value">${escapeHtml(formatStatValue(item.value))}</span>
+            </div>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function formatPitchType(pitch) {
+  const pitchName = pitch?.original_pitch_name || pitch?.pitch_name || "不明";
+  const level = pitch?.level !== undefined && pitch?.level !== null && pitch?.level !== "" ? ` Lv${pitch.level}` : "";
+  return `${pitchName}${level}`;
+}
+
+function formatSpecialAbility(ability) {
+  const name = ability?.ability_name || "不明";
+  const rank = ability?.rank_value ? ` ${ability.rank_value}` : "";
+  return `${name}${rank}`;
+}
+
+function formatSubPosition(subPosition) {
+  const name = subPosition?.position_name || "不明";
+  const suitability = subPosition?.suitability_value ? ` 適性${subPosition.suitability_value}` : "";
+  const defense = subPosition?.defense_value ? ` 守備${subPosition.defense_value}` : "";
+  return `${name}${suitability}${defense}`;
+}
+
+function renderRelationChips(items, formatter, emptyText, { limit = 8 } = {}) {
+  const safeItems = Array.isArray(items) ? items : [];
+
+  if (safeItems.length === 0) {
+    return `<p class="players-mini-empty">${escapeHtml(emptyText)}</p>`;
+  }
+
+  const visibleItems = safeItems.slice(0, limit);
+  const hiddenCount = Math.max(0, safeItems.length - visibleItems.length);
+
+  return `
+    <div class="players-relation-chip-list">
+      ${visibleItems
+        .map((item) => `<span class="players-relation-chip">${escapeHtml(formatter(item))}</span>`)
+        .join("")}
+      ${hiddenCount ? `<span class="players-relation-chip players-relation-chip--muted">ほか${hiddenCount}件</span>` : ""}
+    </div>
+  `;
+}
+
+function renderAccordionActions(player) {
+  const detailUrl = buildPlayerDetailUrl(player);
+  const editUrl = buildPlayerEditUrl(player);
+
+  if (!detailUrl && !editUrl) {
+    return "";
+  }
+
+  return `
+    <div class="players-accordion-actions">
+      ${
+        detailUrl
+          ? `<a class="players-inline-action players-inline-action--secondary" href="${detailUrl}">詳細・履歴を見る</a>`
+          : ""
+      }
+      ${editUrl ? `<a class="players-inline-action players-inline-action--primary" href="${editUrl}">編集する</a>` : ""}
+    </div>
+  `;
+}
+
+function renderAccordionPanel(player, detail = player) {
+  const displayPlayer = detail || player;
+  const detailPlayer = displayPlayer;
+  const playerType = detailPlayer.player_type ?? player.player_type;
+  const snapshotNote = detailPlayer.snapshot_note ?? player.snapshot_note;
+  const supportItems = [
+    { label: "登録時点", value: formatSnapshotLabel(detailPlayer.snapshot_label ?? player.snapshot_label) },
+    ...(detailPlayer.total_stars !== undefined && detailPlayer.total_stars !== null && detailPlayer.total_stars !== ""
+      ? [{ label: "総合星", value: formatStatValue(detailPlayer.total_stars) }]
+      : []),
+    ...(playerType ? [{ label: "タイプ", value: getOptionLabel(PLAYER_TYPE_OPTIONS, playerType) }] : []),
+    ...(snapshotNote ? [{ label: "メモ", value: snapshotNote }] : []),
+  ];
+  const abilitySection = isPitcher(detailPlayer)
+    ? `
+      <section class="players-mini-card players-mini-card--stats">
+        <h4 class="players-mini-card-title">投手能力</h4>
+        ${renderStatGrid([
+          { label: "球速", value: detailPlayer.velocity ? `${detailPlayer.velocity} km/h` : "" },
+          { label: "コントロール", value: detailPlayer.control },
+          { label: "スタミナ", value: detailPlayer.stamina },
+        ])}
+        <div class="players-mini-relation">
+          <span class="players-mini-relation-title">変化球</span>
+          ${renderRelationChips(detailPlayer.pitch_types, formatPitchType, "変化球は未登録です。", { limit: 6 })}
+        </div>
+      </section>
+    `
+    : `
+      <section class="players-mini-card players-mini-card--stats">
+        <h4 class="players-mini-card-title">野手能力</h4>
+        ${renderStatGrid([
+          { label: "弾道", value: detailPlayer.trajectory },
+          { label: "ミート", value: detailPlayer.meat },
+          { label: "パワー", value: detailPlayer.power },
+          { label: "走力", value: detailPlayer.run_speed },
+          { label: "肩力", value: detailPlayer.arm_strength },
+          { label: "守備", value: detailPlayer.fielding },
+          { label: "捕球", value: detailPlayer.catching },
+        ])}
+      </section>
+    `;
+
+  return `
+    <div class="players-accordion-panel">
+      <div class="players-accordion-header">
+        <div>
+          <p class="players-accordion-kicker">Quick Detail</p>
+          <h3 class="players-accordion-title">${escapeHtml(formatOptionalValue(displayPlayer.name ?? player.name))}</h3>
+        </div>
+        ${renderAccordionActions(displayPlayer)}
+      </div>
+      <div class="players-accordion-grid">
+        ${abilitySection}
+        <section class="players-mini-card players-mini-card--special">
+          <h4 class="players-mini-card-title">特殊能力</h4>
+          ${renderRelationChips(detailPlayer.special_abilities, formatSpecialAbility, "特殊能力は未登録です。", { limit: 10 })}
+        </section>
+        <aside class="players-accordion-side">
+          <section class="players-mini-card players-mini-card--support">
+            <h4 class="players-mini-card-title">サブポジション</h4>
+            ${renderRelationChips(detailPlayer.sub_positions, formatSubPosition, "サブポジションは未登録です。", { limit: 5 })}
+          </section>
+          <section class="players-mini-card players-mini-card--support">
+            <h4 class="players-mini-card-title">補足</h4>
+            <dl class="players-mini-definition-list players-mini-definition-list--compact">
+              ${renderMiniDefinitionList(supportItems)}
+            </dl>
+          </section>
+        </aside>
+      </div>
+    </div>
+  `;
+}
+
+function renderAccordionLoadingPanel(player) {
+  return `
+    <div class="players-accordion-panel players-accordion-panel--loading">
+      <p class="players-mini-empty">${escapeHtml(formatOptionalValue(player.name))} の簡易詳細を読み込んでいます。</p>
+    </div>
+  `;
+}
+
+function renderAccordionErrorPanel(player, error) {
+  return `
+    <div class="players-accordion-panel players-accordion-panel--error">
+      <p class="players-mini-error">簡易詳細の取得に失敗しました。${escapeHtml(error?.message ?? "")}</p>
+      ${renderAccordionActions(player)}
+    </div>
+  `;
+}
+
+async function getCachedPlayerDetail(playerId) {
+  const cacheKey = String(playerId ?? "");
+
+  if (!cacheKey) {
+    return null;
+  }
+
+  if (PLAYER_DETAIL_CACHE.has(cacheKey)) {
+    return PLAYER_DETAIL_CACHE.get(cacheKey);
+  }
+
+  if (!PLAYER_DETAIL_LOADING.has(cacheKey)) {
+    PLAYER_DETAIL_LOADING.set(
+      cacheKey,
+      fetchPlayerById(cacheKey)
+        .then((player) => {
+          PLAYER_DETAIL_CACHE.set(cacheKey, player);
+          return player;
+        })
+        .finally(() => {
+          PLAYER_DETAIL_LOADING.delete(cacheKey);
+        })
+    );
+  }
+
+  return PLAYER_DETAIL_LOADING.get(cacheKey);
+}
+
 function buildResultCountText(count, { hasFilters = false } = {}) {
   if (hasFilters) {
     return `${count}件の選手が条件に一致しました。`;
@@ -497,7 +749,7 @@ function renderShell(root, searchState) {
         <div class="players-section-header">
           <h2 class="players-section-title">検索結果</h2>
           <p class="players-section-description">
-            選手名を押すと、選手詳細画面へ移動します。
+            選手名の左にあるボタンから簡易詳細を開き、必要に応じて詳細画面や編集画面へ移動できます。
           </p>
         </div>
         <div id="players-list-root">
@@ -510,29 +762,43 @@ function renderShell(root, searchState) {
 
 function renderPlayerRows(players) {
   return players
-    .map((player) => {
+    .map((player, index) => {
       const positionType = getPositionType(player);
-      const detailHref = player.id
-        ? `./player_detail.html?id=${encodeURIComponent(player.id)}`
-        : "";
+      const playerName = formatOptionalValue(player.name);
+      const schoolName = formatSchoolDisplayName(player.school_name);
       const schoolHref = player.school_id
         ? `./school_detail.html?id=${encodeURIComponent(player.school_id)}`
         : "";
+      const rowKey = player.id || player.player_series_id || index;
+      const accordionId = `players-row-detail-${escapeAttribute(rowKey)}`;
+      const encodedPlayer = escapeAttribute(JSON.stringify(player));
+      const toggleLabel = `${playerName} の簡易詳細を開く`;
 
       return `
         <tr class="players-table-row">
           <td class="players-table-cell--name" data-label="選手名">
-            ${
-              detailHref
-                ? `<a class="players-table-link" href="${detailHref}">${escapeHtml(formatOptionalValue(player.name))}</a>`
-                : `<span>${escapeHtml(formatOptionalValue(player.name))}</span>`
-            }
+            <span class="players-name-cell-content">
+              <button
+                type="button"
+                class="players-row-toggle"
+                data-player-detail-toggle
+                data-player="${encodedPlayer}"
+                data-player-name="${escapeAttribute(playerName)}"
+                aria-expanded="false"
+                aria-controls="${accordionId}"
+                aria-label="${escapeAttribute(toggleLabel)}"
+                title="${escapeAttribute(toggleLabel)}"
+              >
+                <span class="players-row-toggle-icon" aria-hidden="true"></span>
+              </button>
+              <span class="players-name-text">${escapeHtml(playerName)}</span>
+            </span>
           </td>
           <td class="players-table-cell--school" data-label="学校名">
             ${
               schoolHref
-                ? `<a class="players-table-link" href="${schoolHref}">${escapeHtml(formatSchoolDisplayName(player.school_name))}</a>`
-                : escapeHtml(formatSchoolDisplayName(player.school_name))
+                ? `<a class="players-table-link" href="${schoolHref}" title="${escapeAttribute(schoolName)}">${escapeHtml(schoolName)}</a>`
+                : escapeHtml(schoolName)
             }
           </td>
           <td class="players-table-cell--position" data-label="ポジション">
@@ -552,6 +818,11 @@ function renderPlayerRows(players) {
             </span>
           </td>
           <td class="players-table-cell--year" data-label="入学年">${escapeHtml(formatYear(player.admission_year))}</td>
+        </tr>
+        <tr id="${accordionId}" class="players-accordion-row" hidden>
+          <td colspan="5" data-label="簡易詳細">
+            ${renderAccordionLoadingPanel(player)}
+          </td>
         </tr>
       `;
     })
@@ -617,6 +888,75 @@ function setMessage(element, message = "", type = "error") {
   element.textContent = message;
   element.hidden = !message;
   element.classList.toggle("players-message--error", type === "error");
+}
+
+function parseEncodedPlayer(value) {
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return {};
+  }
+}
+
+async function loadAccordionDetail(toggleButton, detailRow, player) {
+  const panelCell = detailRow?.querySelector("td");
+
+  if (!panelCell || detailRow.dataset.detailLoaded === "true") {
+    return;
+  }
+
+  panelCell.innerHTML = renderAccordionLoadingPanel(player);
+
+  try {
+    const detail = player.id ? await getCachedPlayerDetail(player.id) : null;
+
+    if (toggleButton.getAttribute("aria-expanded") !== "true") {
+      return;
+    }
+
+    panelCell.innerHTML = renderAccordionPanel(player, detail || player);
+    detailRow.dataset.detailLoaded = "true";
+  } catch (error) {
+    panelCell.innerHTML = renderAccordionErrorPanel(player, error);
+  }
+}
+
+function setAccordionExpanded(toggleButton, detailRow, shouldExpand) {
+  const playerName = toggleButton.dataset.playerName || "この選手";
+  const nextLabel = `${playerName} の簡易詳細を${shouldExpand ? "閉じる" : "開く"}`;
+
+  toggleButton.setAttribute("aria-expanded", String(shouldExpand));
+  toggleButton.setAttribute("aria-label", nextLabel);
+  toggleButton.title = nextLabel;
+  detailRow.hidden = !shouldExpand;
+  detailRow.previousElementSibling?.classList.toggle("players-table-row--expanded", shouldExpand);
+}
+
+function setupPlayerAccordion(listRoot) {
+  listRoot.addEventListener("click", (event) => {
+    const toggleButton = event.target.closest("[data-player-detail-toggle]");
+
+    if (!toggleButton) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const detailRow = document.getElementById(toggleButton.getAttribute("aria-controls"));
+
+    if (!detailRow) {
+      return;
+    }
+
+    const player = parseEncodedPlayer(toggleButton.dataset.player);
+    const shouldExpand = toggleButton.getAttribute("aria-expanded") !== "true";
+
+    setAccordionExpanded(toggleButton, detailRow, shouldExpand);
+
+    if (shouldExpand) {
+      loadAccordionDetail(toggleButton, detailRow, player);
+    }
+  });
 }
 
 async function loadPlayers(listRoot, messageElement, searchState) {
@@ -750,6 +1090,7 @@ function init() {
   const messageElement = document.getElementById("players-page-message");
 
   setupOptionalYearPickers(form);
+  setupPlayerAccordion(listRoot);
   applySearchStateToForm(form, searchState);
   writeSearchStateToUrl(searchState, { replace: true });
   loadPlayers(listRoot, messageElement, searchState);

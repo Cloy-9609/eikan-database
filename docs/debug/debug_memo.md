@@ -1,6 +1,6 @@
 # サーバーの起動方法（Phase1 時点）
 1. ターミナルにて `npm run dev` を入力
-2. ブラウザで `http://localhost:3000/` または `http://localhost:3000/pages/schools.html` に入る。
+2. ブラウザで `http://localhost:3000/pages` または `http://localhost:3000/pages/schools.html` に入る。
 3. 取り敢えず F12 にてコンソールを開き、問題の有無を確認する。
 
 補足:
@@ -18,3 +18,4 @@
   - どの既存仕様を維持したか
   - 実ブラウザで確認すべきポイント
   を記載してください
+
