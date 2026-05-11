@@ -757,6 +757,8 @@
 }
 
 .players-accordion-row td {
+  min-width: 0;
+  max-width: 100%;
   padding: 0;
   background: #f8fbfe;
   border-top: 0;
@@ -764,8 +766,11 @@
 }
 
 .players-accordion-panel {
+  box-sizing: border-box;
   display: grid;
   gap: 13px;
+  min-width: 0;
+  max-width: 100%;
   padding: 16px;
   border-top: 1px solid #dbe5ef;
   background:
@@ -783,6 +788,12 @@
   gap: 12px;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.players-accordion-header > div {
+  min-width: 0;
 }
 
 .players-accordion-kicker {
@@ -799,6 +810,7 @@
   color: #14334e;
   font-size: 1.02rem;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .players-accordion-actions {
@@ -806,6 +818,8 @@
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .players-inline-action {
@@ -842,21 +856,26 @@
 
 .players-accordion-grid {
   display: grid;
-  grid-template-columns: minmax(150px, 0.85fr) minmax(0, 1.45fr) minmax(160px, 0.9fr);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.35fr) minmax(0, 0.9fr);
   gap: 12px;
   align-items: start;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .players-accordion-side {
   display: grid;
   gap: 10px;
   min-width: 0;
+  max-width: 100%;
 }
 
 .players-mini-card {
+  box-sizing: border-box;
   display: grid;
   gap: 9px;
   min-width: 0;
+  max-width: 100%;
   padding: 12px;
   border: 1px solid #dbe5ef;
   border-radius: 10px;
@@ -864,13 +883,13 @@
 }
 
 .players-mini-card--special {
-  min-height: 100%;
-  overflow: hidden;
+  align-self: stretch;
+  min-height: 0;
 }
 
 .players-mini-card--special .players-relation-chip {
   box-sizing: border-box;
-  flex: 1 1 min(180px, 100%);
+  flex: 1 1 128px;
   justify-content: center;
   min-width: 0;
   max-width: 100%;
@@ -891,10 +910,14 @@
 }
 
 .players-mini-card--special .players-mini-empty {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
   padding: 8px 10px;
   border: 1px dashed #c7d8e8;
   border-radius: 8px;
   background: #ffffff;
+  overflow-wrap: anywhere;
 }
 
 .players-mini-card--support {
@@ -906,6 +929,8 @@
   color: #1f4566;
   font-size: 0.9rem;
   font-weight: 800;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .players-mini-definition-list {
@@ -979,15 +1004,18 @@
 .players-mini-relation {
   display: grid;
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .players-relation-chip-list {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .players-relation-chip {
@@ -1075,6 +1103,17 @@
 
   .players-search-grid:not(.players-search-grid--basic) .players-search-field--wide {
     grid-column: span 2;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+  .players-accordion-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .players-accordion-side {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
