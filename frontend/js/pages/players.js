@@ -1,5 +1,10 @@
 import { fetchPlayerById, fetchPlayers } from "../api/playerApi.js";
 import { buildYearPicker, setYearPickerValue, setupYearPickers } from "../components/admissionYearPicker.js";
+import {
+  groupPitchMovementDisplayItemsByDirection,
+  PITCH_METER_MAX_LEVEL,
+  PITCH_MOVEMENT_DIRECTIONS,
+} from "../utils/playerRelations.js";
 
 const SCHOOL_SUFFIX = "高校";
 const DEFAULT_SORT_BY = "updated_at";
@@ -356,10 +361,72 @@ function renderStatGrid(items) {
   `;
 }
 
-function formatPitchType(pitch) {
-  const pitchName = pitch?.original_pitch_name || pitch?.pitch_name || "不明";
-  const level = pitch?.level !== undefined && pitch?.level !== null && pitch?.level !== "" ? ` Lv${pitch.level}` : "";
-  return `${pitchName}${level}`;
+function getPitcherStatItems(player) {
+  return [
+    { label: "球速", value: player.velocity ? `${player.velocity} km/h` : "" },
+    { label: "コントロール", value: player.control },
+    { label: "スタミナ", value: player.stamina },
+  ];
+}
+
+function getFielderStatItems(player) {
+  return [
+    { label: "弾道", value: player.trajectory },
+    { label: "ミート", value: player.meat },
+    { label: "パワー", value: player.power },
+    { label: "走力", value: player.run_speed },
+    { label: "肩力", value: player.arm_strength },
+    { label: "守備", value: player.fielding },
+    { label: "捕球", value: player.catching },
+  ];
+}
+
+function renderPitcherAbilityPanel(player) {
+  return renderStatGrid(getPitcherStatItems(player));
+}
+
+function renderFielderAbilityPanel(player) {
+  return renderStatGrid(getFielderStatItems(player));
+}
+
+function renderAbilitySection(player) {
+  if (!isPitcher(player)) {
+    return `
+      <section class="players-mini-card players-mini-card--stats">
+        <div class="players-mini-card-header">
+          <h4 class="players-mini-card-title">野手能力</h4>
+        </div>
+        ${renderFielderAbilityPanel(player)}
+      </section>
+    `;
+  }
+
+  return `
+    <section class="players-mini-card players-mini-card--stats" data-player-ability-card data-player-ability-mode="pitcher">
+      <div class="players-mini-card-header">
+        <h4 class="players-mini-card-title" data-player-ability-title aria-live="polite">投手能力</h4>
+        <button
+          type="button"
+          class="players-ability-toggle"
+          data-player-ability-toggle
+          aria-pressed="false"
+          aria-label="現在は投手能力を表示中。野手能力に切り替える"
+          title="野手能力に切り替える"
+        >
+          <span class="players-ability-toggle-icon" aria-hidden="true">⇄</span>
+          <span data-player-ability-toggle-label>野手を見る</span>
+        </button>
+      </div>
+      <div class="players-ability-panel-stack">
+        <div class="players-ability-panel" data-player-ability-panel="pitcher" data-active="true" aria-hidden="false">
+          ${renderPitcherAbilityPanel(player)}
+        </div>
+        <div class="players-ability-panel" data-player-ability-panel="fielder" data-active="false" aria-hidden="true">
+          ${renderFielderAbilityPanel(player)}
+        </div>
+      </div>
+    </section>
+  `;
 }
 
 function formatSpecialAbility(ability) {
@@ -392,6 +459,142 @@ function renderRelationChips(items, formatter, emptyText, { limit = 8 } = {}) {
         .join("")}
       ${hiddenCount ? `<span class="players-relation-chip players-relation-chip--muted">ほか${hiddenCount}件</span>` : ""}
     </div>
+  `;
+}
+
+function formatThrowingHandLabel(value) {
+  const normalizedValue = String(value ?? "").trim().toLowerCase();
+
+  if (normalizedValue === "left" || normalizedValue === "左") {
+    return "左投げ";
+  }
+
+  if (normalizedValue === "right" || normalizedValue === "右") {
+    return "右投げ";
+  }
+
+  return "投げ手未設定";
+}
+
+function getCompactPitchTitle(pitch) {
+  const titleParts = [pitch.name];
+
+  if (pitch.isOriginal && pitch.baseName && pitch.baseName !== pitch.name) {
+    titleParts.push(`元: ${pitch.baseName}`);
+  }
+
+  if (!pitch.baseline) {
+    titleParts.push(`変化量 ${pitch.level}`);
+  }
+
+  return titleParts.join(" / ");
+}
+
+function getCompactPitchMeterSegments(pitch) {
+  const segmentCount = pitch.fixedLevel ? 1 : PITCH_METER_MAX_LEVEL;
+
+  return Array.from({ length: segmentCount }, (_, segmentIndex) => {
+    const segmentLevel = segmentIndex + 1;
+    const activeClass = segmentLevel <= pitch.level ? " is-active" : "";
+    return `<span class="pitch-meter-segment${activeClass}" aria-hidden="true"></span>`;
+  }).join("");
+}
+
+function renderCompactPitchMeterLabel(pitch, index = 0) {
+  const secondaryClass = index > 0 ? " pitch-meter-label--secondary" : "";
+
+  return `
+    <div class="pitch-meter-label${secondaryClass}" data-pitch-meter-label="${index}">
+      <span class="pitch-meter-name" title="${escapeAttribute(getCompactPitchTitle(pitch))}">
+        ${escapeHtml(pitch.name)}
+      </span>
+    </div>
+  `;
+}
+
+function renderCompactPitchMeter(pitch, index = 0) {
+  const secondaryClass = index > 0 ? " pitch-meter--secondary" : "";
+
+  return `
+    <div
+      class="pitch-meter pitch-meter--track${secondaryClass}"
+      data-pitch-direction="${escapeAttribute(pitch.direction)}"
+      data-pitch-orientation="${escapeAttribute(pitch.orientation)}"
+      data-pitch-baseline="${pitch.baseline ? "true" : "false"}"
+      data-pitch-fixed-level="${pitch.fixedLevel ? "true" : "false"}"
+      data-pitch-meter-index="${escapeAttribute(index)}"
+      style="--pitch-lane: ${index};"
+      aria-label="${escapeAttribute(`${pitch.name} ${pitch.baseline ? "ストレート基準" : `変化量 ${pitch.level}`}`)}"
+    >
+      <div class="pitch-meter-track" aria-hidden="true">
+        ${getCompactPitchMeterSegments(pitch)}
+      </div>
+    </div>
+  `;
+}
+
+function renderCompactPitchDirection(direction, pitches) {
+  const directionPitches = Array.isArray(pitches) ? pitches : [];
+  const emptyClass = directionPitches.length > 0 ? "" : " is-empty";
+  const secondaryClass = directionPitches.length > 1 ? " has-secondary-pitch" : "";
+
+  return `
+    <div
+      class="pitch-direction pitch-direction--${escapeAttribute(direction.key)}${emptyClass}${secondaryClass}"
+      data-pitch-direction="${escapeAttribute(direction.key)}"
+      aria-label="${escapeAttribute(`${direction.label}方向`)}"
+    >
+      <div class="pitch-direction-guide" aria-hidden="true"></div>
+      <div class="pitch-direction-meters" data-pitch-count="${escapeAttribute(directionPitches.length)}">
+        ${directionPitches.length > 0
+          ? `
+            <div class="pitch-direction-labels">
+              ${directionPitches.map((pitch, index) => renderCompactPitchMeterLabel(pitch, index)).join("")}
+            </div>
+            <div
+              class="pitch-direction-track-strip"
+              data-pitch-direction-track-strip
+              data-pitch-direction="${escapeAttribute(direction.key)}"
+              data-pitch-orientation="${escapeAttribute(direction.orientation)}"
+              style="--pitch-angle: ${Number(direction.angle) || 0}deg;"
+            >
+              ${directionPitches.map((pitch, index) => renderCompactPitchMeter(pitch, index)).join("")}
+            </div>
+          `
+          : ""}
+      </div>
+    </div>
+  `;
+}
+
+function renderCompactPitchMovementCard(player) {
+  const pitchTypes = Array.isArray(player?.pitch_types) ? player.pitch_types : [];
+  const throwingHand = player?.throwing_hand ?? "";
+  const groupedPitches = groupPitchMovementDisplayItemsByDirection({
+    pitchTypes,
+    throwingHand,
+  });
+  const hasMovementPitches = Object.values(groupedPitches).some((pitches) =>
+    pitches.some((pitch) => !pitch.baseline)
+  );
+  const emptyHtml = hasMovementPitches ? "" : `<p class="players-mini-empty players-pitch-empty">変化球は未登録です。</p>`;
+
+  return `
+    <section class="players-mini-card players-mini-card--pitch-chart">
+      <div class="players-mini-card-header">
+        <h4 class="players-mini-card-title">変化球チャート</h4>
+        <span class="players-pitch-hand">${escapeHtml(`${formatThrowingHandLabel(throwingHand)} / 直球基準`)}</span>
+      </div>
+      <div class="pitch-movement-chart pitch-movement-chart--compact" aria-label="変化球表示">
+        <div class="pitch-movement-center" aria-hidden="true">
+          <span class="pitch-movement-ball"></span>
+        </div>
+        ${PITCH_MOVEMENT_DIRECTIONS.map((direction) =>
+          renderCompactPitchDirection(direction, groupedPitches[direction.key])
+        ).join("")}
+      </div>
+      ${emptyHtml}
+    </section>
   `;
 }
 
@@ -428,35 +631,8 @@ function renderAccordionPanel(player, detail = player) {
     ...(playerType ? [{ label: "タイプ", value: getOptionLabel(PLAYER_TYPE_OPTIONS, playerType) }] : []),
     ...(snapshotNote ? [{ label: "メモ", value: snapshotNote }] : []),
   ];
-  const abilitySection = isPitcher(detailPlayer)
-    ? `
-      <section class="players-mini-card players-mini-card--stats">
-        <h4 class="players-mini-card-title">投手能力</h4>
-        ${renderStatGrid([
-          { label: "球速", value: detailPlayer.velocity ? `${detailPlayer.velocity} km/h` : "" },
-          { label: "コントロール", value: detailPlayer.control },
-          { label: "スタミナ", value: detailPlayer.stamina },
-        ])}
-        <div class="players-mini-relation">
-          <span class="players-mini-relation-title">変化球</span>
-          ${renderRelationChips(detailPlayer.pitch_types, formatPitchType, "変化球は未登録です。", { limit: 6 })}
-        </div>
-      </section>
-    `
-    : `
-      <section class="players-mini-card players-mini-card--stats">
-        <h4 class="players-mini-card-title">野手能力</h4>
-        ${renderStatGrid([
-          { label: "弾道", value: detailPlayer.trajectory },
-          { label: "ミート", value: detailPlayer.meat },
-          { label: "パワー", value: detailPlayer.power },
-          { label: "走力", value: detailPlayer.run_speed },
-          { label: "肩力", value: detailPlayer.arm_strength },
-          { label: "守備", value: detailPlayer.fielding },
-          { label: "捕球", value: detailPlayer.catching },
-        ])}
-      </section>
-    `;
+  const abilitySection = renderAbilitySection(detailPlayer);
+  const pitchChartSection = isPitcher(detailPlayer) ? renderCompactPitchMovementCard(detailPlayer) : "";
 
   return `
     <div class="players-accordion-panel">
@@ -468,7 +644,10 @@ function renderAccordionPanel(player, detail = player) {
         ${renderAccordionActions(displayPlayer)}
       </div>
       <div class="players-accordion-grid">
-        ${abilitySection}
+        <div class="players-accordion-primary">
+          ${abilitySection}
+          ${pitchChartSection}
+        </div>
         <section class="players-mini-card players-mini-card--special">
           <h4 class="players-mini-card-title">特殊能力</h4>
           ${renderRelationChips(detailPlayer.special_abilities, formatSpecialAbility, "特殊能力は未登録です。", { limit: 10 })}
@@ -505,6 +684,55 @@ function renderAccordionErrorPanel(player, error) {
       ${renderAccordionActions(player)}
     </div>
   `;
+}
+
+function setAbilityCardMode(card, mode = "pitcher") {
+  if (!card) {
+    return;
+  }
+
+  const normalizedMode = mode === "fielder" ? "fielder" : "pitcher";
+  const isFielderMode = normalizedMode === "fielder";
+  const title = isFielderMode ? "野手能力" : "投手能力";
+  const nextActionLabel = isFielderMode
+    ? "現在は野手能力を表示中。投手能力に戻す"
+    : "現在は投手能力を表示中。野手能力に切り替える";
+  const nextTitle = isFielderMode ? "投手能力に戻す" : "野手能力に切り替える";
+  const nextButtonText = isFielderMode ? "投手に戻す" : "野手を見る";
+
+  card.dataset.playerAbilityMode = normalizedMode;
+
+  card.querySelectorAll("[data-player-ability-panel]").forEach((panel) => {
+    const isActivePanel = panel.dataset.playerAbilityPanel === normalizedMode;
+    panel.dataset.active = String(isActivePanel);
+    panel.setAttribute("aria-hidden", String(!isActivePanel));
+  });
+
+  const titleElement = card.querySelector("[data-player-ability-title]");
+
+  if (titleElement) {
+    titleElement.textContent = title;
+  }
+
+  const toggleButton = card.querySelector("[data-player-ability-toggle]");
+
+  if (toggleButton) {
+    toggleButton.setAttribute("aria-pressed", String(isFielderMode));
+    toggleButton.setAttribute("aria-label", nextActionLabel);
+    toggleButton.title = nextTitle;
+  }
+
+  const toggleLabel = card.querySelector("[data-player-ability-toggle-label]");
+
+  if (toggleLabel) {
+    toggleLabel.textContent = nextButtonText;
+  }
+}
+
+function resetAccordionAbilityModes(detailRow) {
+  detailRow
+    ?.querySelectorAll("[data-player-ability-card]")
+    .forEach((card) => setAbilityCardMode(card, "pitcher"));
 }
 
 async function getCachedPlayerDetail(playerId) {
@@ -930,10 +1158,25 @@ function setAccordionExpanded(toggleButton, detailRow, shouldExpand) {
   toggleButton.title = nextLabel;
   detailRow.hidden = !shouldExpand;
   detailRow.previousElementSibling?.classList.toggle("players-table-row--expanded", shouldExpand);
+
+  if (!shouldExpand) {
+    resetAccordionAbilityModes(detailRow);
+  }
 }
 
 function setupPlayerAccordion(listRoot) {
   listRoot.addEventListener("click", (event) => {
+    const abilityToggleButton = event.target.closest("[data-player-ability-toggle]");
+
+    if (abilityToggleButton) {
+      event.preventDefault();
+
+      const abilityCard = abilityToggleButton.closest("[data-player-ability-card]");
+      const nextMode = abilityCard?.dataset.playerAbilityMode === "fielder" ? "pitcher" : "fielder";
+      setAbilityCardMode(abilityCard, nextMode);
+      return;
+    }
+
     const toggleButton = event.target.closest("[data-player-detail-toggle]");
 
     if (!toggleButton) {

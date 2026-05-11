@@ -472,7 +472,7 @@ export function getPitchDisplayLayout(pitch, throwingHand = "") {
   };
 }
 
-function normalizePitchLevel(value, fallback = 1) {
+export function normalizePitchLevel(value, fallback = 1) {
   const numericValue = Number(value);
 
   if (!Number.isFinite(numericValue)) {
@@ -480,6 +480,72 @@ function normalizePitchLevel(value, fallback = 1) {
   }
 
   return clampNumber(Math.trunc(numericValue), 1, PITCH_METER_MAX_LEVEL);
+}
+
+export function getPitchMovementDisplayName(pitch) {
+  const originalName = String(pitch?.original_pitch_name ?? "").trim();
+
+  if ((Number(pitch?.is_original) === 1 || pitch?.is_original === true) && originalName) {
+    return originalName;
+  }
+
+  return pitch?.pitch_name ?? "不明";
+}
+
+export function toPitchMovementDisplayItem(pitch, { baseline = false, throwingHand = "" } = {}) {
+  const layout = getPitchDisplayLayout(pitch, throwingHand);
+  const fixedLevel = baseline || isStraightPitchName(pitch?.pitch_name) || layout.direction === "top";
+
+  return {
+    direction: layout.direction,
+    directionLabel: layout.directionLabel,
+    orientation: layout.orientation,
+    angle: layout.angle,
+    name: baseline ? "ストレート" : getPitchMovementDisplayName(pitch),
+    level: fixedLevel ? 1 : normalizePitchLevel(pitch?.level),
+    baseName: pitch?.pitch_name ?? "",
+    isOriginal: Number(pitch?.is_original) === 1 || pitch?.is_original === true,
+    baseline,
+    fixedLevel,
+  };
+}
+
+export function getPitchMovementDisplayItems({
+  pitchTypes = [],
+  throwingHand = "",
+  includeBaseline = true,
+} = {}) {
+  const safePitchTypes = Array.isArray(pitchTypes) ? pitchTypes : [];
+  const visiblePitchTypes = safePitchTypes.filter(
+    (pitch) =>
+      !isStraightPitchName(pitch?.pitch_name) &&
+      !isPitchMovementChartExcludedPitchName(pitch?.pitch_name)
+  );
+  const sourcePitches = [
+    ...(includeBaseline ? [{ pitch_name: "ストレート", level: 1, is_original: 0, baseline: true }] : []),
+    ...visiblePitchTypes,
+  ];
+
+  return sourcePitches.map((pitch) =>
+    toPitchMovementDisplayItem(pitch, { baseline: Boolean(pitch.baseline), throwingHand })
+  );
+}
+
+export function groupPitchMovementDisplayItemsByDirection({
+  pitchTypes = [],
+  throwingHand = "",
+  includeBaseline = true,
+} = {}) {
+  const displayPitches = getPitchMovementDisplayItems({
+    pitchTypes,
+    throwingHand,
+    includeBaseline,
+  });
+
+  return PITCH_MOVEMENT_DIRECTIONS.reduce((groups, direction) => {
+    groups[direction.key] = displayPitches.filter((pitch) => pitch.direction === direction.key);
+    return groups;
+  }, {});
 }
 
 function getPitchOptionsForDirection(displayDirection, relationOptions, throwingHand = "", selectedValue = "") {

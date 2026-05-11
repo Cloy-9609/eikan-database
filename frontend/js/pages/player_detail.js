@@ -9,9 +9,7 @@ import { formatSchoolName } from "../utils/formatter.js";
 import {
   bindRelationEditors,
   getFallbackRelationOptions,
-  getPitchDisplayLayout,
-  isPitchMovementChartExcludedPitchName,
-  isStraightPitchName,
+  groupPitchMovementDisplayItemsByDirection,
   normalizeRelationOptions,
   PITCH_METER_MAX_LEVEL,
   PITCH_MOVEMENT_DIRECTIONS,
@@ -1034,70 +1032,6 @@ function buildRelationSectionActions(scope, snapshot, { archivedSchool = false }
   `;
 }
 
-function clampNumber(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function isStraightPitch(pitch) {
-  return isStraightPitchName(pitch?.pitch_name);
-}
-
-function normalizePitchLevel(value, fallback = 1) {
-  const numericValue = Number(value);
-
-  if (!Number.isFinite(numericValue)) {
-    return fallback;
-  }
-
-  return clampNumber(Math.trunc(numericValue), 1, PITCH_METER_MAX_LEVEL);
-}
-
-function getPitchDisplayName(pitch) {
-  const originalName = String(pitch?.original_pitch_name ?? "").trim();
-
-  if ((Number(pitch?.is_original) === 1 || pitch?.is_original === true) && originalName) {
-    return originalName;
-  }
-
-  return pitch?.pitch_name ?? "不明";
-}
-
-function toPitchDisplayItem(pitch, { baseline = false, throwingHand = "" } = {}) {
-  const layout = getPitchDisplayLayout(pitch, throwingHand);
-  const fixedLevel = baseline || isStraightPitch(pitch) || layout.direction === "top";
-
-  return {
-    direction: layout.direction,
-    orientation: layout.orientation,
-    angle: layout.angle,
-    name: baseline ? "ストレート" : getPitchDisplayName(pitch),
-    level: fixedLevel ? 1 : normalizePitchLevel(pitch?.level),
-    baseName: pitch?.pitch_name ?? "",
-    isOriginal: Number(pitch?.is_original) === 1 || pitch?.is_original === true,
-    baseline,
-    fixedLevel,
-  };
-}
-
-function groupPitchesByDirection(snapshot) {
-  const pitchTypes = Array.isArray(snapshot?.pitch_types) ? snapshot.pitch_types : [];
-  const throwingHand = snapshot?.throwing_hand ?? "";
-  const editablePitchTypes = pitchTypes.filter(
-    (pitch) =>
-      !isStraightPitch(pitch) &&
-      !isPitchMovementChartExcludedPitchName(pitch?.pitch_name)
-  );
-  const displayPitches = [
-    { pitch_name: "ストレート", level: 1, is_original: 0, baseline: true },
-    ...editablePitchTypes,
-  ].map((pitch) => toPitchDisplayItem(pitch, { baseline: Boolean(pitch.baseline), throwingHand }));
-
-  return PITCH_MOVEMENT_DIRECTIONS.reduce((groups, direction) => {
-    groups[direction.key] = displayPitches.filter((pitch) => pitch.direction === direction.key);
-    return groups;
-  }, {});
-}
-
 function renderPitcherRankedSummaryValue(value) {
   const rankGroup = getAbilityRank(value);
 
@@ -1253,7 +1187,10 @@ function renderPitchDirection(direction, pitches) {
 }
 
 function renderPitchMovementChart(snapshot) {
-  const groupedPitches = groupPitchesByDirection(snapshot);
+  const groupedPitches = groupPitchMovementDisplayItemsByDirection({
+    pitchTypes: snapshot?.pitch_types,
+    throwingHand: snapshot?.throwing_hand,
+  });
 
   return `
     <section class="pitch-movement" aria-label="変化球表示">
