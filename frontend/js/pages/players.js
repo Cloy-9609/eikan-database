@@ -273,16 +273,25 @@ function formatSchoolGrade(value) {
   return value === undefined || value === null || value === "" ? "未設定" : `${value}年`;
 }
 
-function getPositionType(player) {
-  if (!player?.main_position) {
-    return { label: "未設定", badgeClass: "" };
-  }
+function getMainPositionBadge(player) {
+  const position = formatOptionalValue(player?.main_position);
+  const shortLabels = {
+    "投手": "投",
+    "捕手": "捕",
+    "一塁手": "一",
+    "二塁手": "二",
+    "三塁手": "三",
+    "遊撃手": "遊",
+    "外野手": "外",
+    "全野手": "全野",
+    "全内野手": "全内",
+    "未設定": "未",
+  };
 
-  if (player.main_position === "投手") {
-    return { label: "投手", badgeClass: "players-badge--pitcher" };
-  }
-
-  return { label: "野手", badgeClass: "players-badge--fielder" };
+  return {
+    label: position,
+    shortLabel: shortLabels[position] ?? position,
+  };
 }
 
 function formatRosterStatus(value) {
@@ -303,7 +312,7 @@ function getRosterStatusBadgeClass(value) {
 }
 
 function isPitcher(player) {
-  return getPositionType(player).badgeClass === "players-badge--pitcher";
+  return player?.main_position === "投手";
 }
 
 function formatSnapshotLabel(value) {
@@ -632,7 +641,9 @@ function renderAccordionPanel(player, detail = player) {
     ...(snapshotNote ? [{ label: "メモ", value: snapshotNote }] : []),
   ];
   const abilitySection = renderAbilitySection(detailPlayer);
-  const pitchChartSection = isPitcher(detailPlayer) ? renderCompactPitchMovementCard(detailPlayer) : "";
+  const isPitcherPlayer = isPitcher(detailPlayer);
+  const pitchChartSection = isPitcherPlayer ? renderCompactPitchMovementCard(detailPlayer) : "";
+  const accordionGridClass = `players-accordion-grid${isPitcherPlayer ? " players-accordion-grid--pitcher" : ""}`;
 
   return `
     <div class="players-accordion-panel">
@@ -643,11 +654,9 @@ function renderAccordionPanel(player, detail = player) {
         </div>
         ${renderAccordionActions(displayPlayer)}
       </div>
-      <div class="players-accordion-grid">
-        <div class="players-accordion-primary">
-          ${abilitySection}
-          ${pitchChartSection}
-        </div>
+      <div class="${accordionGridClass}">
+        ${abilitySection}
+        ${pitchChartSection}
         <section class="players-mini-card players-mini-card--special">
           <h4 class="players-mini-card-title">特殊能力</h4>
           ${renderRelationChips(detailPlayer.special_abilities, formatSpecialAbility, "特殊能力は未登録です。", { limit: 10 })}
@@ -991,7 +1000,7 @@ function renderShell(root, searchState) {
 function renderPlayerRows(players) {
   return players
     .map((player, index) => {
-      const positionType = getPositionType(player);
+      const mainPositionBadge = getMainPositionBadge(player);
       const playerName = formatOptionalValue(player.name);
       const schoolName = formatSchoolDisplayName(player.school_name);
       const schoolHref = player.school_id
@@ -1030,11 +1039,17 @@ function renderPlayerRows(players) {
             }
           </td>
           <td class="players-table-cell--position" data-label="ポジション">
-            <span class="players-position-stack">
-              <span class="players-badge ${positionType.badgeClass}">
-                ${escapeHtml(positionType.label)}
+            <span
+              class="players-position-stack"
+              aria-label="${escapeAttribute(`メインポジション: ${mainPositionBadge.label}`)}"
+            >
+              <span
+                class="players-position-badge"
+                aria-label="${escapeAttribute(`メインポジション: ${mainPositionBadge.label}`)}"
+                title="${escapeAttribute(`メインポジション: ${mainPositionBadge.label}`)}"
+              >
+                ${escapeHtml(mainPositionBadge.shortLabel)}
               </span>
-              <span class="players-table-subvalue">主: ${escapeHtml(formatOptionalValue(player.main_position))}</span>
             </span>
           </td>
           <td class="players-table-cell--status" data-label="学年/状態">

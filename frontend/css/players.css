@@ -744,16 +744,25 @@
   color: #596679;
 }
 
-.players-badge--pitcher {
-  border-color: #bdd5ec;
-  background: #eef6fc;
-  color: #175f9f;
-}
-
-.players-badge--fielder {
-  border-color: #d3dec0;
-  background: #f4f8ec;
-  color: #476d28;
+.players-position-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 28px;
+  min-height: 26px;
+  max-width: 100%;
+  padding: 0 8px;
+  border: 1px solid #c7d8e8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1f4566;
+  font-size: 0.82rem;
+  font-weight: 900;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .players-accordion-row td {
@@ -864,13 +873,6 @@
 }
 
 .players-accordion-side {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.players-accordion-primary {
   display: grid;
   gap: 10px;
   min-width: 0;
@@ -1027,31 +1029,30 @@
 }
 
 .players-mini-card--pitch-chart .pitch-movement-chart {
-  --pitch-meter-step: 4px;
-  --pitch-meter-thickness: 4px;
-  --pitch-meter-segment-size: 3px;
-  --pitch-meter-label-width: 46px;
-  --pitch-chart-center-y: 51%;
+  --pitch-meter-step: 6px;
+  --pitch-meter-segment-size: 4.5px;
+  --pitch-meter-label-width: 58px;
+  --pitch-chart-center-y: 50%;
   --pitch-non-top-y-shift: 16px;
   --pitch-chart-non-top-center-y: calc(var(--pitch-chart-center-y) - var(--pitch-non-top-y-shift));
-  --pitch-direction-radius: 44px;
-  --pitch-direction-diagonal-offset: 34px;
+  --pitch-direction-radius: 58px;
+  --pitch-direction-diagonal-offset: 45px;
   --pitch-track-pair-gap: 1px;
   --pitch-label-offset: 14px;
   --pitch-label-diagonal-x: 14px;
   --pitch-label-diagonal-y: 14px;
   --pitch-guide-color: rgba(82, 96, 113, 0.14);
-  --pitch-spoke-long: 40px;
-  --pitch-spoke-diagonal: 34px;
+  --pitch-spoke-long: 52px;
+  --pitch-spoke-diagonal: 44px;
   position: relative;
   display: block;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  min-height: 206px;
+  min-height: 236px;
   margin-inline: auto;
   overflow: hidden;
-  padding: 7px;
+  padding: 4px;
   border: 1px solid rgba(200, 215, 230, 0.72);
   border-radius: 9px;
   background:
@@ -1108,7 +1109,7 @@
   position: absolute;
   z-index: 2;
   display: grid;
-  max-width: 88px;
+  max-width: 104px;
   min-width: 0;
   min-height: 0;
   place-items: center;
@@ -1372,7 +1373,7 @@
   max-width: 100%;
   overflow: hidden;
   color: #3d4f63;
-  font-size: 0.58rem;
+  font-size: 0.61rem;
   font-weight: 800;
   line-height: 1.12;
   text-align: center;
@@ -1403,12 +1404,12 @@
 }
 
 .players-mini-card--pitch-chart .pitch-meter[data-pitch-orientation="vertical"] .pitch-meter-track {
-  width: calc(var(--pitch-meter-thickness) + 4px);
+  width: calc(var(--pitch-meter-segment-size) + 4px);
   grid-template-rows: repeat(7, var(--pitch-meter-step));
 }
 
 .players-mini-card--pitch-chart .pitch-meter[data-pitch-orientation="horizontal"] .pitch-meter-track {
-  height: calc(var(--pitch-meter-thickness) + 4px);
+  height: calc(var(--pitch-meter-segment-size) + 4px);
   grid-template-columns: repeat(7, var(--pitch-meter-step));
 }
 
@@ -1418,7 +1419,7 @@
 
 .players-mini-card--pitch-chart .pitch-meter[data-pitch-baseline="true"] .pitch-meter-track,
 .players-mini-card--pitch-chart .pitch-meter[data-pitch-fixed-level="true"] .pitch-meter-track {
-  width: calc(var(--pitch-meter-thickness) + 4px);
+  width: calc(var(--pitch-meter-segment-size) + 4px);
   height: calc(var(--pitch-meter-step) + 4px);
   grid-template-rows: var(--pitch-meter-step);
   grid-template-columns: 1fr;
@@ -1489,7 +1490,7 @@
 
 .players-stat-item {
   display: grid;
-  grid-template-columns: minmax(72px, 1fr) minmax(42px, auto);
+  grid-template-columns: minmax(0, 1fr) max-content;
   gap: 8px;
   align-items: center;
   min-width: 0;
@@ -1511,6 +1512,7 @@
   font-size: 0.98rem;
   font-weight: 900;
   text-align: right;
+  white-space: nowrap;
 }
 
 .players-mini-relation {
@@ -1623,9 +1625,61 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .players-accordion-grid--pitcher {
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  }
+
   .players-accordion-side {
     grid-column: 1 / -1;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .players-accordion-grid--pitcher > .players-mini-card--stats {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .players-accordion-grid--pitcher > .players-mini-card--pitch-chart {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .players-accordion-grid--pitcher > .players-accordion-side {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .players-accordion-grid--pitcher > .players-mini-card--special {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+}
+
+@media (min-width: 901px) {
+  .players-accordion-grid--pitcher {
+    grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.53fr) minmax(0, 0.75fr);
+  }
+
+  .players-accordion-grid--pitcher > .players-mini-card--stats {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .players-accordion-grid--pitcher > .players-mini-card--pitch-chart {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .players-accordion-grid--pitcher > .players-accordion-side {
+    grid-column: 3;
+    grid-row: 1;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .players-accordion-grid--pitcher > .players-mini-card--special {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }
 
@@ -1897,6 +1951,22 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .players-accordion-grid--pitcher > .players-mini-card--stats {
+    order: 1;
+  }
+
+  .players-accordion-grid--pitcher > .players-mini-card--pitch-chart {
+    order: 2;
+  }
+
+  .players-accordion-grid--pitcher > .players-accordion-side {
+    order: 3;
+  }
+
+  .players-accordion-grid--pitcher > .players-mini-card--special {
+    order: 4;
+  }
+
   .players-stat-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1909,18 +1979,17 @@
 
 @media (max-width: 480px) {
   .players-mini-card--pitch-chart .pitch-movement-chart {
-    --pitch-meter-step: 3px;
-    --pitch-meter-thickness: 3px;
-    --pitch-meter-segment-size: 2.5px;
-    --pitch-meter-label-width: 40px;
-    --pitch-direction-radius: 38px;
-    --pitch-direction-diagonal-offset: 29px;
+    --pitch-meter-step: 5px;
+    --pitch-meter-segment-size: 3.5px;
+    --pitch-meter-label-width: 48px;
+    --pitch-direction-radius: 46px;
+    --pitch-direction-diagonal-offset: 35px;
     --pitch-label-offset: 10px;
     --pitch-label-diagonal-x: 10px;
-    --pitch-label-diagonal-y: 12px;
-    --pitch-spoke-long: 34px;
-    min-height: 186px;
-    padding: 5px;
+    --pitch-label-diagonal-y: 11px;
+    --pitch-spoke-long: 40px;
+    min-height: 208px;
+    padding: 4px;
   }
 
   .players-mini-card--pitch-chart .pitch-movement-center {
