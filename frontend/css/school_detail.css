@@ -672,16 +672,50 @@
   white-space: nowrap;
 }
 
+.players-table-cell--total-stars {
+  white-space: nowrap;
+}
+
 .players-name-stack,
 .players-grade-stack {
   display: grid;
   gap: 5px;
 }
 
-.players-secondary-text {
+.players-position-text {
   color: #687a8d;
   font-size: 0.88rem;
   line-height: 1.4;
+}
+
+.players-total-stars {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 58px;
+  padding: 3px 8px;
+  border: 1px solid #c8d5e4;
+  border-radius: 10px;
+  background: #f8fbff;
+  color: #243447;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.players-total-stars-mark {
+  color: #1e6fb9;
+  font-size: 0.88em;
+}
+
+.players-total-stars.is-empty {
+  color: #687a8d;
+  font-weight: 600;
+}
+
+.players-total-stars.is-empty .players-total-stars-mark {
+  color: #9aabbc;
 }
 
 .player-name-text {

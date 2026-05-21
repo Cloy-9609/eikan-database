@@ -46,6 +46,16 @@ function formatOptionalValue(value) {
   return String(value);
 }
 
+function formatTotalStars(value) {
+  const numericValue = Number(value);
+
+  if (value === undefined || value === null || value === "" || !Number.isInteger(numericValue) || numericValue <= 0) {
+    return "—";
+  }
+
+  return String(numericValue);
+}
+
 function formatYearValue(value) {
   return Number.isInteger(Number(value)) ? `${Number(value)}年` : "未設定";
 }
@@ -547,13 +557,15 @@ function renderPlayerSeriesSummaries(root, playerSeriesSummaries, school = null)
           </a>
         `
         : `<span class="player-name-text">${escapeHtml(playerSeriesSummary.name)}</span>`;
+      const mainPositionText = formatOptionalValue(playerSeriesSummary.mainPosition);
+      const totalStarsText = formatTotalStars(playerSeriesSummary.totalStars);
 
       return `
         <tr class="players-table-row">
           <td class="players-table-cell players-table-cell--name">
             <div class="players-name-stack">
               ${nameCell}
-              <span class="players-secondary-text">series #${escapeHtml(playerSeriesSummary.seriesNo ?? "-")}</span>
+              <span class="players-position-text">${escapeHtml(mainPositionText)}</span>
             </div>
           </td>
           <td class="players-table-cell players-table-cell--grade">
@@ -565,8 +577,11 @@ function renderPlayerSeriesSummaries(root, playerSeriesSummaries, school = null)
           <td class="players-table-cell">
             <span>${escapeHtml(formatSnapshotSummary(playerSeriesSummary))}</span>
           </td>
-          <td class="players-table-cell">
-            ${escapeHtml(formatOptionalValue(playerSeriesSummary.mainPosition))}
+          <td class="players-table-cell players-table-cell--total-stars">
+            <span class="players-total-stars ${totalStarsText === "—" ? "is-empty" : ""}">
+              <span class="players-total-stars-mark" aria-hidden="true">★</span>
+              <span>${escapeHtml(totalStarsText)}</span>
+            </span>
           </td>
           <td class="players-table-cell">
             ${escapeHtml(getPlayerTypeLabel(playerSeriesSummary.playerType))}
@@ -587,7 +602,7 @@ function renderPlayerSeriesSummaries(root, playerSeriesSummaries, school = null)
             <th scope="col">名前</th>
             <th scope="col">学校管理学年</th>
             <th scope="col">最新snapshot</th>
-            <th scope="col">メインポジション</th>
+            <th scope="col">総合星</th>
             <th scope="col">選手種別</th>
           </tr>
         </thead>

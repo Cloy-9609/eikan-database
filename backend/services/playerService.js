@@ -44,6 +44,8 @@ const ALLOWED_POSITIONS = PLAYER_POSITION_OPTIONS;
 const ALLOWED_PLAYER_SEARCH_POSITIONS = [...ALLOWED_POSITIONS, ...POSITION_SEARCH_CATEGORIES];
 const ADMISSION_YEAR_MIN = 1932;
 const ADMISSION_YEAR_MAX = 2039;
+const TOTAL_STARS_UNSET_VALUE = 0;
+const TOTAL_STARS_MAX = 999;
 const REQUIRED_UPDATE_FIELDS = [
   "name",
   "player_type",
@@ -278,6 +280,15 @@ function validateAdmissionYear(value) {
   }
 
   return admissionYear;
+}
+
+function validateTotalStars(value) {
+  return (
+    parseOptionalInteger(value, "total_stars", {
+      min: TOTAL_STARS_UNSET_VALUE,
+      max: TOTAL_STARS_MAX,
+    }) ?? TOTAL_STARS_UNSET_VALUE
+  );
 }
 
 function deriveTypeFlags(playerType) {
@@ -580,7 +591,7 @@ function validatePlayerPayload(payload = {}) {
     name,
     player_type: playerType,
     player_type_note: parseOptionalText(payload.player_type_note),
-    total_stars: parseOptionalInteger(payload.total_stars, "total_stars", { min: 0 }) ?? 0,
+    total_stars: validateTotalStars(payload.total_stars),
     prefecture: validatePrefecture(parseRequiredText(payload.prefecture, "prefecture")),
     grade: resolveSnapshotGrade(payload.grade, snapshotLabel),
     admission_year: validateAdmissionYear(payload.admission_year),

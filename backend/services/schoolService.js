@@ -135,6 +135,7 @@ function buildPlayerSeriesSummary(series, seriesSnapshots) {
     grade: series.school_grade,
     latestSnapshotGrade: latestSnapshot?.grade ?? null,
     mainPosition: latestSnapshot?.main_position ?? null,
+    totalStars: latestSnapshot?.total_stars ?? null,
     playerType: latestSnapshot?.player_type ?? series.player_type,
     seriesNo: series.series_no,
     schoolCode: series.school_code,

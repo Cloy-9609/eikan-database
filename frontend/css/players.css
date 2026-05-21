@@ -550,30 +550,42 @@
   box-shadow: inset 4px 0 0 #7ba9ce;
 }
 
-.players-table-cell--name {
-  width: 25%;
+.players-table .players-table-cell--name {
+  width: 26%;
   min-width: 0;
+  text-align: left;
 }
 
-.players-table-cell--school {
-  width: 23%;
+.players-table .players-table-cell--school {
+  width: 21%;
   min-width: 0;
+  text-align: center;
 }
 
-.players-table-cell--position {
-  width: 22%;
+.players-table .players-table-cell--position {
+  width: 11%;
   min-width: 0;
+  text-align: center;
 }
 
-.players-table-cell--status {
-  width: 18%;
+.players-table .players-table-cell--total-stars {
+  width: 82px;
   min-width: 0;
+  text-align: center;
+  white-space: nowrap;
 }
 
-.players-table-cell--year {
+.players-table .players-table-cell--status {
+  width: 15%;
+  min-width: 0;
+  text-align: center;
+}
+
+.players-table .players-table-cell--year {
   width: 78px;
   color: #52667b;
   font-weight: 700;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -650,6 +662,7 @@
 .players-table-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   max-width: 100%;
   min-width: 0;
@@ -681,6 +694,7 @@
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  justify-content: center;
   min-width: 0;
   max-width: 100%;
 }
@@ -763,6 +777,38 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.players-total-stars {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 56px;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid #c7d8e8;
+  border-radius: 10px;
+  background: #f8fbfe;
+  color: #243447;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.players-total-stars-mark {
+  color: #175f9f;
+  font-size: 0.88em;
+}
+
+.players-total-stars.is-empty {
+  color: #6a7c90;
+  font-weight: 800;
+}
+
+.players-total-stars.is-empty .players-total-stars-mark {
+  color: #9aabbc;
 }
 
 .players-accordion-row td {
@@ -1862,8 +1908,17 @@
     align-items: center;
   }
 
-  .players-table-cell--name {
+  .players-table .players-table-cell--name {
     background: #f8fbfe;
+    text-align: left;
+  }
+
+  .players-table .players-table-cell--school,
+  .players-table .players-table-cell--position,
+  .players-table .players-table-cell--total-stars,
+  .players-table .players-table-cell--status,
+  .players-table .players-table-cell--year {
+    text-align: left;
   }
 
   .players-name-cell-content {
@@ -1893,11 +1948,12 @@
     border-bottom: 0;
   }
 
-  .players-table-cell--name,
-  .players-table-cell--school,
-  .players-table-cell--position,
-  .players-table-cell--status,
-  .players-table-cell--year {
+  .players-table .players-table-cell--name,
+  .players-table .players-table-cell--school,
+  .players-table .players-table-cell--position,
+  .players-table .players-table-cell--total-stars,
+  .players-table .players-table-cell--status,
+  .players-table .players-table-cell--year {
     min-width: 0;
   }
 
@@ -1972,8 +2028,18 @@
   }
 
   .players-position-stack,
+  .players-total-stars,
   .players-status-stack {
     min-width: 0;
+  }
+
+  .players-position-stack,
+  .players-status-stack {
+    justify-content: flex-start;
+  }
+
+  .players-table-cell--school .players-table-link {
+    justify-content: flex-start;
   }
 }
 

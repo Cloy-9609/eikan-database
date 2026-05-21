@@ -63,6 +63,7 @@ const SORT_OPTIONS = [
 let latestPlayersRequestId = 0;
 const PLAYER_DETAIL_CACHE = new Map();
 const PLAYER_DETAIL_LOADING = new Map();
+const PLAYERS_TABLE_COLUMN_COUNT = 6;
 
 const SNAPSHOT_LABELS = {
   entrance: "入学時",
@@ -322,6 +323,16 @@ function formatSnapshotLabel(value) {
 
 function formatStatValue(value) {
   return value === undefined || value === null || value === "" ? "-" : String(value);
+}
+
+function formatTotalStars(value) {
+  const numericValue = Number(value);
+
+  if (value === undefined || value === null || value === "" || !Number.isInteger(numericValue) || numericValue <= 0) {
+    return "—";
+  }
+
+  return String(numericValue);
 }
 
 function buildPlayerDetailUrl(player) {
@@ -1006,6 +1017,8 @@ function renderPlayerRows(players) {
       const schoolHref = player.school_id
         ? `./school_detail.html?id=${encodeURIComponent(player.school_id)}`
         : "";
+      const totalStarsText = formatTotalStars(player.total_stars);
+      const totalStarsLabel = totalStarsText === "—" ? "総合星: 未設定" : `総合星: ${totalStarsText}`;
       const rowKey = player.id || player.player_series_id || index;
       const accordionId = `players-row-detail-${escapeAttribute(rowKey)}`;
       const encodedPlayer = escapeAttribute(JSON.stringify(player));
@@ -1052,6 +1065,16 @@ function renderPlayerRows(players) {
               </span>
             </span>
           </td>
+          <td class="players-table-cell--total-stars" data-label="総合星">
+            <span
+              class="players-total-stars ${totalStarsText === "—" ? "is-empty" : ""}"
+              aria-label="${escapeAttribute(totalStarsLabel)}"
+              title="${escapeAttribute(totalStarsLabel)}"
+            >
+              <span class="players-total-stars-mark" aria-hidden="true">★</span>
+              <span>${escapeHtml(totalStarsText)}</span>
+            </span>
+          </td>
           <td class="players-table-cell--status" data-label="学年/状態">
             <span class="players-status-stack">
               <span class="players-grade-chip">${escapeHtml(formatSchoolGrade(player.school_grade))}</span>
@@ -1063,7 +1086,7 @@ function renderPlayerRows(players) {
           <td class="players-table-cell--year" data-label="入学年">${escapeHtml(formatYear(player.admission_year))}</td>
         </tr>
         <tr id="${accordionId}" class="players-accordion-row" hidden>
-          <td colspan="5" data-label="簡易詳細">
+          <td colspan="${PLAYERS_TABLE_COLUMN_COUNT}" data-label="簡易詳細">
             ${renderAccordionLoadingPanel(player)}
           </td>
         </tr>
@@ -1110,11 +1133,12 @@ function renderPlayerList(root, players, { hasFilters = false, searchState = cre
       <table class="players-table">
         <thead>
           <tr>
-            <th scope="col">選手名</th>
-            <th scope="col">学校名</th>
-            <th scope="col">ポジション</th>
-            <th scope="col">学年 / 状態</th>
-            <th scope="col">入学年</th>
+            <th scope="col" class="players-table-cell--name">選手名</th>
+            <th scope="col" class="players-table-cell--school">学校名</th>
+            <th scope="col" class="players-table-cell--position">ポジション</th>
+            <th scope="col" class="players-table-cell--total-stars">総合星</th>
+            <th scope="col" class="players-table-cell--status">学年 / 状態</th>
+            <th scope="col" class="players-table-cell--year">入学年</th>
           </tr>
         </thead>
         <tbody>${renderPlayerRows(safePlayers)}</tbody>

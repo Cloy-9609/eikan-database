@@ -284,6 +284,26 @@ function formatValue(value, fallback = "なし") {
   return escapeHtml(value);
 }
 
+function formatTotalStars(value) {
+  const numericValue = Number(value);
+
+  if (value === undefined || value === null || value === "" || !Number.isInteger(numericValue) || numericValue <= 0) {
+    return "—";
+  }
+
+  return String(numericValue);
+}
+
+function renderTotalStarsSummary(refs, value, metaText = "") {
+  if (refs.totalStarsValueElement) {
+    refs.totalStarsValueElement.textContent = formatTotalStars(value);
+  }
+
+  if (refs.totalStarsMetaElement) {
+    refs.totalStarsMetaElement.textContent = metaText;
+  }
+}
+
 function formatPlayerType(value) {
   return formatValue(PLAYER_TYPE_LABELS[value] ?? value);
 }
@@ -1718,7 +1738,7 @@ function renderError(refs, message) {
   refs.titleElement.textContent = "選手詳細";
   refs.contextElement.textContent = "選手情報を取得できませんでした。";
   refs.schoolNameElement.textContent = "学校情報なし";
-  refs.schoolMetaElement.textContent = "";
+  renderTotalStarsSummary(refs, null);
   renderActions(refs.actionsElement, [
     { href: "./schools.html", label: "学校一覧へ戻る", primary: false },
   ]);
@@ -1771,7 +1791,7 @@ function renderPlayerLegacy(refs, seriesResponse) {
     refs.titleElement.textContent = displayName;
     refs.contextElement.textContent = contextParts.join(" / ");
     refs.schoolNameElement.textContent = schoolNameText;
-    refs.schoolMetaElement.textContent = archivedSchool ? "削除済み学校の凍結データ" : "";
+    renderTotalStarsSummary(refs, currentSnapshot.total_stars, archivedSchool ? "凍結データ" : "");
 
     renderActions(
       refs.actionsElement,
@@ -1925,7 +1945,7 @@ function renderPlayerLegacy(refs, seriesResponse) {
     ? `選手ID: ${player.id} / 保持データ`
     : `選手ID: ${player.id}`;
   refs.schoolNameElement.textContent = schoolNameText;
-  refs.schoolMetaElement.textContent = archivedSchool ? "削除済み学校の保持データ" : "";
+  renderTotalStarsSummary(refs, player.total_stars, archivedSchool ? "保持データ" : "");
 
   renderActions(
     refs.actionsElement,
@@ -2075,7 +2095,7 @@ function renderPlayer(refs, seriesResponse) {
   refs.titleElement.textContent = displayName;
   refs.contextElement.textContent = contextParts.join(" / ");
   refs.schoolNameElement.textContent = schoolNameText;
-  refs.schoolMetaElement.textContent = archivedSchool ? "削除済み学校の凍結データ" : "";
+  renderTotalStarsSummary(refs, currentSnapshot.total_stars, archivedSchool ? "凍結データ" : "");
 
   renderActions(
     refs.actionsElement,
@@ -3150,7 +3170,8 @@ async function initOld() {
     titleElement: document.getElementById("player-detail-title"),
     contextElement: document.getElementById("player-detail-context"),
     schoolNameElement: document.getElementById("player-detail-school-name"),
-    schoolMetaElement: document.getElementById("player-detail-school-meta"),
+    totalStarsValueElement: document.getElementById("player-detail-total-stars-value"),
+    totalStarsMetaElement: document.getElementById("player-detail-total-stars-meta"),
     actionsElement: document.getElementById("player-detail-actions"),
     messageElement: document.getElementById("player-detail-message"),
     toastRegionElement: document.getElementById("player-detail-toast-region"),
@@ -3414,7 +3435,8 @@ async function init() {
     titleElement: document.getElementById("player-detail-title"),
     contextElement: document.getElementById("player-detail-context"),
     schoolNameElement: document.getElementById("player-detail-school-name"),
-    schoolMetaElement: document.getElementById("player-detail-school-meta"),
+    totalStarsValueElement: document.getElementById("player-detail-total-stars-value"),
+    totalStarsMetaElement: document.getElementById("player-detail-total-stars-meta"),
     actionsElement: document.getElementById("player-detail-actions"),
     messageElement: document.getElementById("player-detail-message"),
     toastRegionElement: document.getElementById("player-detail-toast-region"),

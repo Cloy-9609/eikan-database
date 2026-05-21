@@ -206,6 +206,11 @@
   text-transform: uppercase;
 }
 
+.player-page--detail .player-page-kicker {
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
 .player-page-title {
   margin: 0;
   color: var(--player-color-text);
@@ -1812,11 +1817,11 @@
   flex: 1 1 auto;
 }
 
-.player-detail-school {
+.player-detail-total-stars {
   display: grid;
   gap: 4px;
   justify-items: end;
-  min-width: min(240px, 34%);
+  min-width: min(180px, 28%);
   padding: var(--player-space-lg) var(--player-space-xl);
   border: 1px solid var(--player-color-border);
   border-radius: var(--player-radius-xl);
@@ -1825,7 +1830,7 @@
   text-align: right;
 }
 
-.player-detail-school-label {
+.player-detail-total-stars-label {
   margin: 0;
   color: var(--player-color-text-subtle);
   font-size: var(--player-font-size-sm-plus);
@@ -1833,15 +1838,16 @@
   letter-spacing: 0.08em;
 }
 
-.player-detail-school-name {
+.player-detail-total-stars-value {
   margin: 0;
   color: var(--player-color-text);
-  font-size: clamp(1.08rem, 2vw, 1.3rem);
+  font-size: clamp(1.35rem, 2.2vw, 1.7rem);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   line-height: var(--player-line-height-tight);
 }
 
-.player-detail-school-meta {
+.player-detail-total-stars-meta {
   min-height: 1.2em;
   margin: 0;
   color: var(--player-color-text-muted);
@@ -4179,7 +4185,7 @@ button.defense-position-node {
     gap: var(--player-space-xl);
   }
 
-  .player-detail-school {
+  .player-detail-total-stars {
     justify-items: start;
     min-width: 0;
     text-align: left;

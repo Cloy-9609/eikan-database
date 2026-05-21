@@ -43,6 +43,8 @@ Object.assign(SNAPSHOT_LABELS, LEGACY_SNAPSHOT_LABELS);
 
 const POSITION_OPTIONS = ["投手", "捕手", "一塁手", "二塁手", "三塁手", "遊撃手", "外野手"];
 const PITCHER_MAIN_POSITION = "投手";
+const TOTAL_STARS_MIN = 1;
+const TOTAL_STARS_MAX = 999;
 const DEFAULT_EDIT_SCOPE = "full";
 const FOCUSABLE_EDIT_SCOPES = new Set([
   "basic",
@@ -603,6 +605,20 @@ function renderNumberRow({ field, label, value, min, max, step = 1, helpText = "
   `;
 }
 
+function formatTotalStarsInputValue(value) {
+  const numericValue = Number(value);
+
+  if (
+    !Number.isInteger(numericValue) ||
+    numericValue < TOTAL_STARS_MIN ||
+    numericValue > TOTAL_STARS_MAX
+  ) {
+    return "";
+  }
+
+  return String(numericValue);
+}
+
 function renderAbilityBlock({
   field,
   label,
@@ -969,6 +985,15 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
         value: player.player_type,
         required: true,
       }),
+      renderNumberRow({
+        field: "total_stars",
+        label: "総合星",
+        value: formatTotalStarsInputValue(player.total_stars),
+        min: TOTAL_STARS_MIN,
+        max: TOTAL_STARS_MAX,
+        step: 1,
+        helpText: "1〜999の整数で入力します。空欄は未設定として保存します。",
+      }),
       renderSelectRow({
         field: "prefecture",
         label: "出身都道府県",
@@ -1114,6 +1139,36 @@ function appendOptionalIntegerPayload(payload, formData, field) {
   }
 }
 
+function parseTotalStarsField(formData) {
+  const value = formData.get("total_stars");
+
+  if (value === null) {
+    return null;
+  }
+
+  const text = String(value).trim();
+
+  if (text === "") {
+    return null;
+  }
+
+  if (!/^\d+$/.test(text)) {
+    throw new Error("総合星は1〜999の整数で入力してください。");
+  }
+
+  const numericValue = Number(text);
+
+  if (
+    !Number.isInteger(numericValue) ||
+    numericValue < TOTAL_STARS_MIN ||
+    numericValue > TOTAL_STARS_MAX
+  ) {
+    throw new Error("総合星は1〜999の整数で入力してください。");
+  }
+
+  return numericValue;
+}
+
 function resolveMainDefenseValueFromForm(form, fallbackValue = "") {
   const hiddenValue = form.querySelector('[data-ranked-value-hidden="fielding"]')?.value;
   const fallbackNumericValue = Number(fallbackValue);
@@ -1134,6 +1189,7 @@ function buildPayload(formData, form, relationOptions) {
   const payload = {
     name: formData.get("name"),
     player_type: formData.get("player_type"),
+    total_stars: parseTotalStarsField(formData),
     prefecture: formData.get("prefecture"),
     grade: Number(formData.get("grade")),
     admission_year: Number(formData.get("admission_year")),
@@ -1165,11 +1221,12 @@ async function handleSubmit(event, player, messageElement, relationOptions) {
   event.preventDefault();
 
   const form = event.currentTarget;
-  const formData = new FormData(form);
-  const payload = buildPayload(formData, form, relationOptions);
-  const detailHref = buildPlayerDetailUrl(player.id, payload.snapshot_label || player.snapshot_label);
 
   try {
+    const formData = new FormData(form);
+    const payload = buildPayload(formData, form, relationOptions);
+    const detailHref = buildPlayerDetailUrl(player.id, payload.snapshot_label || player.snapshot_label);
+
     setMessage(messageElement, "保存しています...");
     await updatePlayer(player.id, payload);
     setMessage(messageElement, "保存しました。詳細画面へ戻ります。");
