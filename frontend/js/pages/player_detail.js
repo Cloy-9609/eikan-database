@@ -37,6 +37,14 @@ const SNAPSHOT_LABELS = Object.fromEntries(
 );
 Object.assign(SNAPSHOT_LABELS, LEGACY_SNAPSHOT_LABELS);
 
+const SNAPSHOT_BUTTON_STATE_LABELS = {
+  current: "表示中",
+  registered: "登録済み",
+  unregistered: "未登録",
+  loading: "読込中",
+  error: "再試行",
+};
+
 const THROWING_HAND_OPTIONS = [
   { value: "right", label: "右" },
   { value: "left", label: "左" },
@@ -108,6 +116,9 @@ const DETAIL_STATE = {
   snapshots: [],
   currentSnapshot: null,
   refs: null,
+  isBusy: false,
+  loadingSnapshotKey: "",
+  snapshotButtonErrorKey: "",
   nextToastId: 0,
   activeToastKeys: new Set(),
 };
@@ -144,7 +155,10 @@ function syncSnapshotQuery(snapshotKey) {
   window.history.replaceState({}, "", url);
 }
 
-function buildPlayerEditUrl(playerId, { mode = "", from = "", snapshot = "", scope = "" } = {}) {
+function buildPlayerEditUrl(
+  playerId,
+  { mode = "", from = "", snapshot = "", scope = "", targetPosition = "", positionRole = "" } = {}
+) {
   const params = new URLSearchParams();
   params.set("id", String(playerId));
 
@@ -162,6 +176,14 @@ function buildPlayerEditUrl(playerId, { mode = "", from = "", snapshot = "", sco
 
   if (scope) {
     params.set("scope", scope);
+  }
+
+  if (targetPosition) {
+    params.set("target_position", targetPosition);
+  }
+
+  if (positionRole) {
+    params.set("position_role", positionRole);
   }
 
   return `./player_edit.html?${params.toString()}`;
@@ -567,89 +589,115 @@ function isCurrentSnapshotRecord(snapshot, currentSnapshot) {
   return snapshot.snapshot_label === currentSnapshot.snapshot_label;
 }
 
-function renderSnapshotHistoryMetaItem(label, value) {
-  return `
-    <div class="snapshot-history-meta-item">
-      <dt>${label}</dt>
-      <dd>${value}</dd>
-    </div>
-  `;
+function setSnapshotButtonLoading(snapshotKey) {
+  DETAIL_STATE.loadingSnapshotKey = snapshotKey;
+  DETAIL_STATE.snapshotButtonErrorKey = "";
 }
 
-function renderSnapshotHistoryItem(snapshot, currentSnapshot, playerSeries) {
-  const isCurrent = isCurrentSnapshotRecord(snapshot, currentSnapshot);
-  const label =
-    snapshot.snapshot_label_display ??
-    SNAPSHOT_LABELS[snapshot.snapshot_label] ??
-    snapshot.snapshot_label ??
-    "時点未設定";
-  const stateLabel = isCurrent ? "表示中" : "詳細を見る";
-  const className = [
-    "snapshot-timeline-button",
-    "snapshot-history-item",
-    isCurrent ? "is-current" : "is-registered",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const updatedAt = formatDateTimeValue(snapshot.updated_at);
-  const createdAt = formatDateTimeValue(snapshot.created_at);
-  const href = buildPlayerDetailSnapshotUrl(snapshot);
+function setSnapshotButtonError(snapshotKey) {
+  DETAIL_STATE.loadingSnapshotKey = "";
+  DETAIL_STATE.snapshotButtonErrorKey = snapshotKey;
+}
 
-  return `
-    <a
-      class="${className}"
-      href="${escapeAttribute(href)}"
-      data-snapshot-id="${escapeAttribute(snapshot.id ?? "")}"
-      data-snapshot-label="${escapeAttribute(snapshot.snapshot_label ?? "")}"
-      ${isCurrent ? 'aria-current="page"' : ""}
-    >
-      <span class="snapshot-history-main">
-        <span class="snapshot-timeline-button-label">${escapeHtml(label)}</span>
-        <span class="snapshot-timeline-button-state">${stateLabel}</span>
-      </span>
-      <dl class="snapshot-history-meta">
-        ${renderSnapshotHistoryMetaItem("学年", escapeHtml(formatGradeValue(snapshot.grade)))}
-        ${renderSnapshotHistoryMetaItem("入学年", escapeHtml(formatYearValue(playerSeries?.admission_year)))}
-        ${renderSnapshotHistoryMetaItem("総合星", escapeHtml(formatTotalStars(snapshot.total_stars)))}
-        ${renderSnapshotHistoryMetaItem("更新", escapeHtml(updatedAt))}
-        ${renderSnapshotHistoryMetaItem("作成", escapeHtml(createdAt))}
-      </dl>
-    </a>
-  `;
+function clearSnapshotButtonFeedback() {
+  DETAIL_STATE.loadingSnapshotKey = "";
+  DETAIL_STATE.snapshotButtonErrorKey = "";
+}
+
+function resolveSnapshotButtonState(snapshotKey, snapshots, currentSnapshot) {
+  const registered = isSnapshotRegistered(snapshotKey, snapshots);
+  const current = isCurrentSnapshot(snapshotKey, currentSnapshot);
+
+  if (DETAIL_STATE.loadingSnapshotKey === snapshotKey) {
+    return {
+      tone: "loading",
+      label: SNAPSHOT_BUTTON_STATE_LABELS.loading,
+      registered,
+      current: false,
+    };
+  }
+
+  if (DETAIL_STATE.snapshotButtonErrorKey === snapshotKey) {
+    return {
+      tone: "error",
+      label: SNAPSHOT_BUTTON_STATE_LABELS.error,
+      registered,
+      current: false,
+    };
+  }
+
+  if (current) {
+    return {
+      tone: "current",
+      label: SNAPSHOT_BUTTON_STATE_LABELS.current,
+      registered: true,
+      current: true,
+    };
+  }
+
+  if (registered) {
+    return {
+      tone: "registered",
+      label: SNAPSHOT_BUTTON_STATE_LABELS.registered,
+      registered: true,
+      current: false,
+    };
+  }
+
+  return {
+    tone: "unregistered",
+    label: SNAPSHOT_BUTTON_STATE_LABELS.unregistered,
+    registered: false,
+    current: false,
+  };
 }
 
 function buildSnapshotTimelineButtons(seriesResponse) {
   const snapshots = Array.isArray(seriesResponse?.snapshots) ? seriesResponse.snapshots : [];
   const currentSnapshot = seriesResponse?.currentSnapshot ?? null;
-  const playerSeries = seriesResponse?.playerSeries ?? null;
-  const buttonsHtml = snapshots.length
-    ? snapshots
-        .map((snapshot) => renderSnapshotHistoryItem(snapshot, currentSnapshot, playerSeries))
-        .join("")
-    : `
-      <div class="snapshot-history-empty">
-        snapshot 履歴を取得できませんでした。
-      </div>
-    `;
-  const countNote =
-    snapshots.length === 1
-      ? '<p class="snapshot-timeline-count-note">この player_series に登録されている snapshot は現在表示中の1件のみです。</p>'
-      : "";
+  const visibleSnapshotDefinitions = getVisibleOfficialSnapshotDefinitions(seriesResponse);
+  const buttonsHtml = visibleSnapshotDefinitions
+    .map(({ key, label }) => {
+      const buttonState = resolveSnapshotButtonState(key, snapshots, currentSnapshot);
+      const className = [
+        "snapshot-timeline-button",
+        `is-${buttonState.tone}`,
+        buttonState.registered ? "is-registered" : "is-unregistered",
+        buttonState.current ? "is-current" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      return `
+        <button
+          type="button"
+          class="${className}"
+          data-snapshot-button="${escapeAttribute(key)}"
+          data-snapshot-registered="${buttonState.registered ? "true" : "false"}"
+          data-snapshot-state="${buttonState.tone}"
+          aria-pressed="${buttonState.current ? "true" : "false"}"
+          ${DETAIL_STATE.isBusy ? "disabled" : ""}
+        >
+          <span class="snapshot-timeline-button-label">${label}</span>
+          <span class="snapshot-timeline-button-state">${buttonState.label}</span>
+        </button>
+      `;
+    })
+    .join("");
 
   return `
     <section class="snapshot-timeline" aria-labelledby="snapshot-timeline-title">
       <div class="snapshot-timeline-header">
         <div>
-          <h3 id="snapshot-timeline-title" class="snapshot-timeline-title">snapshot 履歴</h3>
+          <h3 id="snapshot-timeline-title" class="snapshot-timeline-title">時点切替</h3>
           <p class="snapshot-timeline-caption">
-            同じ player_series に登録済みの snapshot を確認できます。
+            登録状況と表示中の時点を、ボタンの色とラベルで確認できます。
           </p>
         </div>
       </div>
       <div class="snapshot-timeline-buttons">
         ${buttonsHtml}
       </div>
-      ${countNote}
       ${buildLegacySnapshotNotice(seriesResponse)}
     </section>
   `;
@@ -1007,28 +1055,48 @@ function renderDefenseGroundSvg() {
   `;
 }
 
-function renderDefensePositionNode(slot, { mainPosition, subPositionByName }) {
+function buildDefensePositionEditUrl(slot, snapshot, mainPosition) {
+  const isMain = slot.position === mainPosition;
+
+  return buildPlayerEditUrl(snapshot.id, {
+    snapshot: snapshot.snapshot_label,
+    scope: isMain ? "basic" : "sub_positions",
+    targetPosition: slot.position,
+    positionRole: isMain ? "main" : "sub",
+  });
+}
+
+function renderDefensePositionNode(slot, { mainPosition, subPositionByName, snapshot, archivedSchool = false }) {
   const subPosition = subPositionByName.get(slot.position);
   const isMain = slot.position === mainPosition;
   const isSub = Boolean(subPosition) && !isMain;
   const stateClass = isMain ? "is-main" : isSub ? "is-sub" : "is-empty";
   const roleLabel = isMain ? "メイン" : isSub ? "サブ" : "未設定";
+  const canNavigateToEdit = !archivedSchool && Boolean(snapshot?.id);
+  const tagName = canNavigateToEdit ? "a" : "div";
+  const hrefAttribute = canNavigateToEdit
+    ? `href="${escapeAttribute(buildDefensePositionEditUrl(slot, snapshot, mainPosition))}"`
+    : "";
+  const interactionClass = canNavigateToEdit ? "is-clickable" : "is-readonly";
+  const actionLabel = canNavigateToEdit ? "。編集画面へ移動" : "";
   const suitability = isSub && subPosition?.suitability_value
     ? `<span class="defense-position-suitability">${escapeHtml(subPosition.suitability_value)}</span>`
     : "";
 
   return `
-    <div
-      class="defense-position-node defense-position-node--${escapeAttribute(slot.className)} ${stateClass}"
+    <${tagName}
+      class="defense-position-node defense-position-node--${escapeAttribute(slot.className)} ${stateClass} ${interactionClass}"
       data-defense-position="${escapeAttribute(slot.position)}"
+      data-defense-position-role="${isMain ? "main" : "sub"}"
+      ${hrefAttribute}
       style="--defense-x: ${escapeAttribute(slot.x)}%; --defense-y: ${escapeAttribute(slot.y)}%;"
-      aria-label="${escapeAttribute(`${slot.label}: ${roleLabel}`)}"
+      aria-label="${escapeAttribute(`${slot.label}: ${roleLabel}${actionLabel}`)}"
     >
       <span class="defense-position-abbr" aria-hidden="true">${escapeHtml(slot.shortLabel)}</span>
       <span class="defense-position-name">${escapeHtml(slot.label)}</span>
       <span class="defense-position-role">${escapeHtml(roleLabel)}</span>
       ${suitability}
-    </div>
+    </${tagName}>
   `;
 }
 
@@ -1109,7 +1177,7 @@ function renderDefensePositionMapSection(snapshot, { archivedSchool = false } = 
   const mainPosition = snapshot?.main_position ?? "";
   const subPositionByName = getSubPositionByName(snapshot);
   const nodesHtml = DEFENSE_POSITION_SLOTS.map((slot) =>
-    renderDefensePositionNode(slot, { mainPosition, subPositionByName })
+    renderDefensePositionNode(slot, { mainPosition, subPositionByName, snapshot, archivedSchool })
   ).join("");
 
   return renderDetailCard({
@@ -1360,6 +1428,61 @@ async function loadPlayerDetail({
 
     throw error;
   }
+}
+
+async function handleSnapshotButtonClick(snapshotKey) {
+  if (!snapshotKey || DETAIL_STATE.isBusy) {
+    return;
+  }
+
+  if (isCurrentSnapshot(snapshotKey, DETAIL_STATE.currentSnapshot)) {
+    return;
+  }
+
+  if (!isSnapshotRegistered(snapshotKey, DETAIL_STATE.snapshots)) {
+    const snapshotLabel = SNAPSHOT_LABELS[snapshotKey] ?? snapshotKey;
+    setMessage(
+      DETAIL_STATE.refs.messageElement,
+      `「${snapshotLabel}」はまだ登録されていないため、詳細表示へ切り替えられません。`
+    );
+    return;
+  }
+
+  DETAIL_STATE.isBusy = true;
+  setSnapshotButtonLoading(snapshotKey);
+  renderCurrentPlayerDetail();
+
+  try {
+    await loadPlayerDetail({
+      snapshot: snapshotKey,
+      syncUrl: true,
+    });
+    clearSnapshotButtonFeedback();
+  } catch (error) {
+    setSnapshotButtonError(snapshotKey);
+    throw error;
+  } finally {
+    DETAIL_STATE.isBusy = false;
+    renderCurrentPlayerDetail();
+  }
+}
+
+function handleDetailRootClick(event) {
+  const snapshotButton = event.target instanceof Element
+    ? event.target.closest("[data-snapshot-button]")
+    : null;
+
+  if (!snapshotButton) {
+    return;
+  }
+
+  event.preventDefault();
+
+  handleSnapshotButtonClick(snapshotButton.dataset.snapshotButton).catch((error) => {
+    const message = error instanceof Error ? error.message : "時点の切り替えに失敗しました。";
+    showErrorToast(message);
+    setMessage(DETAIL_STATE.refs.messageElement, message, true);
+  });
 }
 
 function renderError(refs, message) {
@@ -1851,7 +1974,7 @@ function renderPlayer(refs, seriesResponse) {
 }
 
 function setupInteractions(refs) {
-  // player_detail is read-only. Snapshot history and edit actions use normal links.
+  refs.root.addEventListener("click", handleDetailRootClick);
 }
 
 async function init() {

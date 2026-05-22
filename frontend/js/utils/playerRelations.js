@@ -980,11 +980,16 @@ function renderSubPositionRow(
   return `
     <div class="player-relation-row" data-relation-row="sub_positions">
       <div class="player-relation-row-grid player-relation-row-grid--sub-position">
-        <div class="player-relation-field">
+        <div class="player-relation-field player-sub-position-name-field">
           <label class="player-form-label player-relation-label" for="${escapeAttribute(positionId)}">ポジション</label>
-          <select id="${escapeAttribute(positionId)}" data-sub-position-name>
-            ${renderStringOptions(positionOptions, item.position_name, "ポジションを選択")}
-          </select>
+          <div class="player-ability-input player-sub-position-name-control">
+            <span class="player-ability-input-label" aria-hidden="true">選択</span>
+            <select id="${escapeAttribute(positionId)}" data-sub-position-name>
+              ${renderStringOptions(positionOptions, item.position_name, "ポジションを選択")}
+            </select>
+          </div>
+          <p class="player-form-help player-sub-position-help-spacer" aria-hidden="true">&nbsp;</p>
+          <p class="player-form-help player-sub-position-preview-spacer" aria-hidden="true">&nbsp;</p>
         </div>
         <div class="player-relation-field player-sub-position-defense-field" data-sub-position-defense-field ${hasPosition ? "" : "hidden"}>
           <span class="player-form-label player-relation-label">守備能力</span>

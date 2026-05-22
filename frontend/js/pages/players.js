@@ -66,11 +66,14 @@ const PLAYER_DETAIL_LOADING = new Map();
 const PLAYERS_TABLE_COLUMN_COUNT = 6;
 
 const SNAPSHOT_LABELS = {
+  admission: "入学時",
   entrance: "入学時",
   y1_summer: "1年夏大会後",
   y1_autumn: "1年秋大会後",
+  y1_spring: "1年春大会後",
   y2_summer: "2年夏大会後",
   y2_autumn: "2年秋大会後",
+  y2_spring: "2年春大会後",
   y3_summer: "3年夏大会後",
   y3_autumn: "3年秋大会後",
   graduation: "卒業時",

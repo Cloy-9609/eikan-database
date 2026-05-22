@@ -128,6 +128,15 @@ function getEditFlowContextFromQuery() {
   };
 }
 
+function getRequestedEditTargetFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+
+  return {
+    position: params.get("target_position")?.trim() ?? "",
+    role: params.get("position_role")?.trim() ?? "",
+  };
+}
+
 function escapeAttribute(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -964,7 +973,74 @@ function applyRequestedEditScope(form) {
   return true;
 }
 
-function renderForm(form, player, relationOptions, { detailHref, returnLabel = "詳細へ戻る" } = {}) {
+function getSubPositionsForEdit(player, editTarget = {}) {
+  const safeSubPositions = Array.isArray(player.sub_positions) ? player.sub_positions : [];
+  const targetPosition = String(editTarget.position ?? "").trim();
+  const targetRole = String(editTarget.role ?? "").trim();
+  const mainPosition = String(player.main_position ?? "").trim();
+
+  if (!targetPosition || targetRole === "main" || targetPosition === mainPosition) {
+    return safeSubPositions;
+  }
+
+  const hasTargetPosition = safeSubPositions.some(
+    (item) => String(item?.position_name ?? "").trim() === targetPosition
+  );
+
+  if (hasTargetPosition) {
+    return safeSubPositions;
+  }
+
+  return [
+    ...safeSubPositions,
+    {
+      position_name: targetPosition,
+      suitability_value: "",
+      defense_value: null,
+    },
+  ];
+}
+
+function focusRequestedEditTarget(form, editTarget = {}) {
+  const targetPosition = String(editTarget.position ?? "").trim();
+
+  if (!targetPosition) {
+    return false;
+  }
+
+  window.requestAnimationFrame(() => {
+    if (editTarget.role === "main") {
+      const mainPositionSelect = form.querySelector("#main_position");
+
+      if (mainPositionSelect instanceof HTMLElement) {
+        mainPositionSelect.focus();
+      }
+
+      return;
+    }
+
+    const targetRow = Array.from(
+      form.querySelectorAll('[data-relation-row="sub_positions"]')
+    ).find((row) => row.querySelector("[data-sub-position-name]")?.value === targetPosition);
+
+    if (!targetRow) {
+      return;
+    }
+
+    targetRow.classList.add("is-targeted");
+    targetRow.scrollIntoView({ block: "center", behavior: "smooth" });
+
+    const positionSelect = targetRow.querySelector("[data-sub-position-name]");
+
+    if (positionSelect instanceof HTMLElement) {
+      positionSelect.focus();
+    }
+  });
+
+  return true;
+}
+
+function renderForm(form, player, relationOptions, { detailHref, returnLabel = "詳細へ戻る", editTarget = {} } = {}) {
   const basicSection = renderFormSection({
     id: "player-edit-section-basic",
     sectionKey: "basic",
@@ -1090,7 +1166,7 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
     description: "メインポジション以外の守備位置と適性値を編集します。",
     fieldsClass: "player-form-fields player-form-fields--relation",
     content: renderSubPositionEditor({
-      subPositions: player.sub_positions,
+      subPositions: getSubPositionsForEdit(player, editTarget),
       relationOptions,
       editorIdPrefix: `player-edit-${player.id}`,
       mainPosition: player.main_position,
@@ -1250,6 +1326,7 @@ async function init() {
   try {
     const playerId = getPlayerIdFromQuery();
     const flowContext = getEditFlowContextFromQuery();
+    const editTarget = getRequestedEditTargetFromQuery();
     const [player, relationOptions] = await Promise.all([
       fetchPlayerById(playerId),
       loadRelationOptions(),
@@ -1276,6 +1353,7 @@ async function init() {
     renderForm(form, player, relationOptions, {
       detailHref,
       returnLabel: presentation.returnLabel,
+      editTarget,
     });
     setupAdmissionYearPickers(form);
     setupSnapshotSelector(form);
@@ -1289,6 +1367,7 @@ async function init() {
     });
     bindAbilitySectionVisibility(form);
     applyRequestedEditScope(form);
+    focusRequestedEditTarget(form, editTarget);
     bindOcrEntryActions(ocrEntryElement, messageElement, ocrEntry);
     form.addEventListener("submit", (event) =>
       handleSubmit(event, player, messageElement, relationOptions)
