@@ -134,6 +134,7 @@ function getRequestedEditTargetFromQuery() {
   return {
     position: params.get("target_position")?.trim() ?? "",
     role: params.get("position_role")?.trim() ?? "",
+    scope: params.get("scope")?.trim() ?? "",
   };
 }
 
@@ -143,6 +144,15 @@ function escapeAttribute(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function buildOptions(options, selectedValue) {
@@ -973,22 +983,96 @@ function applyRequestedEditScope(form) {
   return true;
 }
 
+function resolveRequestedEditTargetRole(editTarget = {}) {
+  const role = String(editTarget.role ?? "").trim();
+
+  if (role === "main" || role === "sub") {
+    return role;
+  }
+
+  const scope = String(editTarget.scope ?? "").trim();
+
+  if (scope === "basic") {
+    return "main";
+  }
+
+  if (scope === "sub_positions") {
+    return "sub";
+  }
+
+  return "";
+}
+
+function markTargetElement(element, className = "is-targeted") {
+  if (element instanceof HTMLElement) {
+    element.classList.add(className);
+  }
+}
+
+function findSubPositionTargetRow(form, targetPosition) {
+  return Array.from(form.querySelectorAll('[data-relation-row="sub_positions"]')).find(
+    (row) => row.querySelector("[data-sub-position-name]")?.value === targetPosition
+  );
+}
+
+function hasSubPositionTarget(player, targetPosition) {
+  if (!Array.isArray(player.sub_positions) || !targetPosition) {
+    return false;
+  }
+
+  return player.sub_positions.some(
+    (item) => String(item?.position_name ?? "").trim() === targetPosition
+  );
+}
+
+function canRenderSubPositionTarget(relationOptions, targetPosition) {
+  const positionOptions = Array.isArray(relationOptions?.subPositionOptions)
+    ? relationOptions.subPositionOptions
+    : POSITION_OPTIONS;
+
+  return positionOptions.includes(targetPosition);
+}
+
+function buildSubPositionsForRender(player, editTarget = {}, relationOptions = {}) {
+  const targetPosition = String(editTarget.position ?? "").trim();
+  const targetRole = resolveRequestedEditTargetRole(editTarget);
+  const subPositions = Array.isArray(player.sub_positions) ? player.sub_positions : [];
+  const hasTarget = hasSubPositionTarget(player, targetPosition);
+  const shouldInsertTarget =
+    targetRole === "sub" &&
+    Boolean(targetPosition) &&
+    !hasTarget &&
+    canRenderSubPositionTarget(relationOptions, targetPosition);
+
+  return {
+    subPositions: shouldInsertTarget
+      ? [...subPositions, { position_name: targetPosition, suitability_value: "", defense_value: "" }]
+      : subPositions,
+    hasSubPositionRow: hasTarget || shouldInsertTarget,
+    isPendingSubPosition: shouldInsertTarget,
+  };
+}
+
 function focusRequestedEditTarget(form, editTarget = {}) {
   const targetPosition = String(editTarget.position ?? "").trim();
+  const targetRole = resolveRequestedEditTargetRole(editTarget);
 
-  if (!targetPosition) {
+  if (!targetPosition || !targetRole) {
     return false;
   }
 
   window.requestAnimationFrame(() => {
-    if (editTarget.role === "main") {
+    if (targetRole === "main") {
       const mainPositionSelect = form.querySelector("#main_position");
       const mainPositionRow = form.querySelector('[data-field="main_position"]');
+      const mainPositionControl = mainPositionSelect?.closest(".player-form-control");
 
       if (mainPositionRow instanceof HTMLElement) {
-        mainPositionRow.classList.add("is-targeted");
+        markTargetElement(mainPositionRow);
         mainPositionRow.scrollIntoView({ block: "center", behavior: "smooth" });
       }
+
+      markTargetElement(mainPositionControl, "is-targeted-control");
 
       if (mainPositionSelect instanceof HTMLElement) {
         mainPositionSelect.focus();
@@ -997,9 +1081,7 @@ function focusRequestedEditTarget(form, editTarget = {}) {
       return;
     }
 
-    const targetRow = Array.from(
-      form.querySelectorAll('[data-relation-row="sub_positions"]')
-    ).find((row) => row.querySelector("[data-sub-position-name]")?.value === targetPosition);
+    const targetRow = findSubPositionTargetRow(form, targetPosition);
 
     if (!targetRow) {
       const subPositionSection = form.querySelector('[data-edit-section="sub_positions"]');
@@ -1007,26 +1089,27 @@ function focusRequestedEditTarget(form, editTarget = {}) {
       const addButton = subPositionEditor?.querySelector("[data-relation-add]");
 
       if (subPositionSection instanceof HTMLElement) {
-        subPositionSection.classList.add("is-targeted");
+        markTargetElement(subPositionSection);
         subPositionSection.scrollIntoView({ block: "start", behavior: "smooth" });
       }
 
-      if (subPositionEditor instanceof HTMLElement) {
-        subPositionEditor.classList.add("is-targeted");
-      }
+      markTargetElement(subPositionEditor);
+      markTargetElement(addButton);
 
       if (addButton instanceof HTMLElement) {
-        addButton.classList.add("is-targeted");
         addButton.focus();
       }
 
       return;
     }
 
-    targetRow.classList.add("is-targeted");
+    markTargetElement(targetRow);
     targetRow.scrollIntoView({ block: "center", behavior: "smooth" });
 
     const positionSelect = targetRow.querySelector("[data-sub-position-name]");
+    const positionControl = positionSelect?.closest(".player-ability-input");
+
+    markTargetElement(positionControl, "is-targeted-control");
 
     if (positionSelect instanceof HTMLElement) {
       positionSelect.focus();
@@ -1036,39 +1119,54 @@ function focusRequestedEditTarget(form, editTarget = {}) {
   return true;
 }
 
-function renderEditTargetNotice(editTarget = {}) {
+function renderEditTargetNotice(
+  editTarget = {},
+  { hasSubPositionRow = false, isPendingSubPosition = false } = {}
+) {
   const targetPosition = String(editTarget.position ?? "").trim();
+  const targetRole = resolveRequestedEditTargetRole(editTarget);
 
-  if (!targetPosition) {
+  if (!targetPosition || !targetRole) {
     return "";
   }
 
-  const isMain = editTarget.role === "main";
-  const targetLabel = isMain ? "メインポジション" : "サブポジション";
+  const isMain = targetRole === "main";
+  const title = isMain
+    ? `${targetPosition}のメインポジション設定を確認中です。`
+    : `${targetPosition}のサブポジション設定を${
+        isPendingSubPosition ? "追加中です。" : hasSubPositionRow ? "確認中です。" : "追加できます。"
+      }`;
   const guidance = isMain
-    ? "基本情報のメインポジション入力欄を強調しています。"
-    : "該当するサブポジション行がある場合は行を、未登録の場合は追加導線を強調しています。";
+    ? "入力欄を強調しています。必要な場合だけ変更してください。"
+    : isPendingSubPosition
+      ? "守備ランクと数値を選択して保存してください。"
+      : hasSubPositionRow
+      ? "該当する行を強調しています。守備適性をここで確認できます。"
+      : "まだ登録行がないため、追加ボタンから登録してください。";
 
   return `
-    <div class="player-edit-target-note" role="status">
-      <p class="player-edit-target-note-kicker">守備位置図から移動</p>
-      <p class="player-edit-target-note-title">
-        ${escapeHtml(targetPosition)} の ${escapeHtml(targetLabel)} を編集対象として開きました。
-      </p>
+    <div class="player-edit-target-note" role="status" aria-live="polite">
+      <p class="player-edit-target-note-kicker">守備位置図からの案内</p>
+      <p class="player-edit-target-note-title">${escapeHtml(title)}</p>
       <p class="player-edit-target-note-text">${guidance}</p>
     </div>
   `;
 }
 
 function renderForm(form, player, relationOptions, { detailHref, returnLabel = "詳細へ戻る", editTarget = {} } = {}) {
-  const editTargetNotice = renderEditTargetNotice(editTarget);
+  const editTargetRole = resolveRequestedEditTargetRole(editTarget);
+  const subPositionRenderState = buildSubPositionsForRender(player, editTarget, relationOptions);
+  const editTargetNotice = renderEditTargetNotice(editTarget, {
+    hasSubPositionRow: editTargetRole === "sub" && subPositionRenderState.hasSubPositionRow,
+    isPendingSubPosition: subPositionRenderState.isPendingSubPosition,
+  });
   const basicSection = renderFormSection({
     id: "player-edit-section-basic",
     sectionKey: "basic",
     title: "基本情報",
     description: "識別情報とスナップショット単位の基本項目を編集します。",
     content: [
-      editTarget.role === "main" ? editTargetNotice : "",
+      editTargetRole === "main" ? editTargetNotice : "",
       renderTextInputRow({
         field: "name",
         label: "名前",
@@ -1188,9 +1286,9 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
     description: "メインポジション以外の守備位置と適性値を編集します。",
     fieldsClass: "player-form-fields player-form-fields--relation",
     content: `
-      ${editTarget.role === "sub" ? editTargetNotice : ""}
+      ${editTargetRole === "sub" ? editTargetNotice : ""}
       ${renderSubPositionEditor({
-        subPositions: player.sub_positions,
+        subPositions: subPositionRenderState.subPositions,
         relationOptions,
         editorIdPrefix: `player-edit-${player.id}`,
         mainPosition: player.main_position,

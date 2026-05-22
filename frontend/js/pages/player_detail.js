@@ -1203,18 +1203,22 @@ function getSelectedDefenseSlot(selectedPosition) {
 
 function getDefenseConfirmPlacement(selectedSlot) {
   if (!selectedSlot) {
-    return "bottom-right";
+    return { block: "below", inline: "center" };
   }
 
   if (selectedSlot.className === "catcher") {
-    return "top-right";
+    return { block: "above", inline: "center" };
   }
 
   if (selectedSlot.className === "first") {
-    return "bottom-left";
+    return { block: "below", inline: "right" };
   }
 
-  return "bottom-right";
+  if (selectedSlot.className === "third") {
+    return { block: "below", inline: "left" };
+  }
+
+  return { block: "below", inline: "center" };
 }
 
 function renderDefenseEditConfirmPanel({ selectedSlot, snapshot, mainPosition, subPositionByName }) {
@@ -1228,9 +1232,18 @@ function renderDefenseEditConfirmPanel({ selectedSlot, snapshot, mainPosition, s
   });
   const editUrl = buildDefensePositionEditUrl(selectedSlot, snapshot, mainPosition);
   const placement = getDefenseConfirmPlacement(selectedSlot);
+  const placementClass = [
+    `defense-edit-confirm--near-${placement.block}`,
+    `defense-edit-confirm--align-${placement.inline}`,
+  ].join(" ");
 
   return `
-    <div class="defense-edit-confirm defense-edit-confirm--${escapeAttribute(placement)}" role="status" aria-live="polite">
+    <div
+      class="defense-edit-confirm ${escapeAttribute(placementClass)}"
+      style="--defense-confirm-x: ${escapeAttribute(selectedSlot.x)}%; --defense-confirm-y: ${escapeAttribute(selectedSlot.y)}%;"
+      role="status"
+      aria-live="polite"
+    >
       <p class="defense-edit-confirm-title">
         <span class="defense-edit-confirm-kicker">選択中</span>
         <span>${escapeHtml(selectedSlot.label)}</span>
