@@ -14,32 +14,17 @@ import {
   renderSubPositionEditor,
   serializeRelationInputs,
 } from "../utils/playerRelations.js";
+import {
+  SNAPSHOT_LABEL_OPTIONS,
+  getSnapshotLabel,
+  getSnapshotOptionsForCurrentValue,
+} from "../utils/playerSnapshots.js";
 
 const PLAYER_TYPE_OPTIONS = [
   { value: "normal", label: "通常" },
   { value: "genius", label: "天才" },
   { value: "reincarnated", label: "転生" },
 ];
-
-const SNAPSHOT_LABEL_OPTIONS = [
-  { value: "entrance", label: "入学時" },
-  { value: "y1_summer", label: "1年夏大会後" },
-  { value: "y1_autumn", label: "1年秋大会後" },
-  { value: "y1_spring", label: "1年春大会後" },
-  { value: "y2_summer", label: "2年夏大会後" },
-  { value: "y2_autumn", label: "2年秋大会後" },
-  { value: "y2_spring", label: "2年春大会後" },
-  { value: "y3_summer", label: "3年夏大会後" },
-  { value: "graduation", label: "卒業時" },
-];
-const LEGACY_SNAPSHOT_LABELS = {
-  post_tournament: "大会後",
-};
-
-const SNAPSHOT_LABELS = Object.fromEntries(
-  SNAPSHOT_LABEL_OPTIONS.map(({ value, label }) => [value, label])
-);
-Object.assign(SNAPSHOT_LABELS, LEGACY_SNAPSHOT_LABELS);
 
 const POSITION_OPTIONS = ["投手", "捕手", "一塁手", "二塁手", "三塁手", "遊撃手", "外野手"];
 const PITCHER_MAIN_POSITION = "投手";
@@ -162,7 +147,7 @@ function buildOptions(options, selectedValue) {
       const label = typeof option === "string" ? option : option.label;
       const selected = value === selectedValue ? " selected" : "";
 
-      return `<option value="${escapeAttribute(value)}"${selected}>${label}</option>`;
+      return `<option value="${escapeAttribute(value)}"${selected}>${escapeHtml(label)}</option>`;
     })
     .join("");
 }
@@ -198,18 +183,6 @@ function buildAttributeString(attributes) {
     .filter(([, value]) => value !== undefined && value !== null && value !== false && value !== "")
     .map(([key, value]) => (value === true ? key : `${key}="${escapeAttribute(value)}"`))
     .join(" ");
-}
-
-function getSnapshotOptionsForRender(selectedValue) {
-  if (!selectedValue || !LEGACY_SNAPSHOT_LABELS[selectedValue]) {
-    return SNAPSHOT_LABEL_OPTIONS;
-  }
-
-  return [...SNAPSHOT_LABEL_OPTIONS, { value: selectedValue, label: LEGACY_SNAPSHOT_LABELS[selectedValue] }];
-}
-
-function getSnapshotLabel(value) {
-  return SNAPSHOT_LABELS[value] ?? value ?? "";
 }
 
 function formatYearValue(value) {
@@ -295,12 +268,12 @@ function buildPlayerDetailUrl(playerId, snapshotLabel = "") {
 }
 
 function buildEditModePresentation(player, flowContext) {
-  const snapshotLabel = getSnapshotLabel(flowContext.snapshot || player.snapshot_label);
+  const snapshotLabel = getSnapshotLabel(flowContext.snapshot || player.snapshot_label, "現在の時点");
 
   if (flowContext.mode !== "snapshot-create") {
     return {
       title: "選手情報編集",
-      context: `${player.name} の基本情報、能力値、relation 系をこの画面で編集します。`,
+      context: `${player.name} の基本情報、能力値、関連情報をこの画面で編集します。`,
       documentTitle: `${player.name} | 選手情報編集`,
       flowNote: null,
       returnLabel: "詳細へ戻る",
@@ -312,9 +285,9 @@ function buildEditModePresentation(player, flowContext) {
     context: `「${snapshotLabel}」を作成しました。この時点の能力・情報を更新してください。`,
     documentTitle: `${player.name} | 新時点の情報登録`,
     flowNote: {
-      kicker: "Snapshot Create",
+      kicker: "時点登録",
       title: "新しい時点の登録を続けています",
-      body: "この時点は直前の登録済み snapshot を初期値として引き継いでいます。必要な差分を更新し、将来的には OCR / 画像読取の反映先としても使いやすい入口にします。",
+      body: "この時点は直前の登録済みデータを初期値として引き継いでいます。必要な差分を更新し、将来的には OCR / 画像読取の反映先としても使いやすい入口にします。",
     },
     returnLabel: "この時点の詳細へ戻る",
   };
@@ -344,7 +317,7 @@ function buildOcrEntryPresentation(player, flowContext) {
     return null;
   }
 
-  const snapshotLabel = getSnapshotLabel(flowContext.snapshot || player.snapshot_label);
+  const snapshotLabel = getSnapshotLabel(flowContext.snapshot || player.snapshot_label, "現在の時点");
 
   return {
     title: "画像から更新情報を読み取る",
@@ -489,29 +462,35 @@ function renderSelectRow({
   `;
 }
 
-function renderSnapshotOptionButtons(selectedValue, surface) {
-  return getSnapshotOptionsForRender(selectedValue).map(({ value, label }) => {
+function renderSnapshotOptionButtons(snapshotOptions, selectedValue, surface) {
+  return snapshotOptions.map(({ value, label, currentOnly = false }) => {
     const isSelected = value === selectedValue;
 
     return `
       <button
         type="button"
-        class="player-snapshot-option${isSelected ? " is-selected" : ""}"
+        class="player-snapshot-option${isSelected ? " is-selected" : ""}${currentOnly ? " is-current-only" : ""}"
         data-snapshot-option-value="${escapeAttribute(value)}"
         data-snapshot-option-surface="${escapeAttribute(surface)}"
+        data-snapshot-current-only="${currentOnly ? "true" : "false"}"
         role="option"
         aria-selected="${isSelected ? "true" : "false"}"
+        title="${escapeAttribute(label)}"
       >
-        <span class="player-snapshot-option-label">${label}</span>
+        <span class="player-snapshot-option-label">${escapeHtml(label)}</span>
       </button>
     `;
   }).join("");
 }
 
-function renderSnapshotSelector(value) {
-  const fallbackValue = SNAPSHOT_LABEL_OPTIONS[0]?.value ?? "";
-  const selectedValue = SNAPSHOT_LABELS[value] ? value : fallbackValue;
-  const selectedLabel = getSnapshotLabel(selectedValue);
+function renderSnapshotSelector(value, snapshotOptions) {
+  const fallbackValue = snapshotOptions[0]?.value ?? SNAPSHOT_LABEL_OPTIONS[0]?.value ?? "";
+  const selectedOption = snapshotOptions.find((option) => option.value === value);
+  const selectedValue = selectedOption ? value : fallbackValue;
+  const selectedLabel =
+    selectedOption?.label ??
+    snapshotOptions.find((option) => option.value === selectedValue)?.label ??
+    getSnapshotLabel(selectedValue, "登録時点");
 
   return `
     <div class="player-snapshot-selector" data-snapshot-selector>
@@ -523,37 +502,55 @@ function renderSnapshotSelector(value) {
         data-snapshot-input
       >
       <div class="player-snapshot-selector-desktop" data-snapshot-desktop>
-        <div class="player-snapshot-option-list" data-snapshot-option-list role="listbox" aria-label="スナップショット種別">
-          ${renderSnapshotOptionButtons(selectedValue, "desktop")}
+        <div class="player-snapshot-option-list" data-snapshot-option-list role="listbox" aria-label="登録時点">
+          ${renderSnapshotOptionButtons(snapshotOptions, selectedValue, "desktop")}
         </div>
       </div>
       <details class="player-snapshot-selector-mobile" data-snapshot-mobile>
         <summary class="player-snapshot-mobile-summary">
           <span class="player-snapshot-mobile-summary-copy">
             <span class="player-snapshot-mobile-summary-label">選択中の時点</span>
-            <span class="player-snapshot-mobile-summary-value" data-snapshot-current-label>${selectedLabel}</span>
+            <span class="player-snapshot-mobile-summary-value" data-snapshot-current-label>${escapeHtml(selectedLabel)}</span>
           </span>
           <span class="player-snapshot-mobile-summary-icon" aria-hidden="true"></span>
         </summary>
-        <div class="player-snapshot-mobile-body" data-snapshot-mobile-body role="listbox" aria-label="スナップショット種別">
-          ${renderSnapshotOptionButtons(selectedValue, "mobile")}
+        <div class="player-snapshot-mobile-body" data-snapshot-mobile-body role="listbox" aria-label="登録時点">
+          ${renderSnapshotOptionButtons(snapshotOptions, selectedValue, "mobile")}
         </div>
       </details>
     </div>
   `;
 }
 
-function renderTimelineEditorRow({ admissionYear, snapshotLabel, schoolCurrentYear }) {
+function renderTimelineEditorRow({
+  admissionYear,
+  snapshotLabel,
+  schoolCurrentYear,
+  schoolGrade,
+  rosterStatus,
+  grade,
+}) {
   const numericSchoolCurrentYear = Number(schoolCurrentYear);
   const currentYear = Number.isInteger(numericSchoolCurrentYear)
     ? numericSchoolCurrentYear
     : new Date().getFullYear();
+  const snapshotOptions = getSnapshotOptionsForCurrentValue(
+    {
+      schoolCurrentYear,
+      admissionYear,
+      schoolGrade,
+      rosterStatus,
+      grade,
+    },
+    snapshotLabel,
+    { fallbackUnlockLevel: "all" }
+  );
 
   return `
     <div class="player-form-row player-form-row--full player-form-row--timeline" data-field="record_timeline">
       <div class="player-form-row-intro">
         <span class="player-form-label">記録時点</span>
-        <p class="player-form-help">入学年とスナップショット種別を並べて確認しながら編集できます。</p>
+        <p class="player-form-help">入学年と登録時点を並べて確認しながら編集できます。</p>
       </div>
       <div class="player-timeline-editor">
         <section class="player-timeline-panel player-timeline-panel--year" aria-labelledby="player-edit-timeline-year-title">
@@ -572,11 +569,13 @@ function renderTimelineEditorRow({ admissionYear, snapshotLabel, schoolCurrentYe
         </section>
         <section class="player-timeline-panel player-timeline-panel--snapshot" aria-labelledby="player-edit-timeline-snapshot-title">
           <div class="player-timeline-panel-header">
-            <h3 id="player-edit-timeline-snapshot-title" class="player-timeline-panel-title">スナップショット種別</h3>
-            <p class="player-timeline-panel-description">PCは一覧、モバイルは開閉で選択します。</p>
+            <h3 id="player-edit-timeline-snapshot-title" class="player-timeline-panel-title">登録時点</h3>
+            <p class="player-timeline-panel-description">
+              選手の学年に合わせて、選べる時点を絞っています。
+            </p>
           </div>
           <div class="player-timeline-panel-body player-timeline-panel-body--snapshot">
-            ${renderSnapshotSelector(snapshotLabel)}
+            ${renderSnapshotSelector(snapshotLabel, snapshotOptions)}
           </div>
         </section>
       </div>
@@ -813,7 +812,14 @@ function setupSnapshotSelector(form) {
     const allowedValues = new Set(optionButtons.map((button) => button.dataset.snapshotOptionValue));
     const initialValue = allowedValues.has(hiddenInput.value)
       ? hiddenInput.value
-      : SNAPSHOT_LABEL_OPTIONS[0]?.value ?? "";
+      : optionButtons[0]?.dataset.snapshotOptionValue ?? SNAPSHOT_LABEL_OPTIONS[0]?.value ?? "";
+    const getOptionLabel = (value) => {
+      const optionButton = optionButtons.find((button) => button.dataset.snapshotOptionValue === value);
+      return (
+        optionButton?.querySelector(".player-snapshot-option-label")?.textContent?.trim() ||
+        getSnapshotLabel(value, "登録時点")
+      );
+    };
 
     const syncSelection = (nextValue) => {
       const safeValue = allowedValues.has(nextValue) ? nextValue : initialValue;
@@ -821,7 +827,7 @@ function setupSnapshotSelector(form) {
       selector.dataset.snapshotValue = safeValue;
 
       currentLabelTargets.forEach((target) => {
-        target.textContent = getSnapshotLabel(safeValue);
+        target.textContent = getOptionLabel(safeValue);
       });
 
       optionButtons.forEach((button) => {
@@ -1164,7 +1170,7 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
     id: "player-edit-section-basic",
     sectionKey: "basic",
     title: "基本情報",
-    description: "識別情報とスナップショット単位の基本項目を編集します。",
+    description: "識別情報と登録時点ごとの基本項目を編集します。",
     content: [
       editTargetRole === "main" ? editTargetNotice : "",
       renderTextInputRow({
@@ -1230,6 +1236,9 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
         admissionYear: player.admission_year,
         snapshotLabel: player.snapshot_label,
         schoolCurrentYear: player.school_current_year,
+        schoolGrade: player.school_grade,
+        rosterStatus: player.roster_status,
+        grade: player.grade,
       }),
     ].join(""),
   });
@@ -1256,7 +1265,7 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
     id: "player-edit-section-special",
     sectionKey: "special",
     title: "特殊能力",
-    description: "現在の snapshot に付いている特殊能力を編集します。",
+    description: "現在の時点に付いている特殊能力を編集します。",
     fieldsClass: "player-form-fields player-form-fields--relation",
     content: renderSpecialAbilityEditor({
       abilities: player.special_abilities,
@@ -1384,6 +1393,26 @@ function resolveMainDefenseValueFromForm(form, fallbackValue = "") {
   return "";
 }
 
+function validateSnapshotLabelForSubmit(form, value) {
+  const normalizedValue = String(value ?? "").trim();
+  const snapshotSelector = form.querySelector("[data-snapshot-selector]");
+  const allowedValues = new Set(
+    Array.from(snapshotSelector?.querySelectorAll("[data-snapshot-option-value]") ?? [])
+      .map((button) => button.dataset.snapshotOptionValue)
+      .filter(Boolean)
+  );
+
+  if (!normalizedValue) {
+    throw new Error("登録時点を選択してください。");
+  }
+
+  if (allowedValues.size > 0 && !allowedValues.has(normalizedValue)) {
+    throw new Error("登録時点は表示されている候補から選択してください。");
+  }
+
+  return normalizedValue;
+}
+
 function buildPayload(formData, form, relationOptions) {
   const payload = {
     name: formData.get("name"),
@@ -1392,7 +1421,7 @@ function buildPayload(formData, form, relationOptions) {
     prefecture: formData.get("prefecture"),
     grade: Number(formData.get("grade")),
     admission_year: Number(formData.get("admission_year")),
-    snapshot_label: formData.get("snapshot_label"),
+    snapshot_label: validateSnapshotLabelForSubmit(form, formData.get("snapshot_label")),
     main_position: formData.get("main_position"),
     throwing_hand: formData.get("throwing_hand"),
     batting_hand: formData.get("batting_hand"),

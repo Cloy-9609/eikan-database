@@ -5,37 +5,19 @@ import {
   PITCH_METER_MAX_LEVEL,
   PITCH_MOVEMENT_DIRECTIONS,
 } from "../utils/playerRelations.js";
+import {
+  SNAPSHOT_LABEL_OPTIONS,
+  SNAPSHOT_LABELS,
+  getOfficialSnapshotDefinitions,
+  getSnapshotLabel,
+  getVisibleOfficialSnapshotDefinitions as getVisibleOfficialSnapshotDefinitionsForContext,
+} from "../utils/playerSnapshots.js";
 
 const PLAYER_TYPE_LABELS = {
   normal: "通常",
   genius: "天才",
   reincarnated: "転生",
 };
-
-const SNAPSHOT_LABEL_OPTIONS = [
-  { value: "entrance", label: "入学時" },
-  { value: "y1_summer", label: "1年夏大会後" },
-  { value: "y1_autumn", label: "1年秋大会後" },
-  { value: "y1_spring", label: "1年春大会後" },
-  { value: "y2_summer", label: "2年夏大会後" },
-  { value: "y2_autumn", label: "2年秋大会後" },
-  { value: "y2_spring", label: "2年春大会後" },
-  { value: "y3_summer", label: "3年夏大会後" },
-  { value: "graduation", label: "卒業時" },
-];
-const SNAPSHOT_UNLOCK_GROUPS = [
-  ["entrance", "y1_summer", "y1_autumn", "y1_spring"],
-  ["y2_summer", "y2_autumn", "y2_spring"],
-  ["y3_summer", "graduation"],
-];
-const LEGACY_SNAPSHOT_LABELS = {
-  post_tournament: "大会後",
-};
-
-const SNAPSHOT_LABELS = Object.fromEntries(
-  SNAPSHOT_LABEL_OPTIONS.map(({ value, label }) => [value, label])
-);
-Object.assign(SNAPSHOT_LABELS, LEGACY_SNAPSHOT_LABELS);
 
 const SNAPSHOT_BUTTON_STATE_LABELS = {
   current: "表示中",
@@ -296,77 +278,22 @@ function parseIntegerValue(value) {
 }
 
 function formatSnapshotLabel(value) {
-  return formatValue(SNAPSHOT_LABELS[value] ?? value);
-}
-
-function getOfficialSnapshotDefinitions() {
-  return SNAPSHOT_LABEL_OPTIONS.map(({ value, label }) => ({
-    key: value,
-    label,
-  }));
-}
-
-function resolveSnapshotUnlockLevelFromYears(schoolCurrentYear, admissionYear) {
-  if (!Number.isInteger(schoolCurrentYear) || !Number.isInteger(admissionYear)) {
-    return null;
-  }
-
-  const elapsedYears = schoolCurrentYear - admissionYear;
-
-  if (elapsedYears >= 2) {
-    return 3;
-  }
-
-  if (elapsedYears >= 1) {
-    return 2;
-  }
-
-  return 1;
-}
-
-function resolveSnapshotUnlockLevelFromSchoolGrade(schoolGrade) {
-  const numericSchoolGrade = parseIntegerValue(schoolGrade);
-
-  if (!Number.isInteger(numericSchoolGrade)) {
-    return null;
-  }
-
-  if (numericSchoolGrade >= 3) {
-    return 3;
-  }
-
-  if (numericSchoolGrade === 2) {
-    return 2;
-  }
-
-  return 1;
-}
-
-function resolveSnapshotUnlockLevel(seriesResponse) {
-  const playerSeries = seriesResponse?.playerSeries ?? {};
-  const currentSnapshot = seriesResponse?.currentSnapshot ?? {};
-  const schoolCurrentYear = parseIntegerValue(
-    playerSeries.school_current_year ?? currentSnapshot.school_current_year
-  );
-  const admissionYear = parseIntegerValue(
-    playerSeries.admission_year ?? currentSnapshot.admission_year
-  );
-
-  return (
-    resolveSnapshotUnlockLevelFromYears(schoolCurrentYear, admissionYear) ??
-    resolveSnapshotUnlockLevelFromSchoolGrade(playerSeries.school_grade) ??
-    1
-  );
+  return formatValue(getSnapshotLabel(value, value));
 }
 
 function getVisibleOfficialSnapshotDefinitions(seriesResponse) {
-  const unlockLevel = resolveSnapshotUnlockLevel(seriesResponse);
-  const visibleSnapshotKeys = new Set(
-    SNAPSHOT_UNLOCK_GROUPS.slice(0, unlockLevel).flat()
-  );
+  const playerSeries = seriesResponse?.playerSeries ?? {};
+  const currentSnapshot = seriesResponse?.currentSnapshot ?? {};
 
-  return getOfficialSnapshotDefinitions().filter((definition) =>
-    visibleSnapshotKeys.has(definition.key)
+  return getVisibleOfficialSnapshotDefinitionsForContext(
+    {
+      schoolCurrentYear: playerSeries.school_current_year ?? currentSnapshot.school_current_year,
+      admissionYear: playerSeries.admission_year ?? currentSnapshot.admission_year,
+      schoolGrade: playerSeries.school_grade,
+      rosterStatus: playerSeries.roster_status,
+      grade: currentSnapshot.grade,
+    },
+    { fallbackUnlockLevel: 1 }
   );
 }
 
