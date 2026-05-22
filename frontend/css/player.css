@@ -708,6 +708,67 @@
     0 12px 24px rgba(17, 55, 90, 0.08);
 }
 
+.player-form-section.is-targeted,
+.player-relation-editor.is-targeted,
+.player-form-row.is-targeted {
+  border-color: rgba(245, 158, 11, 0.46);
+  box-shadow:
+    0 0 0 3px rgba(245, 158, 11, 0.16),
+    0 12px 24px rgba(146, 64, 14, 0.08);
+}
+
+.player-form-row.is-targeted {
+  background:
+    linear-gradient(180deg, rgba(255, 251, 235, 0.98) 0%, rgba(255, 255, 255, 0.92) 100%);
+}
+
+.player-relation-editor.is-targeted {
+  padding: var(--player-space-md);
+  border: 1px solid rgba(245, 158, 11, 0.46);
+  border-radius: var(--player-radius-lg);
+  background: rgba(255, 251, 235, 0.4);
+}
+
+.player-button.is-targeted {
+  box-shadow:
+    0 0 0 3px rgba(245, 158, 11, 0.16),
+    0 10px 18px rgba(146, 64, 14, 0.1);
+}
+
+.player-edit-target-note {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: var(--player-space-xs);
+  padding: var(--player-space-md);
+  border: 1px solid rgba(245, 158, 11, 0.34);
+  border-radius: var(--player-radius-lg);
+  background:
+    linear-gradient(180deg, rgba(255, 251, 235, 0.96) 0%, rgba(255, 255, 255, 0.92) 100%);
+}
+
+.player-edit-target-note-kicker,
+.player-edit-target-note-title,
+.player-edit-target-note-text {
+  margin: 0;
+}
+
+.player-edit-target-note-kicker {
+  color: #92400e;
+  font-size: var(--player-font-size-xs);
+  font-weight: 800;
+}
+
+.player-edit-target-note-title {
+  color: var(--player-color-text-strong);
+  font-weight: 800;
+}
+
+.player-edit-target-note-text {
+  color: var(--player-color-text-body);
+  font-size: var(--player-font-size-sm-plus);
+  line-height: var(--player-line-height-relaxed);
+}
+
 .player-form--edit .player-relation-row-grid {
   gap: var(--player-space-xs) var(--player-space-md);
 }
@@ -2063,6 +2124,13 @@
   text-align: center;
   text-decoration: none;
   transform: translate(-50%, -50%);
+  transform-origin: center;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    box-shadow 0.16s ease,
+    opacity 0.16s ease;
 }
 
 button.defense-position-node {
@@ -2079,6 +2147,39 @@ button.defense-position-node {
   box-shadow:
     0 14px 28px rgba(17, 55, 90, 0.18),
     0 0 0 3px rgba(14, 116, 144, 0.14);
+}
+
+.defense-position-node.is-selected {
+  border-color: rgba(245, 158, 11, 0.78);
+  background:
+    linear-gradient(180deg, rgba(255, 251, 235, 0.98) 0%, rgba(255, 255, 255, 0.96) 100%);
+  outline: 3px solid rgba(255, 255, 255, 0.88);
+  box-shadow:
+    0 18px 34px rgba(146, 64, 14, 0.24),
+    0 0 0 5px rgba(245, 158, 11, 0.28);
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.08);
+  z-index: 4;
+}
+
+.defense-position-node.is-selected .defense-position-abbr {
+  background: #f59e0b;
+  color: #ffffff;
+}
+
+.defense-position-node.is-selected:hover,
+.defense-position-node.is-selected:focus-visible {
+  border-color: rgba(217, 119, 6, 0.88);
+  box-shadow:
+    0 20px 38px rgba(146, 64, 14, 0.28),
+    0 0 0 5px rgba(245, 158, 11, 0.32);
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.defense-position-node.is-empty.is-selected {
+  min-width: 66px;
+  min-height: 58px;
+  color: #92400e;
 }
 
 .defense-position-node.is-readonly {
@@ -2158,6 +2259,107 @@ button.defense-position-node {
   gap: var(--player-space-md);
   min-width: 0;
   max-width: 260px;
+}
+
+.defense-edit-confirm {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  box-sizing: border-box;
+  width: fit-content;
+  min-width: 188px;
+  max-width: min(224px, calc(100% - 24px));
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.36);
+  border-radius: var(--player-radius-md);
+  background:
+    linear-gradient(180deg, rgba(255, 251, 235, 0.94) 0%, rgba(255, 255, 255, 0.9) 100%);
+  box-shadow:
+    0 12px 24px rgba(17, 55, 90, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.72) inset;
+  animation: defense-confirm-in 0.16s ease-out;
+}
+
+.defense-edit-confirm--bottom-right {
+  right: 12px;
+  bottom: 12px;
+}
+
+.defense-edit-confirm--bottom-left {
+  left: 12px;
+  bottom: 12px;
+}
+
+.defense-edit-confirm--top-right {
+  top: 12px;
+  right: 12px;
+}
+
+@keyframes defense-confirm-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.defense-edit-confirm-kicker,
+.defense-edit-confirm-title,
+.defense-edit-confirm-text {
+  margin: 0;
+}
+
+.defense-edit-confirm-kicker {
+  color: #92400e;
+  font-size: var(--player-font-size-xs);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.defense-edit-confirm-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--player-color-text-strong);
+  font-size: var(--player-font-size-sm-plus);
+  font-weight: 800;
+}
+
+.defense-edit-confirm-role {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: var(--player-radius-pill);
+  background: rgba(245, 158, 11, 0.18);
+  color: #92400e;
+  font-size: var(--player-font-size-xs);
+}
+
+.defense-edit-confirm-text {
+  max-width: 18em;
+  color: var(--player-color-text-body);
+  font-size: var(--player-font-size-xs);
+  line-height: var(--player-line-height-base);
+}
+
+.defense-edit-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.defense-edit-confirm .player-button-inline {
+  min-height: 30px;
+  padding-inline: 10px;
+  font-size: var(--player-font-size-xs);
 }
 
 .defense-info-list {
@@ -4008,11 +4210,33 @@ button.defense-position-node {
     border-radius: var(--player-radius-xl);
   }
 
+  .defense-field.has-defense-edit-confirm {
+    margin-bottom: 112px;
+    overflow: visible;
+  }
+
   .defense-map-side {
     width: 100%;
     max-width: none;
     padding-left: 0;
     gap: var(--player-space-sm);
+  }
+
+  .defense-edit-confirm,
+  .defense-edit-confirm--bottom-right,
+  .defense-edit-confirm--bottom-left,
+  .defense-edit-confirm--top-right {
+    top: calc(100% + 10px);
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: 100%;
+    max-width: none;
+  }
+
+  .defense-edit-confirm-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .defense-position-node {

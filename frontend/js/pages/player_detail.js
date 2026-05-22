@@ -119,6 +119,7 @@ const DETAIL_STATE = {
   isBusy: false,
   loadingSnapshotKey: "",
   snapshotButtonErrorKey: "",
+  selectedDefensePosition: null,
   nextToastId: 0,
   activeToastKeys: new Set(),
 };
@@ -1066,29 +1067,52 @@ function buildDefensePositionEditUrl(slot, snapshot, mainPosition) {
   });
 }
 
-function renderDefensePositionNode(slot, { mainPosition, subPositionByName, snapshot, archivedSchool = false }) {
+function getDefensePositionRole(slot, { mainPosition, subPositionByName }) {
   const subPosition = subPositionByName.get(slot.position);
   const isMain = slot.position === mainPosition;
   const isSub = Boolean(subPosition) && !isMain;
-  const stateClass = isMain ? "is-main" : isSub ? "is-sub" : "is-empty";
-  const roleLabel = isMain ? "メイン" : isSub ? "サブ" : "未設定";
-  const canNavigateToEdit = !archivedSchool && Boolean(snapshot?.id);
-  const tagName = canNavigateToEdit ? "a" : "div";
-  const hrefAttribute = canNavigateToEdit
-    ? `href="${escapeAttribute(buildDefensePositionEditUrl(slot, snapshot, mainPosition))}"`
+
+  return {
+    subPosition,
+    isMain,
+    isSub,
+    role: isMain ? "main" : "sub",
+    roleLabel: isMain ? "メイン" : isSub ? "サブ" : "未設定",
+    stateClass: isMain ? "is-main" : isSub ? "is-sub" : "is-empty",
+  };
+}
+
+function renderDefensePositionNode(
+  slot,
+  { mainPosition, subPositionByName, snapshot, archivedSchool = false, selectedPosition = "" }
+) {
+  const { subPosition, isSub, role, roleLabel, stateClass } = getDefensePositionRole(slot, {
+    mainPosition,
+    subPositionByName,
+  });
+  const canSelectForEdit = !archivedSchool && Boolean(snapshot?.id);
+  const isSelected = canSelectForEdit && selectedPosition === slot.position;
+  const tagName = canSelectForEdit ? "button" : "div";
+  const editAttributes = canSelectForEdit
+    ? `
+      type="button"
+      data-defense-position-button
+      data-defense-position-role="${escapeAttribute(role)}"
+      aria-pressed="${isSelected ? "true" : "false"}"
+    `
     : "";
-  const interactionClass = canNavigateToEdit ? "is-clickable" : "is-readonly";
-  const actionLabel = canNavigateToEdit ? "。編集画面へ移動" : "";
+  const interactionClass = canSelectForEdit ? "is-clickable" : "is-readonly";
+  const selectedClass = isSelected ? "is-selected" : "";
+  const actionLabel = canSelectForEdit ? "。選択すると編集確認を表示" : "";
   const suitability = isSub && subPosition?.suitability_value
     ? `<span class="defense-position-suitability">${escapeHtml(subPosition.suitability_value)}</span>`
     : "";
 
   return `
     <${tagName}
-      class="defense-position-node defense-position-node--${escapeAttribute(slot.className)} ${stateClass} ${interactionClass}"
+      class="defense-position-node defense-position-node--${escapeAttribute(slot.className)} ${stateClass} ${interactionClass} ${selectedClass}"
       data-defense-position="${escapeAttribute(slot.position)}"
-      data-defense-position-role="${isMain ? "main" : "sub"}"
-      ${hrefAttribute}
+      ${editAttributes}
       style="--defense-x: ${escapeAttribute(slot.x)}%; --defense-y: ${escapeAttribute(slot.y)}%;"
       aria-label="${escapeAttribute(`${slot.label}: ${roleLabel}${actionLabel}`)}"
     >
@@ -1173,12 +1197,87 @@ function renderDefenseInfoList(snapshot) {
   `;
 }
 
+function getSelectedDefenseSlot(selectedPosition) {
+  return DEFENSE_POSITION_SLOTS.find((slot) => slot.position === selectedPosition) ?? null;
+}
+
+function getDefenseConfirmPlacement(selectedSlot) {
+  if (!selectedSlot) {
+    return "bottom-right";
+  }
+
+  if (selectedSlot.className === "catcher") {
+    return "top-right";
+  }
+
+  if (selectedSlot.className === "first") {
+    return "bottom-left";
+  }
+
+  return "bottom-right";
+}
+
+function renderDefenseEditConfirmPanel({ selectedSlot, snapshot, mainPosition, subPositionByName }) {
+  if (!selectedSlot || !snapshot?.id) {
+    return "";
+  }
+
+  const { role, roleLabel } = getDefensePositionRole(selectedSlot, {
+    mainPosition,
+    subPositionByName,
+  });
+  const editUrl = buildDefensePositionEditUrl(selectedSlot, snapshot, mainPosition);
+  const placement = getDefenseConfirmPlacement(selectedSlot);
+
+  return `
+    <div class="defense-edit-confirm defense-edit-confirm--${escapeAttribute(placement)}" role="status" aria-live="polite">
+      <p class="defense-edit-confirm-title">
+        <span class="defense-edit-confirm-kicker">選択中</span>
+        <span>${escapeHtml(selectedSlot.label)}</span>
+        <span class="defense-edit-confirm-role">${escapeHtml(roleLabel)}</span>
+      </p>
+      <p class="defense-edit-confirm-text">
+        このポジションの設定に進みますか？
+      </p>
+      <div class="defense-edit-confirm-actions">
+        <a
+          class="player-button player-button-primary player-button-inline"
+          href="${escapeAttribute(editUrl)}"
+          title="${escapeAttribute(`${selectedSlot.label}の編集画面へ進む`)}"
+          aria-label="${escapeAttribute(`${selectedSlot.label}の編集画面へ進む`)}"
+        >
+          設定に進む
+        </a>
+        <button
+          type="button"
+          class="player-button player-button-secondary player-button-inline"
+          data-defense-position-cancel
+          title="守備位置の選択を解除"
+          aria-label="守備位置の選択を解除"
+        >
+          キャンセル
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function renderDefensePositionMapSection(snapshot, { archivedSchool = false } = {}) {
   const mainPosition = snapshot?.main_position ?? "";
   const subPositionByName = getSubPositionByName(snapshot);
+  const selectedSlot = getSelectedDefenseSlot(DETAIL_STATE.selectedDefensePosition?.position);
   const nodesHtml = DEFENSE_POSITION_SLOTS.map((slot) =>
-    renderDefensePositionNode(slot, { mainPosition, subPositionByName, snapshot, archivedSchool })
+    renderDefensePositionNode(slot, {
+      mainPosition,
+      subPositionByName,
+      snapshot,
+      archivedSchool,
+      selectedPosition: selectedSlot?.position ?? "",
+    })
   ).join("");
+  const confirmPanelHtml = archivedSchool
+    ? ""
+    : renderDefenseEditConfirmPanel({ selectedSlot, snapshot, mainPosition, subPositionByName });
 
   return renderDetailCard({
     title: "守備位置・守備力",
@@ -1187,11 +1286,12 @@ function renderDefensePositionMapSection(snapshot, { archivedSchool = false } = 
     headerActionHtml: buildRelationSectionActions("sub_positions", snapshot, { archivedSchool }),
     content: `
       <div class="defense-map-layout">
-        <div class="defense-field" role="group" aria-label="現在表示中の時点における守備位置図">
+        <div class="defense-field${confirmPanelHtml ? " has-defense-edit-confirm" : ""}" role="group" aria-label="現在表示中の時点における守備位置図">
           ${renderDefenseGroundSvg()}
           <div class="defense-position-layer">
             ${nodesHtml}
           </div>
+          ${confirmPanelHtml}
         </div>
         <aside class="defense-map-side">
           ${renderDefenseInfoList(snapshot)}
@@ -1375,6 +1475,7 @@ function syncDetailState(seriesResponse) {
   DETAIL_STATE.snapshots = Array.isArray(seriesResponse?.snapshots) ? seriesResponse.snapshots : [];
   DETAIL_STATE.currentSnapshot = seriesResponse?.currentSnapshot ?? null;
   DETAIL_STATE.player = buildPlayerViewModel(seriesResponse);
+  DETAIL_STATE.selectedDefensePosition = null;
 }
 
 function renderCurrentPlayerDetail() {
@@ -1468,9 +1569,41 @@ async function handleSnapshotButtonClick(snapshotKey) {
 }
 
 function handleDetailRootClick(event) {
-  const snapshotButton = event.target instanceof Element
-    ? event.target.closest("[data-snapshot-button]")
-    : null;
+  const target = event.target instanceof Element ? event.target : null;
+  const defenseCancelButton = target?.closest("[data-defense-position-cancel]");
+
+  if (defenseCancelButton) {
+    event.preventDefault();
+    DETAIL_STATE.selectedDefensePosition = null;
+    renderCurrentPlayerDetail();
+    return;
+  }
+
+  const defensePositionButton = target?.closest("[data-defense-position-button]");
+
+  if (defensePositionButton) {
+    event.preventDefault();
+
+    const position = String(defensePositionButton.dataset.defensePosition ?? "").trim();
+    const role = String(defensePositionButton.dataset.defensePositionRole ?? "").trim();
+
+    if (!position) {
+      return;
+    }
+
+    const currentSelection = DETAIL_STATE.selectedDefensePosition;
+    DETAIL_STATE.selectedDefensePosition =
+      currentSelection?.position === position
+        ? null
+        : {
+            position,
+            role,
+          };
+    renderCurrentPlayerDetail();
+    return;
+  }
+
+  const snapshotButton = target?.closest("[data-snapshot-button]");
 
   if (!snapshotButton) {
     return;
