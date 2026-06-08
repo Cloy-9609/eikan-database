@@ -36,6 +36,17 @@
 
 `npm start` は watch なしの単純起動です。backend 変更を反映するには手動再起動が必要です。
 
+## 開発時の確認コマンド
+
+`package.json` があるディレクトリで実行します。
+
+- backend 構文確認: `npm run check:backend`
+- frontend 構文確認: `npm run check:frontend`
+- 一括確認: `npm run check:all`
+- 差分の空白確認: `npm run diff:check`
+
+実ブラウザ確認は必要に応じて別途行います。
+
 ## Database
 
 ### 使用中の DB
