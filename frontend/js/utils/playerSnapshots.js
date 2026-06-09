@@ -18,7 +18,7 @@ export const SNAPSHOT_LABEL_OPTIONS = SNAPSHOT_TIMELINE.map(({ value, label }) =
 export const SNAPSHOT_UNLOCK_GROUPS = [
   ["entrance", "y1_summer", "y1_autumn", "y1_spring"],
   ["y2_summer", "y2_autumn", "y2_spring"],
-  ["y3_summer", "graduation"],
+  ["y3_summer"],
 ];
 
 export const LEGACY_SNAPSHOT_LABELS = {
@@ -90,19 +90,11 @@ export function resolveSnapshotUnlockLevelFromYears(schoolCurrentYear, admission
 export function resolveSnapshotUnlockLevelFromSchoolGrade(schoolGrade) {
   const numericSchoolGrade = parseSnapshotIntegerValue(schoolGrade);
 
-  if (!Number.isInteger(numericSchoolGrade)) {
+  if (![1, 2, 3].includes(numericSchoolGrade)) {
     return null;
   }
 
-  if (numericSchoolGrade >= 3) {
-    return 3;
-  }
-
-  if (numericSchoolGrade === 2) {
-    return 2;
-  }
-
-  return 1;
+  return numericSchoolGrade;
 }
 
 export function resolveSnapshotUnlockLevelFromContext({
@@ -117,9 +109,9 @@ export function resolveSnapshotUnlockLevelFromContext({
   }
 
   return (
-    resolveSnapshotUnlockLevelFromYears(schoolCurrentYear, admissionYear) ??
     resolveSnapshotUnlockLevelFromSchoolGrade(schoolGrade) ??
-    resolveSnapshotUnlockLevelFromSchoolGrade(grade)
+    resolveSnapshotUnlockLevelFromSchoolGrade(grade) ??
+    resolveSnapshotUnlockLevelFromYears(schoolCurrentYear, admissionYear)
   );
 }
 
@@ -130,6 +122,10 @@ export function getVisibleOfficialSnapshotDefinitions(context = {}, { fallbackUn
   const visibleSnapshotKeys = new Set(
     SNAPSHOT_UNLOCK_GROUPS.slice(0, effectiveUnlockLevel).flat()
   );
+
+  if (context.rosterStatus === "graduated") {
+    visibleSnapshotKeys.add("graduation");
+  }
 
   return getOfficialSnapshotDefinitions().filter((definition) =>
     visibleSnapshotKeys.has(definition.key)
