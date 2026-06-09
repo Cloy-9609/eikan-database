@@ -1,4 +1,4 @@
-﻿import { fetchPlayerById, updatePlayer } from "../api/playerApi.js";
+﻿import { addSnapshotToSeries, fetchPlayerById, updatePlayer } from "../api/playerApi.js";
 import {
   buildAdmissionYearPicker,
   setupAdmissionYearPickers,
@@ -256,12 +256,16 @@ function setPageHeader(titleElement, contextElement, { title, context, documentT
   document.title = documentTitle;
 }
 
-function buildPlayerDetailUrl(playerId, snapshotLabel = "") {
+function buildPlayerDetailUrl(playerId, snapshotLabel = "", flowContext = {}) {
   const params = new URLSearchParams();
   params.set("id", String(playerId));
 
   if (snapshotLabel) {
     params.set("snapshot", snapshotLabel);
+  }
+
+  if (flowContext.from === "player-detail-manage") {
+    params.set("view", "manage");
   }
 
   return `./player_detail.html?${params.toString()}`;
@@ -1445,7 +1449,7 @@ function buildPayload(formData, form, relationOptions) {
   };
 }
 
-async function handleSubmit(event, player, messageElement, relationOptions) {
+async function handleSubmit(event, player, flowContext, messageElement, relationOptions) {
   event.preventDefault();
 
   const form = event.currentTarget;
@@ -1453,10 +1457,19 @@ async function handleSubmit(event, player, messageElement, relationOptions) {
   try {
     const formData = new FormData(form);
     const payload = buildPayload(formData, form, relationOptions);
-    const detailHref = buildPlayerDetailUrl(player.id, payload.snapshot_label || player.snapshot_label);
+    const isSnapshotCreate = flowContext.mode === "snapshot-create";
 
     setMessage(messageElement, "保存しています...");
-    await updatePlayer(player.id, payload);
+
+    const savedPlayer = isSnapshotCreate
+      ? await addSnapshotToSeries(player.player_series_id, payload)
+      : await updatePlayer(player.id, payload);
+    const detailHref = buildPlayerDetailUrl(
+      savedPlayer.id,
+      savedPlayer.snapshot_label || payload.snapshot_label || player.snapshot_label,
+      flowContext
+    );
+
     setMessage(messageElement, "保存しました。詳細画面へ戻ります。");
     window.setTimeout(() => {
       window.location.href = detailHref;
@@ -1483,9 +1496,17 @@ async function init() {
       fetchPlayerById(playerId),
       loadRelationOptions(),
     ]);
-    const presentation = buildEditModePresentation(player, flowContext);
-    const ocrEntry = buildOcrEntryPresentation(player, flowContext);
-    const detailHref = buildPlayerDetailUrl(player.id, flowContext.snapshot || player.snapshot_label);
+    const isSnapshotCreate = flowContext.mode === "snapshot-create";
+    const editPlayer = isSnapshotCreate && flowContext.snapshot
+      ? { ...player, snapshot_label: flowContext.snapshot }
+      : player;
+    const presentation = buildEditModePresentation(editPlayer, flowContext);
+    const ocrEntry = buildOcrEntryPresentation(editPlayer, flowContext);
+    const detailHref = buildPlayerDetailUrl(
+      player.id,
+      flowContext.snapshot || player.snapshot_label,
+      flowContext
+    );
 
     setPageHeader(titleElement, contextElement, presentation);
     renderFlowNote(flowNoteElement, presentation.flowNote);
@@ -1502,7 +1523,7 @@ async function init() {
       return;
     }
 
-    renderForm(form, player, relationOptions, {
+    renderForm(form, editPlayer, relationOptions, {
       detailHref,
       returnLabel: presentation.returnLabel,
       editTarget,
@@ -1513,16 +1534,16 @@ async function init() {
     window.addEventListener("resize", () => syncTimelineSnapshotListHeight(form));
     setupRankedAbilityInputs(form);
     bindRelationEditors(form, relationOptions, {
-      getMainPosition: () => form.querySelector("#main_position")?.value ?? player.main_position,
-      getThrowingHand: () => form.querySelector("#throwing_hand")?.value ?? player.throwing_hand,
-      getMainDefenseValue: () => resolveMainDefenseValueFromForm(form, player.fielding),
+      getMainPosition: () => form.querySelector("#main_position")?.value ?? editPlayer.main_position,
+      getThrowingHand: () => form.querySelector("#throwing_hand")?.value ?? editPlayer.throwing_hand,
+      getMainDefenseValue: () => resolveMainDefenseValueFromForm(form, editPlayer.fielding),
     });
     bindAbilitySectionVisibility(form);
     applyRequestedEditScope(form);
     focusRequestedEditTarget(form, editTarget);
     bindOcrEntryActions(ocrEntryElement, messageElement, ocrEntry);
     form.addEventListener("submit", (event) =>
-      handleSubmit(event, player, messageElement, relationOptions)
+      handleSubmit(event, player, flowContext, messageElement, relationOptions)
     );
   } catch (error) {
     setPageHeader(titleElement, contextElement, {
