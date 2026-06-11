@@ -104,6 +104,7 @@ const DETAIL_STATE = {
   selectedDefensePosition: null,
   nextToastId: 0,
   activeToastKeys: new Set(),
+  viewMode: "manage",
 };
 
 function isArchivedSchool(player) {
@@ -124,6 +125,21 @@ function getPlayerIdFromQuery() {
 function getSnapshotFromQuery() {
   const params = new URLSearchParams(window.location.search);
   return params.get("snapshot") ?? "";
+}
+
+function getDetailViewModeFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("view") === "readonly" ? "readonly" : "manage";
+}
+
+function isManageView() {
+  return DETAIL_STATE.viewMode === "manage";
+}
+
+function confirmSnapshotCreation(snapshotLabel) {
+  return window.confirm(
+    `「${snapshotLabel}」はまだ登録されていません。\nこの時点の能力を新しく登録しますか？`
+  );
 }
 
 function syncSnapshotQuery(snapshotKey) {
@@ -149,8 +165,10 @@ function buildPlayerEditUrl(
     params.set("mode", mode);
   }
 
-  if (from) {
-    params.set("from", from);
+  const resolvedFrom = from || (isManageView() ? "player-detail-manage" : "");
+
+  if (resolvedFrom) {
+    params.set("from", resolvedFrom);
   }
 
   if (snapshot) {
@@ -427,7 +445,7 @@ function renderRankedAbilityValue(value) {
 }
 
 function buildSectionEditLink(scope, snapshot, label = "この snapshot を編集") {
-  if (!snapshot?.id) {
+  if (!isManageView() || !snapshot?.id) {
     return "";
   }
 
@@ -1399,7 +1417,17 @@ function showErrorToast(message, options = {}) {
 }
 
 function renderActions(container, actions) {
-  container.innerHTML = actions
+  const visibleActions = isManageView()
+    ? actions
+    : actions
+        .filter(({ href }) => !String(href ?? "").includes("player_edit.html"))
+        .map((action) =>
+          String(action.href ?? "").includes("school_detail.html")
+            ? { ...action, href: "./players.html", label: "選手一覧へ戻る" }
+            : action
+        );
+
+  container.innerHTML = visibleActions
     .map(
       (action) => `
         <a class="player-button ${action.primary ? "player-button-primary" : "player-button-secondary"}" href="${action.href}">
@@ -1482,6 +1510,20 @@ async function handleSnapshotButtonClick(snapshotKey) {
 
   if (!isSnapshotRegistered(snapshotKey, DETAIL_STATE.snapshots)) {
     const snapshotLabel = SNAPSHOT_LABELS[snapshotKey] ?? snapshotKey;
+
+    if (isManageView() && !isArchivedSchool(DETAIL_STATE.player)) {
+      const shouldCreateSnapshot = confirmSnapshotCreation(snapshotLabel);
+
+      if (shouldCreateSnapshot) {
+        window.location.href = buildPlayerEditUrl(DETAIL_STATE.currentSnapshot.id, {
+          mode: "snapshot-create",
+          snapshot: snapshotKey,
+        });
+      }
+
+      return;
+    }
+
     setMessage(
       DETAIL_STATE.refs.messageElement,
       `「${snapshotLabel}」はまだ登録されていないため、詳細表示へ切り替えられません。`
@@ -1994,7 +2036,9 @@ function renderPlayer(refs, seriesResponse) {
         { archivedSchool }
       )
     : "";
-  const defensePositionMapSection = renderDefensePositionMapSection(currentSnapshot, { archivedSchool });
+  const defensePositionMapSection = renderDefensePositionMapSection(currentSnapshot, {
+    archivedSchool: archivedSchool || !isManageView(),
+  });
   const specialAbilitiesSection = renderSpecialAbilitySection(currentSnapshot, { archivedSchool });
 
   const archivedNotice = archivedSchool
@@ -2069,6 +2113,7 @@ async function init() {
 
   DETAIL_STATE.refs = refs;
   DETAIL_STATE.playerId = getPlayerIdFromQuery();
+  DETAIL_STATE.viewMode = getDetailViewModeFromQuery();
   setupInteractions(refs);
 
   try {
