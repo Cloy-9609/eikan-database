@@ -551,7 +551,7 @@ function renderPlayerSeriesSummaries(root, playerSeriesSummaries, school = null)
         ? `
           <a
             class="player-link"
-            href="./player_detail.html?id=${encodeURIComponent(playerSeriesSummary.latestSnapshotId)}"
+            href="./player_detail.html?id=${encodeURIComponent(playerSeriesSummary.latestSnapshotId)}&view=manage"
           >
             ${escapeHtml(playerSeriesSummary.name)}
           </a>

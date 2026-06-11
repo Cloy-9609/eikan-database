@@ -343,7 +343,7 @@ function buildPlayerDetailUrl(player) {
     return "";
   }
 
-  return `./player_detail.html?id=${encodeURIComponent(player.id)}`;
+  return `./player_detail.html?id=${encodeURIComponent(player.id)}&view=readonly`;
 }
 
 function buildPlayerEditUrl(player) {
