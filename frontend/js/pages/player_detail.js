@@ -136,6 +136,12 @@ function isManageView() {
   return DETAIL_STATE.viewMode === "manage";
 }
 
+function confirmSnapshotCreation(snapshotLabel) {
+  return window.confirm(
+    `「${snapshotLabel}」はまだ登録されていません。\nこの時点の能力を新しく登録しますか？`
+  );
+}
+
 function syncSnapshotQuery(snapshotKey) {
   const url = new URL(window.location.href);
 
@@ -1506,10 +1512,15 @@ async function handleSnapshotButtonClick(snapshotKey) {
     const snapshotLabel = SNAPSHOT_LABELS[snapshotKey] ?? snapshotKey;
 
     if (isManageView() && !isArchivedSchool(DETAIL_STATE.player)) {
-      window.location.href = buildPlayerEditUrl(DETAIL_STATE.currentSnapshot.id, {
-        mode: "snapshot-create",
-        snapshot: snapshotKey,
-      });
+      const shouldCreateSnapshot = confirmSnapshotCreation(snapshotLabel);
+
+      if (shouldCreateSnapshot) {
+        window.location.href = buildPlayerEditUrl(DETAIL_STATE.currentSnapshot.id, {
+          mode: "snapshot-create",
+          snapshot: snapshotKey,
+        });
+      }
+
       return;
     }
 
