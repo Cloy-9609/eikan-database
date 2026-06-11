@@ -3292,6 +3292,15 @@ button.defense-position-node {
   gap: var(--player-space-sm);
 }
 
+.snapshot-timeline-button-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.snapshot-timeline-button-wrap.has-create-confirm {
+  z-index: 4;
+}
+
 .snapshot-timeline-button {
   display: grid;
   gap: 6px;
@@ -3392,6 +3401,73 @@ button.defense-position-node {
   border-color: rgba(220, 38, 38, 0.26);
   background: rgba(254, 242, 242, 0.94);
   color: #b91c1c;
+}
+
+.snapshot-create-confirm {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--player-space-xs);
+  width: min(280px, 100%);
+  padding: var(--player-space-sm);
+  border: 1px solid rgba(23, 95, 159, 0.28);
+  border-radius: var(--player-radius-md);
+  background: var(--player-color-surface-solid);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+}
+
+.snapshot-create-confirm__text {
+  margin: 0;
+  color: var(--player-color-text);
+  font-size: var(--player-font-size-sm);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.snapshot-create-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--player-space-xs);
+}
+
+.snapshot-create-confirm__button {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--player-radius-sm);
+  font: inherit;
+  font-size: var(--player-font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.snapshot-create-confirm__button:focus-visible {
+  outline: none;
+  box-shadow: var(--player-shadow-focus);
+}
+
+.snapshot-create-confirm__button--primary {
+  border-color: var(--player-color-accent-strong);
+  background: var(--player-color-accent);
+  color: #ffffff;
+}
+
+.snapshot-create-confirm__button--primary:hover {
+  background: var(--player-color-accent-strong);
+}
+
+.snapshot-create-confirm__button--secondary {
+  border-color: var(--player-color-border-strong);
+  background: var(--player-color-surface-muted);
+  color: var(--player-color-text-subtle);
+}
+
+.snapshot-create-confirm__button--secondary:hover {
+  border-color: var(--player-color-border-hover);
+  background: var(--player-color-surface-muted-strong);
+  color: var(--player-color-text);
 }
 
 .snapshot-create-prompt {
@@ -4511,6 +4587,11 @@ button.defense-position-node {
 
   .snapshot-timeline-buttons {
     grid-template-columns: 1fr;
+  }
+
+  .snapshot-create-confirm {
+    right: 0;
+    left: auto;
   }
 
   .snapshot-create-prompt-actions {

@@ -101,6 +101,7 @@ const DETAIL_STATE = {
   isBusy: false,
   loadingSnapshotKey: "",
   snapshotButtonErrorKey: "",
+  pendingSnapshotCreateKey: "",
   selectedDefensePosition: null,
   nextToastId: 0,
   activeToastKeys: new Set(),
@@ -134,12 +135,6 @@ function getDetailViewModeFromQuery() {
 
 function isManageView() {
   return DETAIL_STATE.viewMode === "manage";
-}
-
-function confirmSnapshotCreation(snapshotLabel) {
-  return window.confirm(
-    `「${snapshotLabel}」はまだ登録されていません。\nこの時点の能力を新しく登録しますか？`
-  );
 }
 
 function syncSnapshotQuery(snapshotKey) {
@@ -613,20 +608,56 @@ function buildSnapshotTimelineButtons(seriesResponse) {
       ]
         .filter(Boolean)
         .join(" ");
+      const showCreateConfirm =
+        !buttonState.registered &&
+        isManageView() &&
+        !isArchivedSchool(DETAIL_STATE.player) &&
+        DETAIL_STATE.pendingSnapshotCreateKey === key;
+      const confirmId = `snapshot-create-confirm-${key}`;
 
       return `
-        <button
-          type="button"
-          class="${className}"
-          data-snapshot-button="${escapeAttribute(key)}"
-          data-snapshot-registered="${buttonState.registered ? "true" : "false"}"
-          data-snapshot-state="${buttonState.tone}"
-          aria-pressed="${buttonState.current ? "true" : "false"}"
-          ${DETAIL_STATE.isBusy ? "disabled" : ""}
-        >
-          <span class="snapshot-timeline-button-label">${label}</span>
-          <span class="snapshot-timeline-button-state">${buttonState.label}</span>
-        </button>
+        <div class="snapshot-timeline-button-wrap${showCreateConfirm ? " has-create-confirm" : ""}">
+          <button
+            type="button"
+            class="${className}"
+            data-snapshot-button="${escapeAttribute(key)}"
+            data-snapshot-registered="${buttonState.registered ? "true" : "false"}"
+            data-snapshot-state="${buttonState.tone}"
+            aria-pressed="${buttonState.current ? "true" : "false"}"
+            aria-expanded="${showCreateConfirm ? "true" : "false"}"
+            ${showCreateConfirm ? `aria-controls="${confirmId}"` : ""}
+            ${DETAIL_STATE.isBusy ? "disabled" : ""}
+          >
+            <span class="snapshot-timeline-button-label">${label}</span>
+            <span class="snapshot-timeline-button-state">${buttonState.label}</span>
+          </button>
+          ${
+            showCreateConfirm
+              ? `
+                <div
+                  id="${confirmId}"
+                  class="snapshot-create-confirm"
+                  role="dialog"
+                  aria-label="${escapeAttribute(label)}の新規登録確認"
+                >
+                  <p class="snapshot-create-confirm__text">「${escapeHtml(label)}」を新規登録しますか？</p>
+                  <div class="snapshot-create-confirm__actions">
+                    <button
+                      type="button"
+                      class="snapshot-create-confirm__button snapshot-create-confirm__button--primary"
+                      data-snapshot-create-confirm="${escapeAttribute(key)}"
+                    >登録</button>
+                    <button
+                      type="button"
+                      class="snapshot-create-confirm__button snapshot-create-confirm__button--secondary"
+                      data-snapshot-create-cancel
+                    >キャンセル</button>
+                  </div>
+                </div>
+              `
+              : ""
+          }
+        </div>
       `;
     })
     .join("");
@@ -1505,6 +1536,8 @@ async function handleSnapshotButtonClick(snapshotKey) {
   }
 
   if (isCurrentSnapshot(snapshotKey, DETAIL_STATE.currentSnapshot)) {
+    DETAIL_STATE.pendingSnapshotCreateKey = "";
+    renderCurrentPlayerDetail();
     return;
   }
 
@@ -1512,18 +1545,12 @@ async function handleSnapshotButtonClick(snapshotKey) {
     const snapshotLabel = SNAPSHOT_LABELS[snapshotKey] ?? snapshotKey;
 
     if (isManageView() && !isArchivedSchool(DETAIL_STATE.player)) {
-      const shouldCreateSnapshot = confirmSnapshotCreation(snapshotLabel);
-
-      if (shouldCreateSnapshot) {
-        window.location.href = buildPlayerEditUrl(DETAIL_STATE.currentSnapshot.id, {
-          mode: "snapshot-create",
-          snapshot: snapshotKey,
-        });
-      }
-
+      DETAIL_STATE.pendingSnapshotCreateKey = snapshotKey;
+      renderCurrentPlayerDetail();
       return;
     }
 
+    DETAIL_STATE.pendingSnapshotCreateKey = "";
     setMessage(
       DETAIL_STATE.refs.messageElement,
       `「${snapshotLabel}」はまだ登録されていないため、詳細表示へ切り替えられません。`
@@ -1531,6 +1558,7 @@ async function handleSnapshotButtonClick(snapshotKey) {
     return;
   }
 
+  DETAIL_STATE.pendingSnapshotCreateKey = "";
   DETAIL_STATE.isBusy = true;
   setSnapshotButtonLoading(snapshotKey);
   renderCurrentPlayerDetail();
@@ -1552,6 +1580,36 @@ async function handleSnapshotButtonClick(snapshotKey) {
 
 function handleDetailRootClick(event) {
   const target = event.target instanceof Element ? event.target : null;
+  const snapshotCreateConfirmButton = target?.closest("[data-snapshot-create-confirm]");
+
+  if (snapshotCreateConfirmButton) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const snapshotKey = String(
+      snapshotCreateConfirmButton.dataset.snapshotCreateConfirm ?? ""
+    ).trim();
+
+    if (snapshotKey && snapshotKey === DETAIL_STATE.pendingSnapshotCreateKey) {
+      window.location.href = buildPlayerEditUrl(DETAIL_STATE.currentSnapshot.id, {
+        mode: "snapshot-create",
+        snapshot: snapshotKey,
+      });
+    }
+
+    return;
+  }
+
+  const snapshotCreateCancelButton = target?.closest("[data-snapshot-create-cancel]");
+
+  if (snapshotCreateCancelButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    DETAIL_STATE.pendingSnapshotCreateKey = "";
+    renderCurrentPlayerDetail();
+    return;
+  }
+
   const defenseCancelButton = target?.closest("[data-defense-position-cancel]");
 
   if (defenseCancelButton) {
