@@ -19,15 +19,22 @@ async function parseResponse(response) {
   return payload.data;
 }
 
-export async function fetchPlayers({ schoolId } = {}) {
-  const params = new URLSearchParams();
+export async function fetchPlayers(params = {}) {
+  const searchParams = new URLSearchParams();
 
-  if (schoolId !== undefined && schoolId !== null && schoolId !== "") {
-    params.set("school_id", schoolId);
-  }
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
 
-  const query = params.toString();
-  const response = await fetch(query ? `${PLAYER_API_BASE}?${query}` : PLAYER_API_BASE);
+    const queryKey = key === "schoolId" ? "school_id" : key;
+    searchParams.set(queryKey, String(value));
+  });
+
+  const query = searchParams.toString();
+  const response = await fetch(query ? `${PLAYER_API_BASE}?${query}` : PLAYER_API_BASE, {
+    cache: "no-store",
+  });
   return parseResponse(response);
 }
 

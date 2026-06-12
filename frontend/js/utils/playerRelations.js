@@ -42,6 +42,16 @@ const FALLBACK_RELATION_OPTIONS = {
 };
 
 const SPECIAL_ABILITY_RANK_OPTIONS = ["A", "B", "C", "D", "E", "F", "G"];
+const DEFENSE_RANK_GROUPS = [
+  { rank: "S", min: 90, max: 100 },
+  { rank: "A", min: 80, max: 89 },
+  { rank: "B", min: 70, max: 79 },
+  { rank: "C", min: 60, max: 69 },
+  { rank: "D", min: 50, max: 59 },
+  { rank: "E", min: 40, max: 49 },
+  { rank: "F", min: 20, max: 39 },
+  { rank: "G", min: 1, max: 19 },
+];
 export const PITCH_METER_MAX_LEVEL = 7;
 
 export const PITCH_MOVEMENT_DIRECTIONS = [
@@ -185,6 +195,175 @@ function renderRankOptions(selectedValue = "") {
   return renderStringOptions(SPECIAL_ABILITY_RANK_OPTIONS, selectedValue, "ランクなし");
 }
 
+function normalizeOptionalIntegerValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  const numericValue = Number(value);
+  return Number.isInteger(numericValue) ? String(numericValue) : "";
+}
+
+function getDefenseRankGroupForValue(value) {
+  const numericValue = Number(value);
+
+  if (!Number.isInteger(numericValue)) {
+    return null;
+  }
+
+  return DEFENSE_RANK_GROUPS.find(
+    (group) => numericValue >= group.min && numericValue <= group.max
+  ) ?? null;
+}
+
+function getDefenseRankForValue(value) {
+  return getDefenseRankGroupForValue(value)?.rank ?? null;
+}
+
+function formatDefenseRankBand(value) {
+  const defenseValue = normalizeOptionalIntegerValue(value);
+
+  if (!defenseValue) {
+    return "守備力: 未設定";
+  }
+
+  const rankGroup = getDefenseRankGroupForValue(defenseValue);
+
+  if (!rankGroup) {
+    return `守備力: ${defenseValue} / ランク帯: ランク外（0）`;
+  }
+
+  return `守備力: ${defenseValue} / ランク帯: ${rankGroup.rank}（${rankGroup.min}〜${rankGroup.max}）`;
+}
+
+function normalizeMainDefenseValue(value) {
+  const numericValue = Number(value);
+  return Number.isInteger(numericValue) && numericValue >= 1 && numericValue <= 100
+    ? numericValue
+    : 100;
+}
+
+function getDefenseRankGroupByRank(rank) {
+  return DEFENSE_RANK_GROUPS.find((group) => group.rank === rank) ?? null;
+}
+
+function getDefenseRankGroupIndexByRank(rank) {
+  return DEFENSE_RANK_GROUPS.findIndex((group) => group.rank === rank);
+}
+
+function getAllowedDefenseRankGroups(mainDefenseValue) {
+  const mainRank = getDefenseRankForValue(normalizeMainDefenseValue(mainDefenseValue));
+  const mainRankIndex = getDefenseRankGroupIndexByRank(mainRank);
+
+  if (mainRankIndex < 0) {
+    return [...DEFENSE_RANK_GROUPS];
+  }
+
+  return DEFENSE_RANK_GROUPS.slice(mainRankIndex);
+}
+
+function getDefenseValueRangeForRank(rank, mainDefenseValue) {
+  const rankGroup = getDefenseRankGroupByRank(rank);
+
+  if (!rankGroup) {
+    return null;
+  }
+
+  const max = Math.min(rankGroup.max, normalizeMainDefenseValue(mainDefenseValue));
+
+  if (max < rankGroup.min) {
+    return null;
+  }
+
+  return {
+    rank: rankGroup.rank,
+    min: rankGroup.min,
+    max,
+    rankMax: rankGroup.max,
+  };
+}
+
+function buildDefenseRankOptions(selectedRank = "", mainDefenseValue = "") {
+  const defenseMax = normalizeMainDefenseValue(mainDefenseValue);
+  const normalizedSelectedRank = String(selectedRank ?? "").trim();
+  const allowedRankGroups = getAllowedDefenseRankGroups(defenseMax);
+  const selectedRankGroup = getDefenseRankGroupByRank(normalizedSelectedRank);
+  const selectedIsAllowed = allowedRankGroups.some((group) => group.rank === normalizedSelectedRank);
+
+  return [
+    `<option value=""${normalizedSelectedRank ? "" : " selected"}>ランクを選択</option>`,
+    selectedRankGroup && !selectedIsAllowed
+      ? `<option value="${escapeAttribute(normalizedSelectedRank)}" selected disabled>${escapeHtml(
+          `${normalizedSelectedRank}（既存値・上限超過）`
+        )}</option>`
+      : "",
+    ...allowedRankGroups.map((group) => {
+      const selected = group.rank === normalizedSelectedRank ? " selected" : "";
+      const max = Math.min(group.max, defenseMax);
+      return `<option value="${escapeAttribute(group.rank)}"${selected}>${escapeHtml(
+        `${group.rank}（${group.min}〜${max}）`
+      )}</option>`;
+    }),
+  ].join("");
+}
+
+function buildDefenseValueOptions(selectedRank = "", selectedValue = "", mainDefenseValue = "") {
+  const range = getDefenseValueRangeForRank(selectedRank, mainDefenseValue);
+  const normalizedSelectedValue = normalizeOptionalIntegerValue(selectedValue);
+  const selectedNumericValue = Number(normalizedSelectedValue);
+  const selectedIsInteger = Number.isInteger(selectedNumericValue);
+
+  if (!range) {
+    return [
+      '<option value="">数値を選択</option>',
+      normalizedSelectedValue
+        ? `<option value="${escapeAttribute(normalizedSelectedValue)}" selected disabled>${escapeHtml(
+            `${normalizedSelectedValue}（既存値・上限超過）`
+          )}</option>`
+        : "",
+    ].join("");
+  }
+
+  const selectedIsInRange =
+    selectedIsInteger &&
+    selectedNumericValue >= range.min &&
+    selectedNumericValue <= range.max;
+
+  return [
+    `<option value=""${normalizedSelectedValue ? "" : " selected"}>数値を選択</option>`,
+    ...Array.from({ length: range.max - range.min + 1 }, (_, index) => {
+      const value = String(range.min + index);
+      const selected = value === normalizedSelectedValue ? " selected" : "";
+      return `<option value="${value}"${selected}>${value}</option>`;
+    }),
+    normalizedSelectedValue && !selectedIsInRange
+      ? `<option value="${escapeAttribute(normalizedSelectedValue)}" selected disabled>${escapeHtml(
+          `${normalizedSelectedValue}（既存値・上限超過）`
+        )}</option>`
+      : "",
+  ].join("");
+}
+
+function formatDefenseLimitHelp(mainDefenseValue = "") {
+  const defenseMax = normalizeMainDefenseValue(mainDefenseValue);
+  const mainRank = getDefenseRankForValue(defenseMax) ?? "-";
+  return `メイン守備ランク（${mainRank}）・数値（${defenseMax}）以下で選択`;
+}
+
+function formatDefenseRankSelection(rank = "", mainDefenseValue = "") {
+  const range = getDefenseValueRangeForRank(rank, mainDefenseValue);
+
+  if (!rank) {
+    return "守備ランクを選択してください。";
+  }
+
+  if (!range) {
+    return "メイン守備数値を超えるため、このランクは選択できません。";
+  }
+
+  return `${range.rank}（${range.min}〜${range.max}）から守備数値を選択`;
+}
+
 function renderDatalist(id, options) {
   if (!id || !Array.isArray(options) || options.length === 0) {
     return "";
@@ -293,7 +472,7 @@ export function getPitchDisplayLayout(pitch, throwingHand = "") {
   };
 }
 
-function normalizePitchLevel(value, fallback = 1) {
+export function normalizePitchLevel(value, fallback = 1) {
   const numericValue = Number(value);
 
   if (!Number.isFinite(numericValue)) {
@@ -301,6 +480,72 @@ function normalizePitchLevel(value, fallback = 1) {
   }
 
   return clampNumber(Math.trunc(numericValue), 1, PITCH_METER_MAX_LEVEL);
+}
+
+export function getPitchMovementDisplayName(pitch) {
+  const originalName = String(pitch?.original_pitch_name ?? "").trim();
+
+  if ((Number(pitch?.is_original) === 1 || pitch?.is_original === true) && originalName) {
+    return originalName;
+  }
+
+  return pitch?.pitch_name ?? "不明";
+}
+
+export function toPitchMovementDisplayItem(pitch, { baseline = false, throwingHand = "" } = {}) {
+  const layout = getPitchDisplayLayout(pitch, throwingHand);
+  const fixedLevel = baseline || isStraightPitchName(pitch?.pitch_name) || layout.direction === "top";
+
+  return {
+    direction: layout.direction,
+    directionLabel: layout.directionLabel,
+    orientation: layout.orientation,
+    angle: layout.angle,
+    name: baseline ? "ストレート" : getPitchMovementDisplayName(pitch),
+    level: fixedLevel ? 1 : normalizePitchLevel(pitch?.level),
+    baseName: pitch?.pitch_name ?? "",
+    isOriginal: Number(pitch?.is_original) === 1 || pitch?.is_original === true,
+    baseline,
+    fixedLevel,
+  };
+}
+
+export function getPitchMovementDisplayItems({
+  pitchTypes = [],
+  throwingHand = "",
+  includeBaseline = true,
+} = {}) {
+  const safePitchTypes = Array.isArray(pitchTypes) ? pitchTypes : [];
+  const visiblePitchTypes = safePitchTypes.filter(
+    (pitch) =>
+      !isStraightPitchName(pitch?.pitch_name) &&
+      !isPitchMovementChartExcludedPitchName(pitch?.pitch_name)
+  );
+  const sourcePitches = [
+    ...(includeBaseline ? [{ pitch_name: "ストレート", level: 1, is_original: 0, baseline: true }] : []),
+    ...visiblePitchTypes,
+  ];
+
+  return sourcePitches.map((pitch) =>
+    toPitchMovementDisplayItem(pitch, { baseline: Boolean(pitch.baseline), throwingHand })
+  );
+}
+
+export function groupPitchMovementDisplayItemsByDirection({
+  pitchTypes = [],
+  throwingHand = "",
+  includeBaseline = true,
+} = {}) {
+  const displayPitches = getPitchMovementDisplayItems({
+    pitchTypes,
+    throwingHand,
+    includeBaseline,
+  });
+
+  return PITCH_MOVEMENT_DIRECTIONS.reduce((groups, direction) => {
+    groups[direction.key] = displayPitches.filter((pitch) => pitch.direction === direction.key);
+    return groups;
+  }, {});
 }
 
 function getPitchOptionsForDirection(displayDirection, relationOptions, throwingHand = "", selectedValue = "") {
@@ -714,34 +959,68 @@ function renderPitchEditor({ pitchTypes = [], relationOptions, editorIdPrefix = 
   `;
 }
 
-function renderSubPositionRow(item, relationOptions, { idPrefix, rowKey, mainPosition = "" }) {
+function renderSubPositionRow(
+  item,
+  relationOptions,
+  { idPrefix, rowKey, mainPosition = "", mainDefenseValue = "" }
+) {
   const positionId = `${idPrefix}-sub-position-${rowKey}`;
-  const suitabilityId = `${idPrefix}-sub-position-suitability-${rowKey}`;
+  const defenseId = `${idPrefix}-sub-position-defense-${rowKey}`;
+  const defenseRankId = `${defenseId}-rank`;
   const positionOptions = buildSubPositionSelectOptions(
     relationOptions.subPositionOptions,
     mainPosition,
     item.position_name
   );
+  const defenseValue = normalizeOptionalIntegerValue(item.defense_value);
+  const defenseRank = getDefenseRankForValue(defenseValue) ?? String(item.suitability_value ?? "").trim();
+  const defenseMax = normalizeMainDefenseValue(mainDefenseValue);
+  const hasPosition = Boolean(String(item.position_name ?? "").trim());
 
   return `
     <div class="player-relation-row" data-relation-row="sub_positions">
       <div class="player-relation-row-grid player-relation-row-grid--sub-position">
-        <div class="player-relation-field">
+        <div class="player-relation-field player-sub-position-name-field">
           <label class="player-form-label player-relation-label" for="${escapeAttribute(positionId)}">ポジション</label>
-          <select id="${escapeAttribute(positionId)}" data-sub-position-name>
-            ${renderStringOptions(positionOptions, item.position_name, "ポジションを選択")}
-          </select>
+          <div class="player-ability-input player-sub-position-name-control">
+            <span class="player-ability-input-label" aria-hidden="true">選択</span>
+            <select id="${escapeAttribute(positionId)}" data-sub-position-name>
+              ${renderStringOptions(positionOptions, item.position_name, "ポジションを選択")}
+            </select>
+          </div>
+          <p class="player-form-help player-sub-position-help-spacer" aria-hidden="true">&nbsp;</p>
+          <p class="player-form-help player-sub-position-preview-spacer" aria-hidden="true">&nbsp;</p>
         </div>
-        <div class="player-relation-field">
-          <label class="player-form-label player-relation-label" for="${escapeAttribute(suitabilityId)}">適性</label>
-          <input
-            id="${escapeAttribute(suitabilityId)}"
-            type="text"
-            value="${escapeAttribute(item.suitability_value ?? "")}"
-            list="${escapeAttribute(idPrefix)}-sub-position-suitability"
-            data-sub-position-suitability
-            placeholder="例: D"
-          >
+        <div class="player-relation-field player-sub-position-defense-field" data-sub-position-defense-field ${hasPosition ? "" : "hidden"}>
+          <span class="player-form-label player-relation-label">守備能力</span>
+          <div class="player-ability-pair player-sub-position-defense-pair">
+            <div class="player-ability-input">
+              <label class="player-ability-input-label" for="${escapeAttribute(defenseRankId)}">ランク</label>
+              <select
+                id="${escapeAttribute(defenseRankId)}"
+                data-sub-position-defense-rank
+                ${hasPosition ? "" : "disabled"}
+              >
+                ${buildDefenseRankOptions(defenseRank, defenseMax)}
+              </select>
+            </div>
+            <div class="player-ability-input">
+              <label class="player-ability-input-label" for="${escapeAttribute(defenseId)}">数値</label>
+              <select
+                id="${escapeAttribute(defenseId)}"
+                data-sub-position-defense-value
+                ${hasPosition && defenseRank ? "" : "disabled"}
+              >
+                ${buildDefenseValueOptions(defenseRank, defenseValue, defenseMax)}
+              </select>
+            </div>
+          </div>
+          <p class="player-form-help player-sub-position-defense-help" data-sub-position-defense-help>
+            ${escapeHtml(formatDefenseLimitHelp(defenseMax))}
+          </p>
+          <p class="player-form-help player-sub-position-defense-preview" data-sub-position-defense-preview>
+            ${escapeHtml(defenseValue ? formatDefenseRankBand(defenseValue) : formatDefenseRankSelection(defenseRank, defenseMax))}
+          </p>
         </div>
       </div>
       <p class="player-form-help player-relation-warning" data-sub-position-warning hidden>メインポジションと同じ値は保存できません。</p>
@@ -855,6 +1134,7 @@ export function renderSubPositionEditor({
   relationOptions,
   editorIdPrefix = "player-relations",
   mainPosition = "",
+  mainDefenseValue = "",
 }) {
   const normalizedOptions = normalizeRelationOptions(relationOptions);
   const safeSubPositions = Array.isArray(subPositions) ? subPositions : [];
@@ -864,6 +1144,7 @@ export function renderSubPositionEditor({
         idPrefix: editorIdPrefix,
         rowKey: index,
         mainPosition,
+        mainDefenseValue,
       })
     )
     .join("");
@@ -871,17 +1152,14 @@ export function renderSubPositionEditor({
   return renderRelationEditorShell({
     editorKey: "sub_positions",
     title: "サブポジション",
-    description: "メインポジション以外の守備位置と適性値を登録します。",
+    description: "メインポジション以外の守備位置と守備能力を登録します。",
     rowsHtml,
     addLabel: "サブポジションを追加",
-    datalistHtml: renderDatalist(
-      `${editorIdPrefix}-sub-position-suitability`,
-      normalizedOptions.subPositionSuitabilitySuggestions
-    ),
     editorIdPrefix,
     extraAttributes: {
       "data-next-row-index": safeSubPositions.length,
       "data-main-position": mainPosition,
+      "data-main-defense-value": normalizeMainDefenseValue(mainDefenseValue),
     },
   });
 }
@@ -1206,7 +1484,53 @@ function clearPitchSlot(row) {
   syncPitchTypeRow(row);
 }
 
-function syncSubPositionRow(row, relationOptions, mainPosition = "") {
+function syncSubPositionDefenseField(row, mainDefenseValue = "", { preserveValue = true } = {}) {
+  const positionSelect = row.querySelector("[data-sub-position-name]");
+  const defenseField = row.querySelector("[data-sub-position-defense-field]");
+  const defenseRankSelect = row.querySelector("[data-sub-position-defense-rank]");
+  const defenseValueSelect = row.querySelector("[data-sub-position-defense-value]");
+  const defenseHelp = row.querySelector("[data-sub-position-defense-help]");
+  const defensePreview = row.querySelector("[data-sub-position-defense-preview]");
+  const defenseMax = normalizeMainDefenseValue(mainDefenseValue);
+  const hasPosition = Boolean(String(positionSelect?.value ?? "").trim());
+
+  if (defenseField) {
+    defenseField.hidden = !hasPosition;
+  }
+
+  if (!defenseRankSelect || !defenseValueSelect) {
+    return;
+  }
+
+  const currentRank = hasPosition ? String(defenseRankSelect.value ?? "").trim() : "";
+  const currentValue =
+    hasPosition && preserveValue ? normalizeOptionalIntegerValue(defenseValueSelect.value) : "";
+
+  defenseRankSelect.innerHTML = buildDefenseRankOptions(currentRank, defenseMax);
+  const nextRank = hasPosition ? String(defenseRankSelect.value ?? "").trim() : "";
+  defenseValueSelect.innerHTML = buildDefenseValueOptions(nextRank, currentValue, defenseMax);
+  const nextValue = normalizeOptionalIntegerValue(defenseValueSelect.value);
+
+  defenseRankSelect.disabled = !hasPosition;
+  defenseValueSelect.disabled = !hasPosition || !nextRank;
+
+  if (defenseHelp) {
+    defenseHelp.textContent = formatDefenseLimitHelp(defenseMax);
+  }
+
+  if (!hasPosition) {
+    defenseRankSelect.value = "";
+    defenseValueSelect.value = "";
+  }
+
+  if (defensePreview) {
+    defensePreview.textContent = nextValue
+      ? formatDefenseRankBand(nextValue)
+      : formatDefenseRankSelection(nextRank, defenseMax);
+  }
+}
+
+function syncSubPositionRow(row, relationOptions, mainPosition = "", mainDefenseValue = "") {
   const positionSelect = row.querySelector("[data-sub-position-name]");
   const warning = row.querySelector("[data-sub-position-warning]");
 
@@ -1228,12 +1552,15 @@ function syncSubPositionRow(row, relationOptions, mainPosition = "") {
   if (warning) {
     warning.hidden = !isInvalid;
   }
+
+  syncSubPositionDefenseField(row, mainDefenseValue);
 }
 
-function syncSubPositionEditor(editor, relationOptions, mainPosition = "") {
+function syncSubPositionEditor(editor, relationOptions, mainPosition = "", mainDefenseValue = "") {
   editor.dataset.mainPosition = mainPosition ?? "";
+  editor.dataset.mainDefenseValue = normalizeMainDefenseValue(mainDefenseValue);
   editor.querySelectorAll('[data-relation-row="sub_positions"]').forEach((row) => {
-    syncSubPositionRow(row, relationOptions, mainPosition);
+    syncSubPositionRow(row, relationOptions, mainPosition, mainDefenseValue);
   });
 }
 
@@ -1250,7 +1577,7 @@ function appendRow(editor, rowHtml) {
   return row;
 }
 
-function createRowForEditor(editor, relationOptions, mainPosition = "") {
+function createRowForEditor(editor, relationOptions, mainPosition = "", mainDefenseValue = "") {
   const editorKey = editor.dataset.relationEditor;
   const idPrefix = editor.dataset.editorPrefix || "player-relations";
   const rowKey = nextRowKey(editor);
@@ -1273,9 +1600,9 @@ function createRowForEditor(editor, relationOptions, mainPosition = "") {
 
   if (editorKey === "sub_positions") {
     return renderSubPositionRow(
-      { position_name: "", suitability_value: "" },
+      { position_name: "", suitability_value: "", defense_value: "" },
       relationOptions,
-      { idPrefix, rowKey, mainPosition }
+      { idPrefix, rowKey, mainPosition, mainDefenseValue }
     );
   }
 
@@ -1285,7 +1612,7 @@ function createRowForEditor(editor, relationOptions, mainPosition = "") {
 export function bindRelationEditors(
   root,
   relationOptions,
-  { getMainPosition = () => "", getThrowingHand = () => "" } = {}
+  { getMainPosition = () => "", getThrowingHand = () => "", getMainDefenseValue = () => "" } = {}
 ) {
   if (!root) {
     return;
@@ -1294,8 +1621,9 @@ export function bindRelationEditors(
   const normalizedOptions = normalizeRelationOptions(relationOptions);
   const syncMainPositionSensitiveEditors = () => {
     const mainPosition = String(getMainPosition?.() ?? "").trim();
+    const mainDefenseValue = getMainDefenseValue?.() ?? "";
     root.querySelectorAll('[data-relation-editor="sub_positions"]').forEach((editor) => {
-      syncSubPositionEditor(editor, normalizedOptions, mainPosition);
+      syncSubPositionEditor(editor, normalizedOptions, mainPosition, mainDefenseValue);
     });
   };
 
@@ -1377,7 +1705,12 @@ export function bindRelationEditors(
       return;
     }
 
-    const rowHtml = createRowForEditor(editor, normalizedOptions, getMainPosition?.());
+    const rowHtml = createRowForEditor(
+      editor,
+      normalizedOptions,
+      getMainPosition?.(),
+      getMainDefenseValue?.()
+    );
     const row = appendRow(editor, rowHtml);
 
     if (!row) {
@@ -1390,7 +1723,7 @@ export function bindRelationEditors(
       syncPitchTypeRow(row);
       syncPitchOriginalSummary(editor, { preferSharedValue: true });
     } else if (editor.dataset.relationEditor === "sub_positions") {
-      syncSubPositionRow(row, normalizedOptions, getMainPosition?.());
+      syncSubPositionRow(row, normalizedOptions, getMainPosition?.(), getMainDefenseValue?.());
     }
 
     const firstInput = row.querySelector("input, select, textarea");
@@ -1430,12 +1763,47 @@ export function bindRelationEditors(
       });
     }
 
-    if (event.target.id === "main_position" || event.target.closest("[data-sub-position-name]")) {
+    const subPositionDefenseRank = event.target.closest("[data-sub-position-defense-rank]");
+
+    if (subPositionDefenseRank) {
+      const row = subPositionDefenseRank.closest('[data-relation-row="sub_positions"]');
+      if (row) {
+        syncSubPositionDefenseField(row, getMainDefenseValue?.(), { preserveValue: false });
+      }
+      return;
+    }
+
+    const subPositionDefenseValue = event.target.closest("[data-sub-position-defense-value]");
+
+    if (subPositionDefenseValue) {
+      const row = subPositionDefenseValue.closest('[data-relation-row="sub_positions"]');
+      if (row) {
+        syncSubPositionDefenseField(row, getMainDefenseValue?.());
+      }
+      return;
+    }
+
+    if (
+      event.target.id === "main_position" ||
+      event.target.closest("[data-sub-position-name]") ||
+      event.target.closest('[data-ranked-rank="fielding"]') ||
+      event.target.closest('[data-ranked-value="fielding"]')
+    ) {
       syncMainPositionSensitiveEditors();
     }
   });
 
   root.addEventListener("input", (event) => {
+    const subPositionDefenseInput = event.target.closest("[data-sub-position-defense-value]");
+
+    if (subPositionDefenseInput) {
+      const row = subPositionDefenseInput.closest('[data-relation-row="sub_positions"]');
+      if (row) {
+        syncSubPositionDefenseField(row, getMainDefenseValue?.());
+      }
+      return;
+    }
+
     const originalNameInput = event.target.closest("[data-pitch-original-shared-name]");
 
     if (!originalNameInput) {
@@ -1564,8 +1932,16 @@ function serializePitchTypes(root) {
     .filter(Boolean);
 }
 
-function serializeSubPositions(root, mainPosition) {
+function serializeSubPositions(root, mainPosition, mainDefenseValue = "") {
   const normalizedMainPosition = String(mainPosition ?? "").trim();
+  const mainDefenseNumericValue = Number(mainDefenseValue);
+  const hasMainDefenseValue =
+    mainDefenseValue !== null &&
+    mainDefenseValue !== undefined &&
+    String(mainDefenseValue).trim() !== "" &&
+    Number.isInteger(mainDefenseNumericValue) &&
+    mainDefenseNumericValue >= 1 &&
+    mainDefenseNumericValue <= 100;
   const seen = new Set();
 
   return Array.from(
@@ -1573,18 +1949,15 @@ function serializeSubPositions(root, mainPosition) {
   )
     .map((row, index) => {
       const positionName = trimInputValue(row.querySelector("[data-sub-position-name]"));
-      const suitabilityValue = trimInputValue(row.querySelector("[data-sub-position-suitability]"));
+      const defenseRank = trimInputValue(row.querySelector("[data-sub-position-defense-rank]"));
+      const defenseValueText = trimInputValue(row.querySelector("[data-sub-position-defense-value]"));
 
-      if (isBlankRow([positionName, suitabilityValue])) {
+      if (isBlankRow([positionName, defenseRank, defenseValueText])) {
         return null;
       }
 
       if (!positionName) {
         throw new Error(`サブポジション ${index + 1}件目の守備位置を選択してください。`);
-      }
-
-      if (!suitabilityValue) {
-        throw new Error(`サブポジション ${index + 1}件目の適性を入力してください。`);
       }
 
       if (normalizedMainPosition && positionName === normalizedMainPosition) {
@@ -1595,11 +1968,48 @@ function serializeSubPositions(root, mainPosition) {
         throw new Error(`サブポジション「${positionName}」が重複しています。`);
       }
 
+      if (!defenseRank) {
+        throw new Error(`サブポジション ${index + 1}件目の守備ランクを選択してください。`);
+      }
+
+      if (defenseValueText === "") {
+        throw new Error(`サブポジション ${index + 1}件目の守備数値を選択してください。`);
+      }
+
+      const parsedDefenseValue = Number(defenseValueText);
+
+      if (!Number.isInteger(parsedDefenseValue)) {
+        throw new Error(`サブポジション ${index + 1}件目の守備数値は整数で選択してください。`);
+      }
+
+      if (parsedDefenseValue < 1 || parsedDefenseValue > 100) {
+        throw new Error(`サブポジション ${index + 1}件目の守備数値は1〜100で選択してください。`);
+      }
+
+      if (!hasMainDefenseValue) {
+        throw new Error("サブポジション守備数値を保存するには、メイン守備数値を入力してください。");
+      }
+
+      const defenseRange = getDefenseValueRangeForRank(defenseRank, mainDefenseNumericValue);
+
+      if (!defenseRange) {
+        throw new Error(
+          `サブポジション ${index + 1}件目の守備ランクはメイン守備数値（${mainDefenseNumericValue}）以下で選択してください。`
+        );
+      }
+
+      if (parsedDefenseValue < defenseRange.min || parsedDefenseValue > defenseRange.max) {
+        throw new Error(
+          `サブポジション ${index + 1}件目の守備数値は${defenseRank}（${defenseRange.min}〜${defenseRange.max}）から選択してください。`
+        );
+      }
+
       seen.add(positionName);
 
       return {
         position_name: positionName,
-        suitability_value: suitabilityValue,
+        suitability_value: defenseRank,
+        defense_value: parsedDefenseValue,
       };
     })
     .filter(Boolean);
@@ -1608,11 +2018,11 @@ function serializeSubPositions(root, mainPosition) {
 export function serializeRelationInputs(
   root,
   relationOptions,
-  { includePitchTypes = true, mainPosition = "" } = {}
+  { includePitchTypes = true, mainPosition = "", mainDefenseValue = "" } = {}
 ) {
   const payload = {
     special_abilities: serializeSpecialAbilities(root, relationOptions),
-    sub_positions: serializeSubPositions(root, mainPosition),
+    sub_positions: serializeSubPositions(root, mainPosition, mainDefenseValue),
   };
 
   if (includePitchTypes) {

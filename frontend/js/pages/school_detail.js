@@ -1,5 +1,5 @@
 ﻿import { fetchSchoolById } from "../api/schoolApi.js";
-import { deleteSchool, fetchSchoolPlayerSeriesSummaries, updateSchool } from "../api/schoolApi.js";
+import { deleteSchool, fetchSchoolPlayerSeriesSummaries, progressSchoolYear, undoSchoolYearProgression, updateSchool } from "../api/schoolApi.js";
 import { buildYearPicker, setupYearPickers } from "../components/admissionYearPicker.js";
 import { PREFECTURE_GROUPS } from "../constants/prefectures.js";
 import { formatDate, formatSchoolName } from "../utils/formatter.js";
@@ -46,6 +46,16 @@ function formatOptionalValue(value) {
   return String(value);
 }
 
+function formatTotalStars(value) {
+  const numericValue = Number(value);
+
+  if (value === undefined || value === null || value === "" || !Number.isInteger(numericValue) || numericValue <= 0) {
+    return "—";
+  }
+
+  return String(numericValue);
+}
+
 function formatYearValue(value) {
   return Number.isInteger(Number(value)) ? `${Number(value)}年` : "未設定";
 }
@@ -64,6 +74,69 @@ function formatElapsedYears(startYear, currentYear) {
 function formatPlayerGrade(value) {
   const numericValue = Number(value);
   return Number.isInteger(numericValue) ? `${numericValue}年` : formatOptionalValue(value);
+}
+
+function getRosterStatusLabel(rosterStatus) {
+  if (rosterStatus === "graduated") {
+    return "卒業";
+  }
+
+  if (rosterStatus === "active") {
+    return "在籍";
+  }
+
+  return "未設定";
+}
+
+function getGraduatedRosterYear(playerSeriesSummary, school) {
+  const currentYear = Number(school?.current_year);
+  const admissionYear = Number(playerSeriesSummary?.admissionYear);
+
+  if (!Number.isInteger(currentYear) || !Number.isInteger(admissionYear)) {
+    return null;
+  }
+
+  return currentYear - admissionYear + 1;
+}
+
+function formatRetirementSummer(playerSeriesSummary) {
+  const admissionYear = Number(playerSeriesSummary?.admissionYear);
+
+  if (!Number.isInteger(admissionYear)) {
+    return "夏";
+  }
+
+  return `${admissionYear + 2}夏`;
+}
+
+function getSchoolGradeDisplay(playerSeriesSummary, school) {
+  if (playerSeriesSummary?.rosterStatus !== "graduated") {
+    return {
+      gradeText: formatPlayerGrade(playerSeriesSummary?.schoolGrade),
+      badgeText: getRosterStatusLabel(playerSeriesSummary?.rosterStatus ?? "active"),
+      badgeClass: "status-badge",
+    };
+  }
+
+  const graduatedRosterYear = getGraduatedRosterYear(playerSeriesSummary, school);
+  const isOb = Number.isInteger(graduatedRosterYear) && graduatedRosterYear > 4;
+  const retirementSummer = formatRetirementSummer(playerSeriesSummary);
+
+  return {
+    gradeText: `${isOb ? "既卒" : "引退"} / ${retirementSummer}`,
+    badgeText: isOb ? "OB" : "卒業",
+    badgeClass: isOb ? "status-badge status-badge--ob" : "status-badge status-badge--graduated",
+  };
+}
+
+function formatSnapshotSummary(playerSeriesSummary) {
+  if (!playerSeriesSummary?.hasSnapshot) {
+    return "最新snapshot未登録";
+  }
+
+  const label = playerSeriesSummary.latestSnapshotLabelDisplay ?? "snapshot";
+  const grade = formatPlayerGrade(playerSeriesSummary.latestSnapshotGrade);
+  return `${label} / snapshot学年 ${grade}`;
 }
 
 function getPlayerTypeLabel(playerType) {
@@ -121,6 +194,11 @@ function setMessage(element, message, type = "") {
   }
 }
 
+function setAccordionExpanded(toggleButton, panelBody, expanded) {
+  toggleButton.setAttribute("aria-expanded", String(expanded));
+  panelBody.hidden = !expanded;
+}
+
 function renderSchoolError(root, message) {
   root.innerHTML = `
     <div class="message-box error-message">
@@ -161,26 +239,32 @@ function renderSchoolSummary(root, school) {
     {
       label: "都道府県",
       value: formatOptionalValue(school.prefecture),
+      classes: "school-summary-row school-summary-row--prefecture",
     },
     {
       label: "開始年度",
       value: formatYearValue(school.start_year),
+      classes: "school-summary-row school-summary-row--start-year",
     },
     {
       label: "現在年度",
       value: formatYearValue(school.current_year),
+      classes: "school-summary-row school-summary-row--current-year",
     },
     {
       label: "経過年数",
       value: formatElapsedYears(school.start_year, school.current_year),
+      classes: "school-summary-row school-summary-row--elapsed",
     },
     {
       label: "作成日時",
       value: formatDate(school.created_at),
+      classes: "school-summary-row school-summary-row--created-at school-summary-row--datetime",
     },
     {
       label: "更新日時",
       value: formatDate(school.updated_at),
+      classes: "school-summary-row school-summary-row--updated-at school-summary-row--datetime",
     },
     {
       label: "メモ",
@@ -197,9 +281,170 @@ function renderSchoolSummary(root, school) {
   `;
 }
 
+function getProgressionBaseYear(school) {
+  const currentYear = Number(school.current_year);
+
+  if (Number.isInteger(currentYear)) {
+    return currentYear;
+  }
+
+  const startYear = Number(school.start_year);
+  return Number.isInteger(startYear) ? startYear : null;
+}
+
+function buildProgressionMessage(progression) {
+  if (!progression) {
+    return null;
+  }
+
+  return {
+    type: "success",
+    text:
+      `${progression.previousYear}年から${progression.currentYear}年へ進行しました。` +
+      `進級 ${progression.advancedCount}人、卒業 ${progression.graduatedCount}人、` +
+      `既卒(OB) ${progression.alreadyGraduatedCount}人、snapshot作成 ${progression.snapshotsCreated}件です。`,
+  };
+}
+
+function buildUndoStatusText(undoState, isUndoLoaded) {
+  if (!isUndoLoaded) {
+    return "取り消し可能な年度進行履歴を確認中です。";
+  }
+
+  if (!undoState?.canUndo) {
+    return "取り消し可能な年度進行履歴がありません。";
+  }
+
+  return `${undoState.previousYear}年から${undoState.currentYear}年への直前の年度進行を取り消せます。`;
+}
+
+function renderProgressionPanel(
+  root,
+  school,
+  progression = null,
+  message = null,
+  {
+    playerSeriesCount = null,
+    isPlayerSeriesLoaded = false,
+    undoState = null,
+    isUndoLoaded = false,
+  } = {}
+) {
+  const baseYear = getProgressionBaseYear(school);
+  const nextYear = baseYear === null ? null : baseYear + 1;
+  const messageData = message ?? buildProgressionMessage(progression);
+  const isYearLimitReached = Number.isInteger(baseYear) && baseYear >= 2039;
+  const hasErrorMessage = message?.type === "error";
+  const normalizedPlayerSeriesCount = Number(playerSeriesCount);
+  const hasPlayerSeriesCount = Number.isInteger(normalizedPlayerSeriesCount);
+  const hasRegisteredPlayerSeries = hasPlayerSeriesCount && normalizedPlayerSeriesCount > 0;
+  const isCheckingPlayerSeries = !isPlayerSeriesLoaded && !hasErrorMessage;
+  const canProgress =
+    Number.isInteger(baseYear) &&
+    !isYearLimitReached &&
+    isPlayerSeriesLoaded &&
+    hasRegisteredPlayerSeries;
+  const progressionState = canProgress
+    ? "ready"
+    : isCheckingPlayerSeries
+      ? "loading"
+      : hasErrorMessage
+        ? "unavailable"
+        : !hasRegisteredPlayerSeries
+          ? "blocked"
+          : "limit";
+  const buttonLabel = isCheckingPlayerSeries ? "所属選手を確認中..." : "1年経過を実行";
+  const canUndoProgression = isUndoLoaded && Boolean(undoState?.canUndo);
+  const undoButtonLabel = isUndoLoaded ? "年度進行を取り消す" : "履歴を確認中...";
+  const undoStatusText = buildUndoStatusText(undoState, isUndoLoaded);
+  const disabledNote = isCheckingPlayerSeries
+    ? "所属選手一覧を確認中です。"
+    : hasErrorMessage
+      ? "所属選手一覧を読み込めないため年度進行できません。"
+      : !hasRegisteredPlayerSeries
+        ? "所属選手がいないため年度進行できません。選手登録後に実行してください。"
+        : isYearLimitReached
+          ? "現在年度が上限のため、この画面からは年度進行できません。"
+          : "";
+  const registerHref = `./player_register.html?school_id=${encodeURIComponent(school.id)}`;
+
+  root.innerHTML = `
+    <div id="school-progression-message" class="message-box detail-message" hidden></div>
+    <div class="progression-panel progression-panel--${progressionState}">
+      <div class="progression-summary">
+        <div class="progression-summary-item">
+          <span class="progression-label">現在年度</span>
+          <strong>${escapeHtml(formatYearValue(baseYear))}</strong>
+        </div>
+        <div class="progression-summary-item">
+          <span class="progression-label">進行後</span>
+          <strong>${escapeHtml(formatYearValue(nextYear))}</strong>
+        </div>
+        <div class="progression-summary-item">
+          <span class="progression-label">snapshot作成</span>
+          <strong>0件</strong>
+        </div>
+      </div>
+      <p class="progression-note">
+        実行すると学校の現在年度と在籍選手の学校管理学年だけを更新します。能力値・時点snapshot・relation情報は変更しません。
+      </p>
+      <div class="progression-actions">
+        <button
+          type="button"
+          id="school-progress-year-button"
+          class="school-button school-button-primary progression-action-button progression-action-button--${progressionState}"
+          data-progress-state="${progressionState}"
+          ${canProgress ? "" : "disabled"}
+        >
+          ${escapeHtml(buttonLabel)}
+        </button>
+        <button
+          type="button"
+          id="school-undo-progress-year-button"
+          class="school-button school-button-secondary progression-undo-button"
+          ${canUndoProgression ? "" : "disabled"}
+        >
+          ${escapeHtml(undoButtonLabel)}
+        </button>
+      </div>
+      <p class="progression-undo-note${canUndoProgression ? " progression-undo-note--ready" : ""}">
+        ${escapeHtml(undoStatusText)}
+      </p>
+      ${
+        isCheckingPlayerSeries
+          ? `
+            <div class="progression-state-note progression-state-note--loading" role="status">
+              <span class="progression-spinner" aria-hidden="true"></span>
+              <span>${escapeHtml(disabledNote)}</span>
+            </div>
+          `
+          : disabledNote
+            ? `
+              <div class="progression-state-note progression-state-note--blocked">
+                <p>${escapeHtml(disabledNote)}</p>
+                ${
+                  !hasRegisteredPlayerSeries
+                    && !hasErrorMessage
+                    ? `<a class="school-button school-button-secondary progression-register-link" href="${escapeAttribute(registerHref)}">選手を登録する</a>`
+                    : ""
+                }
+              </div>
+            `
+          : ""
+      }
+    </div>
+  `;
+
+  if (messageData) {
+    const messageElement = root.querySelector("#school-progression-message");
+    setMessage(messageElement, messageData.text, messageData.type);
+  }
+}
+
 function renderSchoolEditor(root, school, message = null) {
   const startYearIsLegacy = !Number.isInteger(Number(school.start_year));
-  const initialStartYear = startYearIsLegacy ? CURRENT_CALENDAR_YEAR : Number(school.start_year);
+  const schoolCurrentYear = getProgressionBaseYear(school) ?? CURRENT_CALENDAR_YEAR;
+  const initialStartYear = startYearIsLegacy ? schoolCurrentYear : Number(school.start_year);
 
   root.innerHTML = `
     <div id="school-form-message" class="message-box detail-message" hidden></div>
@@ -240,12 +485,12 @@ function renderSchoolEditor(root, school, message = null) {
             inputName: "start_year",
             inputId: "school-start-year",
             selectedYear: initialStartYear,
-            currentYear: CURRENT_CALENDAR_YEAR,
+            currentYear: schoolCurrentYear,
             groupLabel: "開始年度",
             variant: "compact",
           })}
         </div>
-        <p class="field-help">現在年度はここでは直接変更せず、開始年度の保存時にサーバー側で同期します。</p>
+        <p class="field-help">現在年度はここでは直接変更せず、「年度進行」から更新します。</p>
       </div>
       ${
         startYearIsLegacy
@@ -281,7 +526,7 @@ function renderSchoolEditor(root, school, message = null) {
   setupYearPickers(root);
 }
 
-function renderPlayerSeriesSummaries(root, playerSeriesSummaries) {
+function renderPlayerSeriesSummaries(root, playerSeriesSummaries, school = null) {
   const safeSummaries = Array.isArray(playerSeriesSummaries) ? playerSeriesSummaries : [];
   const playerCountText = `所属選手 ${safeSummaries.length}人`;
 
@@ -299,35 +544,51 @@ function renderPlayerSeriesSummaries(root, playerSeriesSummaries) {
   }
 
   const rows = safeSummaries
-    .map(
-      (playerSeriesSummary) => `
+    .map((playerSeriesSummary) => {
+      const rosterStatus = playerSeriesSummary.rosterStatus ?? "active";
+      const gradeDisplay = getSchoolGradeDisplay({ ...playerSeriesSummary, rosterStatus }, school);
+      const nameCell = playerSeriesSummary.latestSnapshotId
+        ? `
+          <a
+            class="player-link"
+            href="./player_detail.html?id=${encodeURIComponent(playerSeriesSummary.latestSnapshotId)}&view=manage"
+          >
+            ${escapeHtml(playerSeriesSummary.name)}
+          </a>
+        `
+        : `<span class="player-name-text">${escapeHtml(playerSeriesSummary.name)}</span>`;
+      const mainPositionText = formatOptionalValue(playerSeriesSummary.mainPosition);
+      const totalStarsText = formatTotalStars(playerSeriesSummary.totalStars);
+
+      return `
         <tr class="players-table-row">
           <td class="players-table-cell players-table-cell--name">
-            ${
-              playerSeriesSummary.latestSnapshotId
-                ? `
-                  <a
-                    class="player-link"
-                    href="./player_detail.html?id=${encodeURIComponent(playerSeriesSummary.latestSnapshotId)}"
-                  >
-                    ${escapeHtml(playerSeriesSummary.name)}
-                  </a>
-                `
-                : escapeHtml(playerSeriesSummary.name)
-            }
+            <div class="players-name-stack">
+              ${nameCell}
+              <span class="players-position-text">${escapeHtml(mainPositionText)}</span>
+            </div>
           </td>
           <td class="players-table-cell players-table-cell--grade">
-            ${escapeHtml(formatPlayerGrade(playerSeriesSummary.grade))}
+            <div class="players-grade-stack">
+              <span>${escapeHtml(gradeDisplay.gradeText)}</span>
+              <span class="${gradeDisplay.badgeClass}">${escapeHtml(gradeDisplay.badgeText)}</span>
+            </div>
           </td>
           <td class="players-table-cell">
-            ${escapeHtml(formatOptionalValue(playerSeriesSummary.mainPosition))}
+            <span>${escapeHtml(formatSnapshotSummary(playerSeriesSummary))}</span>
+          </td>
+          <td class="players-table-cell players-table-cell--total-stars">
+            <span class="players-total-stars ${totalStarsText === "—" ? "is-empty" : ""}">
+              <span class="players-total-stars-mark" aria-hidden="true">★</span>
+              <span>${escapeHtml(totalStarsText)}</span>
+            </span>
           </td>
           <td class="players-table-cell">
             ${escapeHtml(getPlayerTypeLabel(playerSeriesSummary.playerType))}
           </td>
         </tr>
-      `
-    )
+      `;
+    })
     .join("");
 
   root.innerHTML = `
@@ -339,8 +600,9 @@ function renderPlayerSeriesSummaries(root, playerSeriesSummaries) {
         <thead>
           <tr>
             <th scope="col">名前</th>
-            <th scope="col">学年</th>
-            <th scope="col">メインポジション</th>
+            <th scope="col">学校管理学年</th>
+            <th scope="col">最新snapshot</th>
+            <th scope="col">総合星</th>
             <th scope="col">選手種別</th>
           </tr>
         </thead>
@@ -417,13 +679,130 @@ function bindSchoolEditor(summaryRoot, editRoot, schoolId) {
   });
 }
 
+function bindSchoolProgression(summaryRoot, progressionRoot, editRoot, playersRoot, schoolId, school) {
+  const progressButton = progressionRoot.querySelector("#school-progress-year-button");
+  const undoButton = progressionRoot.querySelector("#school-undo-progress-year-button");
+  const messageElement = progressionRoot.querySelector("#school-progression-message");
+
+  if (progressButton && !progressButton.disabled) {
+    progressButton.addEventListener("click", async () => {
+      const baseYear = getProgressionBaseYear(school);
+      const nextYear = baseYear === null ? null : baseYear + 1;
+      const shouldProgress = window.confirm(
+        `学校年度を${formatYearValue(baseYear)}から${formatYearValue(nextYear)}へ進めます。\n` +
+          "所属選手の学校管理学年は更新されますが、snapshot は自動生成されません。"
+      );
+
+      if (!shouldProgress) {
+        return;
+      }
+
+      progressButton.disabled = true;
+      progressButton.textContent = "進行中...";
+      if (undoButton) {
+        undoButton.disabled = true;
+      }
+      setMessage(messageElement, "");
+
+      try {
+        const result = await progressSchoolYear(schoolId);
+        const playerSeriesCount = Array.isArray(result.playerSeriesSummaries)
+          ? result.playerSeriesSummaries.length
+          : 0;
+        document.title = `${formatSchoolName(result.school.name)} | 学校詳細`;
+        renderSchoolSummary(summaryRoot, result.school);
+        renderProgressionPanel(progressionRoot, result.school, result.progression, null, {
+          playerSeriesCount,
+          isPlayerSeriesLoaded: true,
+          undoState: result.yearProgressUndo,
+          isUndoLoaded: true,
+        });
+        bindSchoolProgression(summaryRoot, progressionRoot, editRoot, playersRoot, schoolId, result.school);
+        renderSchoolEditor(editRoot, result.school);
+        bindSchoolEditor(summaryRoot, editRoot, schoolId);
+        renderPlayerSeriesSummaries(playersRoot, result.playerSeriesSummaries, result.school);
+      } catch (error) {
+        progressButton.disabled = false;
+        progressButton.textContent = "1年経過を実行";
+        if (undoButton) {
+          undoButton.disabled = false;
+        }
+        setMessage(messageElement, error.message, "error");
+      }
+    });
+  }
+
+  if (undoButton && !undoButton.disabled) {
+    undoButton.addEventListener("click", async () => {
+      const shouldUndo = window.confirm(
+        "直前の年度進行を取り消します。\n" +
+          "学校の現在年度と所属選手の学校管理学年・在籍状態を元に戻します。snapshot は変更しません。"
+      );
+
+      if (!shouldUndo) {
+        return;
+      }
+
+      undoButton.disabled = true;
+      undoButton.textContent = "取り消し中...";
+      if (progressButton) {
+        progressButton.disabled = true;
+      }
+      setMessage(messageElement, "");
+
+      try {
+        const result = await undoSchoolYearProgression(schoolId);
+        const playerSeriesCount = Array.isArray(result.playerSeriesSummaries)
+          ? result.playerSeriesSummaries.length
+          : 0;
+        document.title = `${formatSchoolName(result.school.name)} | 学校詳細`;
+        renderSchoolSummary(summaryRoot, result.school);
+        renderProgressionPanel(
+          progressionRoot,
+          result.school,
+          null,
+          {
+            text: "直前の年度進行を取り消しました。",
+            type: "success",
+          },
+          {
+            playerSeriesCount,
+            isPlayerSeriesLoaded: true,
+            undoState: result.yearProgressUndo,
+            isUndoLoaded: true,
+          }
+        );
+        bindSchoolProgression(summaryRoot, progressionRoot, editRoot, playersRoot, schoolId, result.school);
+        renderSchoolEditor(editRoot, result.school);
+        bindSchoolEditor(summaryRoot, editRoot, schoolId);
+        renderPlayerSeriesSummaries(playersRoot, result.playerSeriesSummaries, result.school);
+      } catch (error) {
+        undoButton.disabled = false;
+        undoButton.textContent = "年度進行を取り消す";
+        if (progressButton) {
+          progressButton.disabled = false;
+        }
+        setMessage(messageElement, error.message, "error");
+      }
+    });
+  }
+}
+
 async function init() {
   const summaryRoot = document.getElementById("school-summary-root");
+  const progressionRoot = document.getElementById("school-progression-root");
   const editRoot = document.getElementById("school-edit-root");
+  const editToggle = document.getElementById("school-edit-toggle");
+  const editPanelBody = document.getElementById("school-edit-panel-body");
   const playersRoot = document.getElementById("school-players-root");
   const playerRegisterLink = document.getElementById("player-register-link");
 
   playerRegisterLink.hidden = true;
+  setAccordionExpanded(editToggle, editPanelBody, false);
+  editToggle.addEventListener("click", () => {
+    const expanded = editToggle.getAttribute("aria-expanded") === "true";
+    setAccordionExpanded(editToggle, editPanelBody, !expanded);
+  });
 
   try {
     const schoolId = getSchoolIdFromQuery();
@@ -431,6 +810,12 @@ async function init() {
 
     document.title = `${formatSchoolName(school.name)} | 学校詳細`;
     renderSchoolSummary(summaryRoot, school);
+    renderProgressionPanel(progressionRoot, school, null, null, {
+      playerSeriesCount: null,
+      isPlayerSeriesLoaded: false,
+      undoState: null,
+      isUndoLoaded: false,
+    });
     renderSchoolEditor(editRoot, school);
     bindSchoolEditor(summaryRoot, editRoot, schoolId);
 
@@ -439,12 +824,46 @@ async function init() {
 
     try {
       const schoolPlayerSeries = await fetchSchoolPlayerSeriesSummaries(schoolId);
-      renderPlayerSeriesSummaries(playersRoot, schoolPlayerSeries.playerSeriesSummaries);
+      const playerSeriesSummaries = schoolPlayerSeries.playerSeriesSummaries;
+      const playerSeriesCount = Array.isArray(playerSeriesSummaries)
+        ? playerSeriesSummaries.length
+        : 0;
+      renderProgressionPanel(progressionRoot, schoolPlayerSeries.school, null, null, {
+        playerSeriesCount,
+        isPlayerSeriesLoaded: true,
+        undoState: schoolPlayerSeries.yearProgressUndo,
+        isUndoLoaded: true,
+      });
+      bindSchoolProgression(
+        summaryRoot,
+        progressionRoot,
+        editRoot,
+        playersRoot,
+        schoolId,
+        schoolPlayerSeries.school
+      );
+      renderPlayerSeriesSummaries(playersRoot, schoolPlayerSeries.playerSeriesSummaries, schoolPlayerSeries.school);
     } catch (error) {
+      renderProgressionPanel(
+        progressionRoot,
+        school,
+        null,
+        {
+          text: "所属選手一覧を読み込めないため年度進行できません。",
+          type: "error",
+        },
+        {
+          playerSeriesCount: null,
+          isPlayerSeriesLoaded: false,
+          undoState: null,
+          isUndoLoaded: false,
+        }
+      );
       renderPlayersError(playersRoot, error.message);
     }
   } catch (error) {
     renderSchoolError(summaryRoot, error.message);
+    progressionRoot.innerHTML = "";
     editRoot.innerHTML = "";
     renderPlayersError(playersRoot, error.message);
   }

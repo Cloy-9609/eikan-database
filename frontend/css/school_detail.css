@@ -77,6 +77,11 @@
   border-color: #c9dced;
 }
 
+.detail-section--progression {
+  background: linear-gradient(180deg, #ffffff 0%, #f6fbf8 100%);
+  border-color: #c9e2d5;
+}
+
 .section-header {
   display: flex;
   align-items: flex-start;
@@ -99,6 +104,69 @@
   font-size: 1.12rem;
   font-weight: 700;
   letter-spacing: 0.01em;
+}
+
+.detail-accordion-heading {
+  margin: 0;
+}
+
+.detail-accordion-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.detail-accordion-toggle:focus-visible {
+  outline: 3px solid rgba(23, 95, 159, 0.18);
+  outline-offset: 6px;
+  border-radius: 12px;
+}
+
+.detail-accordion-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.detail-accordion-title {
+  margin: 0;
+  color: #14334e;
+  font-size: 1.12rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.detail-accordion-description {
+  margin: 0;
+  color: #56687d;
+  line-height: 1.55;
+}
+
+.detail-accordion-icon {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  border-right: 2px solid #175f9f;
+  border-bottom: 2px solid #175f9f;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.detail-accordion-toggle[aria-expanded="true"] .detail-accordion-icon {
+  transform: rotate(225deg);
+}
+
+.detail-accordion-body {
+  margin-top: 18px;
 }
 
 .message-box {
@@ -162,8 +230,15 @@
   line-height: 1.6;
 }
 
+.school-summary-row--name {
+  grid-column: span 2;
+  padding: 14px 16px;
+  border-color: #bdd0e1;
+  background: rgba(255, 255, 255, 0.95);
+}
+
 .school-summary-row--name dd {
-  font-size: 1.05rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #14334e;
 }
@@ -180,6 +255,166 @@
 .school-form {
   display: grid;
   gap: 18px;
+}
+
+.progression-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.progression-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.progression-summary-item {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #d7e5dd;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.progression-label {
+  color: #587061;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.progression-summary-item strong {
+  color: #173f2a;
+  font-size: 1.05rem;
+}
+
+.progression-note {
+  margin: 0;
+  color: #56687d;
+  line-height: 1.6;
+}
+
+.progression-note--limit {
+  color: #8a1c1c;
+}
+
+.progression-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.school-button.progression-action-button:disabled {
+  opacity: 1;
+}
+
+.school-button.progression-action-button--loading:disabled {
+  background: #eef5fb;
+  border-color: #a8bfd5;
+  color: #1f4566;
+  cursor: wait;
+  box-shadow: none;
+}
+
+.school-button.progression-action-button--blocked:disabled,
+.school-button.progression-action-button--unavailable:disabled,
+.school-button.progression-action-button--limit:disabled {
+  background: #e5e7eb;
+  border-color: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.school-button.progression-action-button--loading:disabled:hover {
+  background: #eef5fb;
+  border-color: #a8bfd5;
+  color: #1f4566;
+  transform: none;
+}
+
+.school-button.progression-action-button--blocked:disabled:hover,
+.school-button.progression-action-button--unavailable:disabled:hover,
+.school-button.progression-action-button--limit:disabled:hover {
+  background: #e5e7eb;
+  border-color: #cbd5e1;
+  color: #64748b;
+  transform: none;
+}
+
+.school-button.progression-undo-button:disabled {
+  background: #f3f4f6;
+  border-color: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+  opacity: 1;
+  box-shadow: none;
+}
+
+.school-button.progression-undo-button:disabled:hover {
+  background: #f3f4f6;
+  border-color: #cbd5e1;
+  color: #64748b;
+  transform: none;
+}
+
+.progression-undo-note {
+  margin: -4px 0 0;
+  color: #617488;
+  line-height: 1.6;
+}
+
+.progression-undo-note--ready {
+  color: #1f4566;
+  font-weight: 700;
+}
+
+.progression-state-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  line-height: 1.6;
+}
+
+.progression-state-note p {
+  margin: 0;
+}
+
+.progression-state-note--loading {
+  justify-content: flex-start;
+  border: 1px solid #cfe0ef;
+  background: #f4f9fd;
+  color: #1f4566;
+}
+
+.progression-state-note--blocked {
+  border: 1px solid #d5dbe3;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.progression-spinner {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #c7d8e8;
+  border-top-color: #175f9f;
+  border-radius: 50%;
+  animation: progression-spin 0.9s linear infinite;
+}
+
+.progression-register-link {
+  flex: 0 0 auto;
+}
+
+@keyframes progression-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .school-form-row {
@@ -396,7 +631,7 @@
 
 .players-table {
   width: 100%;
-  min-width: 560px;
+  min-width: 720px;
   border-collapse: collapse;
 }
 
@@ -437,6 +672,84 @@
   white-space: nowrap;
 }
 
+.players-table-cell--total-stars {
+  white-space: nowrap;
+}
+
+.players-name-stack,
+.players-grade-stack {
+  display: grid;
+  gap: 5px;
+}
+
+.players-position-text {
+  color: #687a8d;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.players-total-stars {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 58px;
+  padding: 3px 8px;
+  border: 1px solid #c8d5e4;
+  border-radius: 10px;
+  background: #f8fbff;
+  color: #243447;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.players-total-stars-mark {
+  color: #1e6fb9;
+  font-size: 0.88em;
+}
+
+.players-total-stars.is-empty {
+  color: #687a8d;
+  font-weight: 600;
+}
+
+.players-total-stars.is-empty .players-total-stars-mark {
+  color: #9aabbc;
+}
+
+.player-name-text {
+  font-weight: 700;
+  color: #243447;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid #bdd0e1;
+  border-radius: 999px;
+  background: #eef5fb;
+  color: #1f4566;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.status-badge--graduated {
+  border-color: #d8c8a4;
+  background: #fff7e6;
+  color: #7a4f00;
+}
+
+.status-badge--ob {
+  border-color: #bac6d4;
+  background: #f0f3f7;
+  color: #394b5f;
+}
+
 .player-link {
   color: #0b63c9;
   font-weight: 700;
@@ -475,10 +788,66 @@
   .section-header--players {
     flex-direction: column;
     align-items: stretch;
+    min-width: 0;
+  }
+
+  #player-register-link {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .school-summary-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .school-summary-row {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .school-summary-row--name {
+    grid-column: span 6;
+    padding: 12px;
+    border-color: #bdd0e1;
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .school-summary-row--prefecture {
+    grid-column: span 4;
+    align-self: stretch;
+    padding: 10px;
+  }
+
+  .school-summary-row--start-year,
+  .school-summary-row--current-year,
+  .school-summary-row--datetime {
+    grid-column: span 5;
+  }
+
+  .school-summary-row--elapsed,
+  .school-summary-row-full {
+    grid-column: 1 / -1;
+  }
+
+  .school-summary-row--datetime {
+    padding: 10px;
+  }
+
+  .school-summary-row--datetime dt,
+  .school-summary-row--datetime dd {
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .school-summary-row--name dd {
+    font-size: 1.5rem;
+    line-height: 1.45;
+    text-align: center;
   }
 
   .school-name-input {
@@ -493,6 +862,25 @@
     flex-direction: column;
   }
 
+  .progression-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .progression-state-note {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .progression-register-link {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .school-button,
   .school-button-danger {
     width: 100%;
@@ -503,7 +891,7 @@
   }
 
   .players-table {
-    min-width: 520px;
+    min-width: 680px;
   }
 
   .players-table th,

@@ -150,6 +150,8 @@ player_sub_positions
   一塁手や外野手など、主守備以外で守れるポジション名。
 - suitability_value
   サブポジション適性を D や E などで表した値。
+- defense_value
+  サブポジション単位の守備数値。未設定時は NULL とし、守備ランクは保存せず数値から導出する。
 - created_at
   サブポジションデータを初めて登録した日時。
 - updated_at

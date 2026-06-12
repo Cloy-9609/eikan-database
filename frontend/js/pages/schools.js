@@ -21,6 +21,7 @@ const SORT_OPTIONS = [
   { value: "start_year:asc", sortBy: "start_year", sortOrder: "asc", label: "開始年度昇順" },
   { value: "start_year:desc", sortBy: "start_year", sortOrder: "desc", label: "開始年度降順" },
 ];
+const SCHOOL_SEARCH_QUERY_KEYS = ["name", "prefecture", "play_style", "sort_by", "sort_order", "sort"];
 
 function createDefaultSearchState() {
   return {
@@ -97,6 +98,55 @@ function parseSortValue(value = serializeSortValue()) {
   return matchedOption
     ? { sortBy: matchedOption.sortBy, sortOrder: matchedOption.sortOrder }
     : { sortBy: DEFAULT_SORT_BY, sortOrder: DEFAULT_SORT_ORDER };
+}
+
+function normalizeSearchState(searchState = {}) {
+  const sortValue = serializeSortValue(searchState.sortBy, searchState.sortOrder);
+  const { sortBy, sortOrder } = parseSortValue(sortValue);
+
+  return {
+    name: String(searchState.name ?? "").trim(),
+    prefecture: String(searchState.prefecture ?? "").trim(),
+    playStyle: String(searchState.playStyle ?? "").trim(),
+    sortBy,
+    sortOrder,
+  };
+}
+
+function readSearchStateFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const sortBy = params.get("sort_by") ?? DEFAULT_SORT_BY;
+  const sortOrder = params.get("sort_order") ?? DEFAULT_SORT_ORDER;
+  const legacySort = params.get("sort");
+  const parsedSort = legacySort ? parseSortValue(legacySort) : { sortBy, sortOrder };
+
+  return normalizeSearchState({
+    name: params.get("name") ?? "",
+    prefecture: params.get("prefecture") ?? "",
+    playStyle: params.get("play_style") ?? "",
+    sortBy: parsedSort.sortBy,
+    sortOrder: parsedSort.sortOrder,
+  });
+}
+
+function writeSearchStateToUrl(searchState, { replace = false } = {}) {
+  const normalizedState = normalizeSearchState(searchState);
+  const url = new URL(window.location.href);
+
+  SCHOOL_SEARCH_QUERY_KEYS.forEach((key) => url.searchParams.delete(key));
+
+  const params = buildSchoolListParams(normalizedState);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+
+    url.searchParams.set(key, String(value));
+  });
+
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const method = replace ? "replaceState" : "pushState";
+  window.history[method]({}, "", nextUrl);
 }
 
 function buildSortOptions(selectedValue = serializeSortValue()) {
@@ -455,13 +505,13 @@ function resetCreateForm(form) {
 function readSearchStateFromForm(form) {
   const { sortBy, sortOrder } = parseSortValue(form.elements.sort.value);
 
-  return {
+  return normalizeSearchState({
     name: form.elements.name.value,
     prefecture: form.elements.prefecture.value,
     playStyle: form.elements.play_style.value,
     sortBy,
     sortOrder,
-  };
+  });
 }
 
 function applySearchStateToForm(form, searchState) {
@@ -513,6 +563,7 @@ async function handleSearchSubmit(event, { listRoot, listMessageElement, searchS
 
   try {
     Object.assign(searchState, readSearchStateFromForm(form));
+    writeSearchStateToUrl(searchState);
     await loadSchools(listRoot, listMessageElement, searchState);
   } finally {
     setButtonsDisabled([submitButton, resetButton], false);
@@ -526,6 +577,7 @@ async function handleSearchReset(form, { listRoot, listMessageElement, searchSta
   try {
     Object.assign(searchState, createDefaultSearchState());
     applySearchStateToForm(form, searchState);
+    writeSearchStateToUrl(searchState);
     await loadSchools(listRoot, listMessageElement, searchState);
   } finally {
     setButtonsDisabled([submitButton, resetButton], false);
@@ -534,7 +586,7 @@ async function handleSearchReset(form, { listRoot, listMessageElement, searchSta
 
 async function init() {
   const root = document.getElementById("schools-root");
-  const searchState = createDefaultSearchState();
+  const searchState = readSearchStateFromUrl();
   renderShell(root, searchState);
   setupYearPickers(root);
 
@@ -587,6 +639,13 @@ async function init() {
     })
   );
 
+  window.addEventListener("popstate", async () => {
+    Object.assign(searchState, readSearchStateFromUrl());
+    applySearchStateToForm(searchForm, searchState);
+    await loadSchools(listRoot, listMessageElement, searchState);
+  });
+
+  writeSearchStateToUrl(searchState, { replace: true });
   await loadSchools(listRoot, listMessageElement, searchState);
 }
 

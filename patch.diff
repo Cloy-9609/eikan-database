@@ -1,0 +1,242 @@
+diff --git a/frontend/js/pages/player_detail.js b/frontend/js/pages/player_detail.js
+index 43a2c42..519c10d 100644
+--- a/frontend/js/pages/player_detail.js
++++ b/frontend/js/pages/player_detail.js
+@@ -104,6 +104,7 @@ const DETAIL_STATE = {
+   selectedDefensePosition: null,
+   nextToastId: 0,
+   activeToastKeys: new Set(),
++  viewMode: "manage",
+ };
+ 
+ function isArchivedSchool(player) {
+@@ -126,6 +127,15 @@ function getSnapshotFromQuery() {
+   return params.get("snapshot") ?? "";
+ }
+ 
++function getDetailViewModeFromQuery() {
++  const params = new URLSearchParams(window.location.search);
++  return params.get("view") === "readonly" ? "readonly" : "manage";
++}
++
++function isManageView() {
++  return DETAIL_STATE.viewMode === "manage";
++}
++
+ function syncSnapshotQuery(snapshotKey) {
+   const url = new URL(window.location.href);
+ 
+@@ -149,8 +159,10 @@ function buildPlayerEditUrl(
+     params.set("mode", mode);
+   }
+ 
+-  if (from) {
+-    params.set("from", from);
++  const resolvedFrom = from || (isManageView() ? "player-detail-manage" : "");
++
++  if (resolvedFrom) {
++    params.set("from", resolvedFrom);
+   }
+ 
+   if (snapshot) {
+@@ -427,7 +439,7 @@ function renderRankedAbilityValue(value) {
+ }
+ 
+ function buildSectionEditLink(scope, snapshot, label = "この snapshot を編集") {
+-  if (!snapshot?.id) {
++  if (!isManageView() || !snapshot?.id) {
+     return "";
+   }
+ 
+@@ -1399,7 +1411,17 @@ function showErrorToast(message, options = {}) {
+ }
+ 
+ function renderActions(container, actions) {
+-  container.innerHTML = actions
++  const visibleActions = isManageView()
++    ? actions
++    : actions
++        .filter(({ href }) => !String(href ?? "").includes("player_edit.html"))
++        .map((action) =>
++          String(action.href ?? "").includes("school_detail.html")
++            ? { ...action, href: "./players.html", label: "選手一覧へ戻る" }
++            : action
++        );
++
++  container.innerHTML = visibleActions
+     .map(
+       (action) => `
+         <a class="player-button ${action.primary ? "player-button-primary" : "player-button-secondary"}" href="${action.href}">
+@@ -1482,6 +1504,15 @@ async function handleSnapshotButtonClick(snapshotKey) {
+ 
+   if (!isSnapshotRegistered(snapshotKey, DETAIL_STATE.snapshots)) {
+     const snapshotLabel = SNAPSHOT_LABELS[snapshotKey] ?? snapshotKey;
++
++    if (isManageView() && !isArchivedSchool(DETAIL_STATE.player)) {
++      window.location.href = buildPlayerEditUrl(DETAIL_STATE.currentSnapshot.id, {
++        mode: "snapshot-create",
++        snapshot: snapshotKey,
++      });
++      return;
++    }
++
+     setMessage(
+       DETAIL_STATE.refs.messageElement,
+       `「${snapshotLabel}」はまだ登録されていないため、詳細表示へ切り替えられません。`
+@@ -1994,7 +2025,9 @@ function renderPlayer(refs, seriesResponse) {
+         { archivedSchool }
+       )
+     : "";
+-  const defensePositionMapSection = renderDefensePositionMapSection(currentSnapshot, { archivedSchool });
++  const defensePositionMapSection = renderDefensePositionMapSection(currentSnapshot, {
++    archivedSchool: archivedSchool || !isManageView(),
++  });
+   const specialAbilitiesSection = renderSpecialAbilitySection(currentSnapshot, { archivedSchool });
+ 
+   const archivedNotice = archivedSchool
+@@ -2069,6 +2102,7 @@ async function init() {
+ 
+   DETAIL_STATE.refs = refs;
+   DETAIL_STATE.playerId = getPlayerIdFromQuery();
++  DETAIL_STATE.viewMode = getDetailViewModeFromQuery();
+   setupInteractions(refs);
+ 
+   try {
+diff --git a/frontend/js/pages/player_edit.js b/frontend/js/pages/player_edit.js
+index 5c59287..42a2c2a 100644
+--- a/frontend/js/pages/player_edit.js
++++ b/frontend/js/pages/player_edit.js
+@@ -1,4 +1,4 @@
+-﻿import { fetchPlayerById, updatePlayer } from "../api/playerApi.js";
++﻿import { addSnapshotToSeries, fetchPlayerById, updatePlayer } from "../api/playerApi.js";
+ import {
+   buildAdmissionYearPicker,
+   setupAdmissionYearPickers,
+@@ -256,7 +256,7 @@ function setPageHeader(titleElement, contextElement, { title, context, documentT
+   document.title = documentTitle;
+ }
+ 
+-function buildPlayerDetailUrl(playerId, snapshotLabel = "") {
++function buildPlayerDetailUrl(playerId, snapshotLabel = "", flowContext = {}) {
+   const params = new URLSearchParams();
+   params.set("id", String(playerId));
+ 
+@@ -264,6 +264,10 @@ function buildPlayerDetailUrl(playerId, snapshotLabel = "") {
+     params.set("snapshot", snapshotLabel);
+   }
+ 
++  if (flowContext.from === "player-detail-manage") {
++    params.set("view", "manage");
++  }
++
+   return `./player_detail.html?${params.toString()}`;
+ }
+ 
+@@ -1445,7 +1449,7 @@ function buildPayload(formData, form, relationOptions) {
+   };
+ }
+ 
+-async function handleSubmit(event, player, messageElement, relationOptions) {
++async function handleSubmit(event, player, flowContext, messageElement, relationOptions) {
+   event.preventDefault();
+ 
+   const form = event.currentTarget;
+@@ -1453,10 +1457,19 @@ async function handleSubmit(event, player, messageElement, relationOptions) {
+   try {
+     const formData = new FormData(form);
+     const payload = buildPayload(formData, form, relationOptions);
+-    const detailHref = buildPlayerDetailUrl(player.id, payload.snapshot_label || player.snapshot_label);
++    const isSnapshotCreate = flowContext.mode === "snapshot-create";
+ 
+     setMessage(messageElement, "保存しています...");
+-    await updatePlayer(player.id, payload);
++
++    const savedPlayer = isSnapshotCreate
++      ? await addSnapshotToSeries(player.player_series_id, payload)
++      : await updatePlayer(player.id, payload);
++    const detailHref = buildPlayerDetailUrl(
++      savedPlayer.id,
++      savedPlayer.snapshot_label || payload.snapshot_label || player.snapshot_label,
++      flowContext
++    );
++
+     setMessage(messageElement, "保存しました。詳細画面へ戻ります。");
+     window.setTimeout(() => {
+       window.location.href = detailHref;
+@@ -1483,9 +1496,17 @@ async function init() {
+       fetchPlayerById(playerId),
+       loadRelationOptions(),
+     ]);
+-    const presentation = buildEditModePresentation(player, flowContext);
+-    const ocrEntry = buildOcrEntryPresentation(player, flowContext);
+-    const detailHref = buildPlayerDetailUrl(player.id, flowContext.snapshot || player.snapshot_label);
++    const isSnapshotCreate = flowContext.mode === "snapshot-create";
++    const editPlayer = isSnapshotCreate && flowContext.snapshot
++      ? { ...player, snapshot_label: flowContext.snapshot }
++      : player;
++    const presentation = buildEditModePresentation(editPlayer, flowContext);
++    const ocrEntry = buildOcrEntryPresentation(editPlayer, flowContext);
++    const detailHref = buildPlayerDetailUrl(
++      player.id,
++      flowContext.snapshot || player.snapshot_label,
++      flowContext
++    );
+ 
+     setPageHeader(titleElement, contextElement, presentation);
+     renderFlowNote(flowNoteElement, presentation.flowNote);
+@@ -1502,7 +1523,7 @@ async function init() {
+       return;
+     }
+ 
+-    renderForm(form, player, relationOptions, {
++    renderForm(form, editPlayer, relationOptions, {
+       detailHref,
+       returnLabel: presentation.returnLabel,
+       editTarget,
+@@ -1513,16 +1534,16 @@ async function init() {
+     window.addEventListener("resize", () => syncTimelineSnapshotListHeight(form));
+     setupRankedAbilityInputs(form);
+     bindRelationEditors(form, relationOptions, {
+-      getMainPosition: () => form.querySelector("#main_position")?.value ?? player.main_position,
+-      getThrowingHand: () => form.querySelector("#throwing_hand")?.value ?? player.throwing_hand,
+-      getMainDefenseValue: () => resolveMainDefenseValueFromForm(form, player.fielding),
++      getMainPosition: () => form.querySelector("#main_position")?.value ?? editPlayer.main_position,
++      getThrowingHand: () => form.querySelector("#throwing_hand")?.value ?? editPlayer.throwing_hand,
++      getMainDefenseValue: () => resolveMainDefenseValueFromForm(form, editPlayer.fielding),
+     });
+     bindAbilitySectionVisibility(form);
+     applyRequestedEditScope(form);
+     focusRequestedEditTarget(form, editTarget);
+     bindOcrEntryActions(ocrEntryElement, messageElement, ocrEntry);
+     form.addEventListener("submit", (event) =>
+-      handleSubmit(event, player, messageElement, relationOptions)
++      handleSubmit(event, player, flowContext, messageElement, relationOptions)
+     );
+   } catch (error) {
+     setPageHeader(titleElement, contextElement, {
+diff --git a/frontend/js/pages/players.js b/frontend/js/pages/players.js
+index 070eae2..7211762 100644
+--- a/frontend/js/pages/players.js
++++ b/frontend/js/pages/players.js
+@@ -343,7 +343,7 @@ function buildPlayerDetailUrl(player) {
+     return "";
+   }
+ 
+-  return `./player_detail.html?id=${encodeURIComponent(player.id)}`;
++  return `./player_detail.html?id=${encodeURIComponent(player.id)}&view=readonly`;
+ }
+ 
+ function buildPlayerEditUrl(player) {
+diff --git a/frontend/js/pages/school_detail.js b/frontend/js/pages/school_detail.js
+index 1a97e18..1c79be1 100644
+--- a/frontend/js/pages/school_detail.js
++++ b/frontend/js/pages/school_detail.js
+@@ -551,7 +551,7 @@ function renderPlayerSeriesSummaries(root, playerSeriesSummaries, school = null)
+         ? `
+           <a
+             class="player-link"
+-            href="./player_detail.html?id=${encodeURIComponent(playerSeriesSummary.latestSnapshotId)}"
++            href="./player_detail.html?id=${encodeURIComponent(playerSeriesSummary.latestSnapshotId)}&view=manage"
+           >
+             ${escapeHtml(playerSeriesSummary.name)}
+           </a>

@@ -70,6 +70,7 @@
 - player_id
 - position_name
 - suitability_value
+- defense_value
 - created_at
 - updated_at
 

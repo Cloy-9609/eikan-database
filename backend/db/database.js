@@ -3,6 +3,7 @@ const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 const { TRANSITIONAL_SNAPSHOT_LABELS } = require("../constants/playerSnapshots");
 const { ensureManagementCodeSchema } = require("./managementCodeMigration");
+const { ensureSchoolProgressionSchema } = require("./schoolProgressionMigration");
 
 const defaultDatabasePath = path.join(__dirname, "../../database/eikan-app.sqlite");
 const databasePath = process.env.EIKAN_DB_PATH
@@ -13,6 +14,8 @@ const schemaPath = path.join(__dirname, "schema.sql");
 const expectedTables = [
   "schools",
   "player_series",
+  "school_year_progress_logs",
+  "school_year_progress_log_players",
   "players",
   "player_pitch_types",
   "player_special_abilities",
@@ -27,6 +30,12 @@ const SCHOOL_MIGRATION_COLUMNS = [
 const PLAYER_SERIES_MIGRATION_COLUMNS = [
   { name: "player_type_note", definition: "TEXT" },
   { name: "note", definition: "TEXT" },
+];
+const PLAYER_SUB_POSITION_MIGRATION_COLUMNS = [
+  {
+    name: "defense_value",
+    definition: "INTEGER CHECK (defense_value IS NULL OR defense_value BETWEEN 0 AND 100)",
+  },
 ];
 const snapshotCheckValuesSql = TRANSITIONAL_SNAPSHOT_LABELS.map((value) => `'${value}'`).join(", ");
 let databaseInstance;
@@ -241,6 +250,25 @@ async function ensurePlayerSeriesIndexes() {
   await run(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_players_series_snapshot_unique ON players(player_series_id, snapshot_label)"
   );
+}
+
+async function ensurePlayerSubPositionSchema() {
+  const tables = await getUserTables();
+  const tableNames = new Set(tables.map((table) => table.name));
+
+  if (!tableNames.has("player_sub_positions")) {
+    return;
+  }
+
+  const columns = await getTableColumns("player_sub_positions");
+  const columnNames = new Set(columns.map((column) => column.name));
+  const missingColumns = PLAYER_SUB_POSITION_MIGRATION_COLUMNS.filter(
+    (column) => !columnNames.has(column.name)
+  );
+
+  for (const column of missingColumns) {
+    await run(`ALTER TABLE player_sub_positions ADD COLUMN ${column.name} ${column.definition}`);
+  }
 }
 
 async function migratePlayerSnapshotSchema() {
@@ -488,7 +516,10 @@ function initializeDatabase() {
       await migratePlayerSnapshotSchema();
     }
 
+    await ensurePlayerSubPositionSchema();
+
     await ensureManagementCodeSchema({ all, get, run, transaction });
+    await ensureSchoolProgressionSchema({ all, get, run, transaction });
 
     const refreshedTables = await getUserTables();
     const refreshedTableNames = new Set(refreshedTables.map((table) => table.name));

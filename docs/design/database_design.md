@@ -71,7 +71,8 @@
 
 ### player_sub_positions
 - サブポジション適性を保持する。
-- 主な列: `id`, `player_id`, `position_name`, `suitability_value`, `created_at`, `updated_at`
+- 主な列: `id`, `player_id`, `position_name`, `suitability_value`, `defense_value`, `created_at`, `updated_at`
+- `defense_value` はサブポジション単位の守備数値。守備ランクはこの数値から導出する。
 
 ### player_results
 - 大会単位などでの成績を保持する。

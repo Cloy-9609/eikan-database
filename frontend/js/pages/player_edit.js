@@ -1,4 +1,4 @@
-﻿import { fetchPlayerById, updatePlayer } from "../api/playerApi.js";
+﻿import { addSnapshotToSeries, fetchPlayerById, updatePlayer } from "../api/playerApi.js";
 import {
   buildAdmissionYearPicker,
   setupAdmissionYearPickers,
@@ -14,6 +14,11 @@ import {
   renderSubPositionEditor,
   serializeRelationInputs,
 } from "../utils/playerRelations.js";
+import {
+  SNAPSHOT_LABEL_OPTIONS,
+  getSnapshotLabel,
+  getSnapshotOptionsForCurrentValue,
+} from "../utils/playerSnapshots.js";
 
 const PLAYER_TYPE_OPTIONS = [
   { value: "normal", label: "通常" },
@@ -21,28 +26,10 @@ const PLAYER_TYPE_OPTIONS = [
   { value: "reincarnated", label: "転生" },
 ];
 
-const SNAPSHOT_LABEL_OPTIONS = [
-  { value: "entrance", label: "入学時" },
-  { value: "y1_summer", label: "1年夏大会後" },
-  { value: "y1_autumn", label: "1年秋大会後" },
-  { value: "y1_spring", label: "1年春大会後" },
-  { value: "y2_summer", label: "2年夏大会後" },
-  { value: "y2_autumn", label: "2年秋大会後" },
-  { value: "y2_spring", label: "2年春大会後" },
-  { value: "y3_summer", label: "3年夏大会後" },
-  { value: "graduation", label: "卒業時" },
-];
-const LEGACY_SNAPSHOT_LABELS = {
-  post_tournament: "大会後",
-};
-
-const SNAPSHOT_LABELS = Object.fromEntries(
-  SNAPSHOT_LABEL_OPTIONS.map(({ value, label }) => [value, label])
-);
-Object.assign(SNAPSHOT_LABELS, LEGACY_SNAPSHOT_LABELS);
-
 const POSITION_OPTIONS = ["投手", "捕手", "一塁手", "二塁手", "三塁手", "遊撃手", "外野手"];
 const PITCHER_MAIN_POSITION = "投手";
+const TOTAL_STARS_MIN = 1;
+const TOTAL_STARS_MAX = 999;
 const DEFAULT_EDIT_SCOPE = "full";
 const FOCUSABLE_EDIT_SCOPES = new Set([
   "basic",
@@ -126,12 +113,31 @@ function getEditFlowContextFromQuery() {
   };
 }
 
+function getRequestedEditTargetFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+
+  return {
+    position: params.get("target_position")?.trim() ?? "",
+    role: params.get("position_role")?.trim() ?? "",
+    scope: params.get("scope")?.trim() ?? "",
+  };
+}
+
 function escapeAttribute(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function buildOptions(options, selectedValue) {
@@ -141,7 +147,7 @@ function buildOptions(options, selectedValue) {
       const label = typeof option === "string" ? option : option.label;
       const selected = value === selectedValue ? " selected" : "";
 
-      return `<option value="${escapeAttribute(value)}"${selected}>${label}</option>`;
+      return `<option value="${escapeAttribute(value)}"${selected}>${escapeHtml(label)}</option>`;
     })
     .join("");
 }
@@ -179,16 +185,9 @@ function buildAttributeString(attributes) {
     .join(" ");
 }
 
-function getSnapshotOptionsForRender(selectedValue) {
-  if (!selectedValue || !LEGACY_SNAPSHOT_LABELS[selectedValue]) {
-    return SNAPSHOT_LABEL_OPTIONS;
-  }
-
-  return [...SNAPSHOT_LABEL_OPTIONS, { value: selectedValue, label: LEGACY_SNAPSHOT_LABELS[selectedValue] }];
-}
-
-function getSnapshotLabel(value) {
-  return SNAPSHOT_LABELS[value] ?? value ?? "";
+function formatYearValue(value) {
+  const numericValue = Number(value);
+  return Number.isInteger(numericValue) ? `${numericValue}年` : "未設定";
 }
 
 async function loadRelationOptions() {
@@ -257,7 +256,7 @@ function setPageHeader(titleElement, contextElement, { title, context, documentT
   document.title = documentTitle;
 }
 
-function buildPlayerDetailUrl(playerId, snapshotLabel = "") {
+function buildPlayerDetailUrl(playerId, snapshotLabel = "", flowContext = {}) {
   const params = new URLSearchParams();
   params.set("id", String(playerId));
 
@@ -265,16 +264,20 @@ function buildPlayerDetailUrl(playerId, snapshotLabel = "") {
     params.set("snapshot", snapshotLabel);
   }
 
+  if (flowContext.from === "player-detail-manage") {
+    params.set("view", "manage");
+  }
+
   return `./player_detail.html?${params.toString()}`;
 }
 
 function buildEditModePresentation(player, flowContext) {
-  const snapshotLabel = getSnapshotLabel(flowContext.snapshot || player.snapshot_label);
+  const snapshotLabel = getSnapshotLabel(flowContext.snapshot || player.snapshot_label, "現在の時点");
 
   if (flowContext.mode !== "snapshot-create") {
     return {
       title: "選手情報編集",
-      context: `${player.name} の基本情報、能力値、relation 系をこの画面で編集します。`,
+      context: `${player.name} の基本情報、能力値、関連情報をこの画面で編集します。`,
       documentTitle: `${player.name} | 選手情報編集`,
       flowNote: null,
       returnLabel: "詳細へ戻る",
@@ -286,9 +289,9 @@ function buildEditModePresentation(player, flowContext) {
     context: `「${snapshotLabel}」を作成しました。この時点の能力・情報を更新してください。`,
     documentTitle: `${player.name} | 新時点の情報登録`,
     flowNote: {
-      kicker: "Snapshot Create",
+      kicker: "時点登録",
       title: "新しい時点の登録を続けています",
-      body: "この時点は直前の登録済み snapshot を初期値として引き継いでいます。必要な差分を更新し、将来的には OCR / 画像読取の反映先としても使いやすい入口にします。",
+      body: "この時点は直前の登録済みデータを初期値として引き継いでいます。必要な差分を更新し、将来的には OCR / 画像読取の反映先としても使いやすい入口にします。",
     },
     returnLabel: "この時点の詳細へ戻る",
   };
@@ -318,7 +321,7 @@ function buildOcrEntryPresentation(player, flowContext) {
     return null;
   }
 
-  const snapshotLabel = getSnapshotLabel(flowContext.snapshot || player.snapshot_label);
+  const snapshotLabel = getSnapshotLabel(flowContext.snapshot || player.snapshot_label, "現在の時点");
 
   return {
     title: "画像から更新情報を読み取る",
@@ -463,29 +466,35 @@ function renderSelectRow({
   `;
 }
 
-function renderSnapshotOptionButtons(selectedValue, surface) {
-  return getSnapshotOptionsForRender(selectedValue).map(({ value, label }) => {
+function renderSnapshotOptionButtons(snapshotOptions, selectedValue, surface) {
+  return snapshotOptions.map(({ value, label, currentOnly = false }) => {
     const isSelected = value === selectedValue;
 
     return `
       <button
         type="button"
-        class="player-snapshot-option${isSelected ? " is-selected" : ""}"
+        class="player-snapshot-option${isSelected ? " is-selected" : ""}${currentOnly ? " is-current-only" : ""}"
         data-snapshot-option-value="${escapeAttribute(value)}"
         data-snapshot-option-surface="${escapeAttribute(surface)}"
+        data-snapshot-current-only="${currentOnly ? "true" : "false"}"
         role="option"
         aria-selected="${isSelected ? "true" : "false"}"
+        title="${escapeAttribute(label)}"
       >
-        <span class="player-snapshot-option-label">${label}</span>
+        <span class="player-snapshot-option-label">${escapeHtml(label)}</span>
       </button>
     `;
   }).join("");
 }
 
-function renderSnapshotSelector(value) {
-  const fallbackValue = SNAPSHOT_LABEL_OPTIONS[0]?.value ?? "";
-  const selectedValue = SNAPSHOT_LABELS[value] ? value : fallbackValue;
-  const selectedLabel = getSnapshotLabel(selectedValue);
+function renderSnapshotSelector(value, snapshotOptions) {
+  const fallbackValue = snapshotOptions[0]?.value ?? SNAPSHOT_LABEL_OPTIONS[0]?.value ?? "";
+  const selectedOption = snapshotOptions.find((option) => option.value === value);
+  const selectedValue = selectedOption ? value : fallbackValue;
+  const selectedLabel =
+    selectedOption?.label ??
+    snapshotOptions.find((option) => option.value === selectedValue)?.label ??
+    getSnapshotLabel(selectedValue, "登録時点");
 
   return `
     <div class="player-snapshot-selector" data-snapshot-selector>
@@ -497,50 +506,80 @@ function renderSnapshotSelector(value) {
         data-snapshot-input
       >
       <div class="player-snapshot-selector-desktop" data-snapshot-desktop>
-        <div class="player-snapshot-option-list" data-snapshot-option-list role="listbox" aria-label="スナップショット種別">
-          ${renderSnapshotOptionButtons(selectedValue, "desktop")}
+        <div class="player-snapshot-option-list" data-snapshot-option-list role="listbox" aria-label="登録時点">
+          ${renderSnapshotOptionButtons(snapshotOptions, selectedValue, "desktop")}
         </div>
       </div>
       <details class="player-snapshot-selector-mobile" data-snapshot-mobile>
         <summary class="player-snapshot-mobile-summary">
           <span class="player-snapshot-mobile-summary-copy">
             <span class="player-snapshot-mobile-summary-label">選択中の時点</span>
-            <span class="player-snapshot-mobile-summary-value" data-snapshot-current-label>${selectedLabel}</span>
+            <span class="player-snapshot-mobile-summary-value" data-snapshot-current-label>${escapeHtml(selectedLabel)}</span>
           </span>
           <span class="player-snapshot-mobile-summary-icon" aria-hidden="true"></span>
         </summary>
-        <div class="player-snapshot-mobile-body" data-snapshot-mobile-body role="listbox" aria-label="スナップショット種別">
-          ${renderSnapshotOptionButtons(selectedValue, "mobile")}
+        <div class="player-snapshot-mobile-body" data-snapshot-mobile-body role="listbox" aria-label="登録時点">
+          ${renderSnapshotOptionButtons(snapshotOptions, selectedValue, "mobile")}
         </div>
       </details>
     </div>
   `;
 }
 
-function renderTimelineEditorRow({ admissionYear, snapshotLabel }) {
+function renderTimelineEditorRow({
+  admissionYear,
+  snapshotLabel,
+  schoolCurrentYear,
+  schoolGrade,
+  rosterStatus,
+  grade,
+}) {
+  const numericSchoolCurrentYear = Number(schoolCurrentYear);
+  const currentYear = Number.isInteger(numericSchoolCurrentYear)
+    ? numericSchoolCurrentYear
+    : new Date().getFullYear();
+  const snapshotOptions = getSnapshotOptionsForCurrentValue(
+    {
+      schoolCurrentYear,
+      admissionYear,
+      schoolGrade,
+      rosterStatus,
+      grade,
+    },
+    snapshotLabel,
+    { fallbackUnlockLevel: "all" }
+  );
+
   return `
     <div class="player-form-row player-form-row--full player-form-row--timeline" data-field="record_timeline">
       <div class="player-form-row-intro">
         <span class="player-form-label">記録時点</span>
-        <p class="player-form-help">入学年とスナップショット種別を並べて確認しながら編集できます。</p>
+        <p class="player-form-help">入学年と登録時点を並べて確認しながら編集できます。</p>
       </div>
       <div class="player-timeline-editor">
         <section class="player-timeline-panel player-timeline-panel--year" aria-labelledby="player-edit-timeline-year-title">
           <div class="player-timeline-panel-header">
             <h3 id="player-edit-timeline-year-title" class="player-timeline-panel-title">入学年</h3>
-            <p class="player-timeline-panel-description">西暦を上下ボタンで調整します。</p>
+            <p class="player-timeline-panel-description">
+              保存済みの入学年を優先します。学校の現在年度は ${formatYearValue(currentYear)} です。
+            </p>
           </div>
           <div class="player-timeline-panel-body player-form-control player-form-control--year">
-            ${buildAdmissionYearPicker({ selectedYear: admissionYear })}
+            ${buildAdmissionYearPicker({
+              selectedYear: admissionYear,
+              currentYear,
+            })}
           </div>
         </section>
         <section class="player-timeline-panel player-timeline-panel--snapshot" aria-labelledby="player-edit-timeline-snapshot-title">
           <div class="player-timeline-panel-header">
-            <h3 id="player-edit-timeline-snapshot-title" class="player-timeline-panel-title">スナップショット種別</h3>
-            <p class="player-timeline-panel-description">PCは一覧、モバイルは開閉で選択します。</p>
+            <h3 id="player-edit-timeline-snapshot-title" class="player-timeline-panel-title">登録時点</h3>
+            <p class="player-timeline-panel-description">
+              選手の学年に合わせて、選べる時点を絞っています。
+            </p>
           </div>
           <div class="player-timeline-panel-body player-timeline-panel-body--snapshot">
-            ${renderSnapshotSelector(snapshotLabel)}
+            ${renderSnapshotSelector(snapshotLabel, snapshotOptions)}
           </div>
         </section>
       </div>
@@ -586,6 +625,20 @@ function renderNumberRow({ field, label, value, min, max, step = 1, helpText = "
       </div>
     </div>
   `;
+}
+
+function formatTotalStarsInputValue(value) {
+  const numericValue = Number(value);
+
+  if (
+    !Number.isInteger(numericValue) ||
+    numericValue < TOTAL_STARS_MIN ||
+    numericValue > TOTAL_STARS_MAX
+  ) {
+    return "";
+  }
+
+  return String(numericValue);
 }
 
 function renderAbilityBlock({
@@ -763,7 +816,14 @@ function setupSnapshotSelector(form) {
     const allowedValues = new Set(optionButtons.map((button) => button.dataset.snapshotOptionValue));
     const initialValue = allowedValues.has(hiddenInput.value)
       ? hiddenInput.value
-      : SNAPSHOT_LABEL_OPTIONS[0]?.value ?? "";
+      : optionButtons[0]?.dataset.snapshotOptionValue ?? SNAPSHOT_LABEL_OPTIONS[0]?.value ?? "";
+    const getOptionLabel = (value) => {
+      const optionButton = optionButtons.find((button) => button.dataset.snapshotOptionValue === value);
+      return (
+        optionButton?.querySelector(".player-snapshot-option-label")?.textContent?.trim() ||
+        getSnapshotLabel(value, "登録時点")
+      );
+    };
 
     const syncSelection = (nextValue) => {
       const safeValue = allowedValues.has(nextValue) ? nextValue : initialValue;
@@ -771,7 +831,7 @@ function setupSnapshotSelector(form) {
       selector.dataset.snapshotValue = safeValue;
 
       currentLabelTargets.forEach((target) => {
-        target.textContent = getSnapshotLabel(safeValue);
+        target.textContent = getOptionLabel(safeValue);
       });
 
       optionButtons.forEach((button) => {
@@ -933,13 +993,190 @@ function applyRequestedEditScope(form) {
   return true;
 }
 
-function renderForm(form, player, relationOptions, { detailHref, returnLabel = "詳細へ戻る" } = {}) {
+function resolveRequestedEditTargetRole(editTarget = {}) {
+  const role = String(editTarget.role ?? "").trim();
+
+  if (role === "main" || role === "sub") {
+    return role;
+  }
+
+  const scope = String(editTarget.scope ?? "").trim();
+
+  if (scope === "basic") {
+    return "main";
+  }
+
+  if (scope === "sub_positions") {
+    return "sub";
+  }
+
+  return "";
+}
+
+function markTargetElement(element, className = "is-targeted") {
+  if (element instanceof HTMLElement) {
+    element.classList.add(className);
+  }
+}
+
+function findSubPositionTargetRow(form, targetPosition) {
+  return Array.from(form.querySelectorAll('[data-relation-row="sub_positions"]')).find(
+    (row) => row.querySelector("[data-sub-position-name]")?.value === targetPosition
+  );
+}
+
+function hasSubPositionTarget(player, targetPosition) {
+  if (!Array.isArray(player.sub_positions) || !targetPosition) {
+    return false;
+  }
+
+  return player.sub_positions.some(
+    (item) => String(item?.position_name ?? "").trim() === targetPosition
+  );
+}
+
+function canRenderSubPositionTarget(relationOptions, targetPosition) {
+  const positionOptions = Array.isArray(relationOptions?.subPositionOptions)
+    ? relationOptions.subPositionOptions
+    : POSITION_OPTIONS;
+
+  return positionOptions.includes(targetPosition);
+}
+
+function buildSubPositionsForRender(player, editTarget = {}, relationOptions = {}) {
+  const targetPosition = String(editTarget.position ?? "").trim();
+  const targetRole = resolveRequestedEditTargetRole(editTarget);
+  const subPositions = Array.isArray(player.sub_positions) ? player.sub_positions : [];
+  const hasTarget = hasSubPositionTarget(player, targetPosition);
+  const shouldInsertTarget =
+    targetRole === "sub" &&
+    Boolean(targetPosition) &&
+    !hasTarget &&
+    canRenderSubPositionTarget(relationOptions, targetPosition);
+
+  return {
+    subPositions: shouldInsertTarget
+      ? [...subPositions, { position_name: targetPosition, suitability_value: "", defense_value: "" }]
+      : subPositions,
+    hasSubPositionRow: hasTarget || shouldInsertTarget,
+    isPendingSubPosition: shouldInsertTarget,
+  };
+}
+
+function focusRequestedEditTarget(form, editTarget = {}) {
+  const targetPosition = String(editTarget.position ?? "").trim();
+  const targetRole = resolveRequestedEditTargetRole(editTarget);
+
+  if (!targetPosition || !targetRole) {
+    return false;
+  }
+
+  window.requestAnimationFrame(() => {
+    if (targetRole === "main") {
+      const mainPositionSelect = form.querySelector("#main_position");
+      const mainPositionRow = form.querySelector('[data-field="main_position"]');
+      const mainPositionControl = mainPositionSelect?.closest(".player-form-control");
+
+      if (mainPositionRow instanceof HTMLElement) {
+        markTargetElement(mainPositionRow);
+        mainPositionRow.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+
+      markTargetElement(mainPositionControl, "is-targeted-control");
+
+      if (mainPositionSelect instanceof HTMLElement) {
+        mainPositionSelect.focus();
+      }
+
+      return;
+    }
+
+    const targetRow = findSubPositionTargetRow(form, targetPosition);
+
+    if (!targetRow) {
+      const subPositionSection = form.querySelector('[data-edit-section="sub_positions"]');
+      const subPositionEditor = form.querySelector('[data-relation-editor="sub_positions"]');
+      const addButton = subPositionEditor?.querySelector("[data-relation-add]");
+
+      if (subPositionSection instanceof HTMLElement) {
+        markTargetElement(subPositionSection);
+        subPositionSection.scrollIntoView({ block: "start", behavior: "smooth" });
+      }
+
+      markTargetElement(subPositionEditor);
+      markTargetElement(addButton);
+
+      if (addButton instanceof HTMLElement) {
+        addButton.focus();
+      }
+
+      return;
+    }
+
+    markTargetElement(targetRow);
+    targetRow.scrollIntoView({ block: "center", behavior: "smooth" });
+
+    const positionSelect = targetRow.querySelector("[data-sub-position-name]");
+    const positionControl = positionSelect?.closest(".player-ability-input");
+
+    markTargetElement(positionControl, "is-targeted-control");
+
+    if (positionSelect instanceof HTMLElement) {
+      positionSelect.focus();
+    }
+  });
+
+  return true;
+}
+
+function renderEditTargetNotice(
+  editTarget = {},
+  { hasSubPositionRow = false, isPendingSubPosition = false } = {}
+) {
+  const targetPosition = String(editTarget.position ?? "").trim();
+  const targetRole = resolveRequestedEditTargetRole(editTarget);
+
+  if (!targetPosition || !targetRole) {
+    return "";
+  }
+
+  const isMain = targetRole === "main";
+  const title = isMain
+    ? `${targetPosition}のメインポジション設定を確認中です。`
+    : `${targetPosition}のサブポジション設定を${
+        isPendingSubPosition ? "追加中です。" : hasSubPositionRow ? "確認中です。" : "追加できます。"
+      }`;
+  const guidance = isMain
+    ? "入力欄を強調しています。必要な場合だけ変更してください。"
+    : isPendingSubPosition
+      ? "守備ランクと数値を選択して保存してください。"
+      : hasSubPositionRow
+      ? "該当する行を強調しています。守備適性をここで確認できます。"
+      : "まだ登録行がないため、追加ボタンから登録してください。";
+
+  return `
+    <div class="player-edit-target-note" role="status" aria-live="polite">
+      <p class="player-edit-target-note-kicker">守備位置図からの案内</p>
+      <p class="player-edit-target-note-title">${escapeHtml(title)}</p>
+      <p class="player-edit-target-note-text">${guidance}</p>
+    </div>
+  `;
+}
+
+function renderForm(form, player, relationOptions, { detailHref, returnLabel = "詳細へ戻る", editTarget = {} } = {}) {
+  const editTargetRole = resolveRequestedEditTargetRole(editTarget);
+  const subPositionRenderState = buildSubPositionsForRender(player, editTarget, relationOptions);
+  const editTargetNotice = renderEditTargetNotice(editTarget, {
+    hasSubPositionRow: editTargetRole === "sub" && subPositionRenderState.hasSubPositionRow,
+    isPendingSubPosition: subPositionRenderState.isPendingSubPosition,
+  });
   const basicSection = renderFormSection({
     id: "player-edit-section-basic",
     sectionKey: "basic",
     title: "基本情報",
-    description: "識別情報とスナップショット単位の基本項目を編集します。",
+    description: "識別情報と登録時点ごとの基本項目を編集します。",
     content: [
+      editTargetRole === "main" ? editTargetNotice : "",
       renderTextInputRow({
         field: "name",
         label: "名前",
@@ -953,6 +1190,15 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
         options: PLAYER_TYPE_OPTIONS,
         value: player.player_type,
         required: true,
+      }),
+      renderNumberRow({
+        field: "total_stars",
+        label: "総合星",
+        value: formatTotalStarsInputValue(player.total_stars),
+        min: TOTAL_STARS_MIN,
+        max: TOTAL_STARS_MAX,
+        step: 1,
+        helpText: "1〜999の整数で入力します。空欄は未設定として保存します。",
       }),
       renderSelectRow({
         field: "prefecture",
@@ -993,6 +1239,10 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
       renderTimelineEditorRow({
         admissionYear: player.admission_year,
         snapshotLabel: player.snapshot_label,
+        schoolCurrentYear: player.school_current_year,
+        schoolGrade: player.school_grade,
+        rosterStatus: player.roster_status,
+        grade: player.grade,
       }),
     ].join(""),
   });
@@ -1019,7 +1269,7 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
     id: "player-edit-section-special",
     sectionKey: "special",
     title: "特殊能力",
-    description: "現在の snapshot に付いている特殊能力を編集します。",
+    description: "現在の時点に付いている特殊能力を編集します。",
     fieldsClass: "player-form-fields player-form-fields--relation",
     content: renderSpecialAbilityEditor({
       abilities: player.special_abilities,
@@ -1048,12 +1298,16 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
     title: "サブポジション",
     description: "メインポジション以外の守備位置と適性値を編集します。",
     fieldsClass: "player-form-fields player-form-fields--relation",
-    content: renderSubPositionEditor({
-      subPositions: player.sub_positions,
-      relationOptions,
-      editorIdPrefix: `player-edit-${player.id}`,
-      mainPosition: player.main_position,
-    }),
+    content: `
+      ${editTargetRole === "sub" ? editTargetNotice : ""}
+      ${renderSubPositionEditor({
+        subPositions: subPositionRenderState.subPositions,
+        relationOptions,
+        editorIdPrefix: `player-edit-${player.id}`,
+        mainPosition: player.main_position,
+        mainDefenseValue: player.fielding,
+      })}
+    `,
   });
 
   form.innerHTML = `
@@ -1097,14 +1351,81 @@ function appendOptionalIntegerPayload(payload, formData, field) {
   }
 }
 
+function parseTotalStarsField(formData) {
+  const value = formData.get("total_stars");
+
+  if (value === null) {
+    return null;
+  }
+
+  const text = String(value).trim();
+
+  if (text === "") {
+    return null;
+  }
+
+  if (!/^\d+$/.test(text)) {
+    throw new Error("総合星は1〜999の整数で入力してください。");
+  }
+
+  const numericValue = Number(text);
+
+  if (
+    !Number.isInteger(numericValue) ||
+    numericValue < TOTAL_STARS_MIN ||
+    numericValue > TOTAL_STARS_MAX
+  ) {
+    throw new Error("総合星は1〜999の整数で入力してください。");
+  }
+
+  return numericValue;
+}
+
+function resolveMainDefenseValueFromForm(form, fallbackValue = "") {
+  const hiddenValue = form.querySelector('[data-ranked-value-hidden="fielding"]')?.value;
+  const fallbackNumericValue = Number(fallbackValue);
+  const hiddenNumericValue = Number(hiddenValue);
+
+  if (Number.isInteger(hiddenNumericValue) && hiddenNumericValue >= 1 && hiddenNumericValue <= 100) {
+    return hiddenNumericValue;
+  }
+
+  if (Number.isInteger(fallbackNumericValue) && fallbackNumericValue >= 1 && fallbackNumericValue <= 100) {
+    return fallbackNumericValue;
+  }
+
+  return "";
+}
+
+function validateSnapshotLabelForSubmit(form, value) {
+  const normalizedValue = String(value ?? "").trim();
+  const snapshotSelector = form.querySelector("[data-snapshot-selector]");
+  const allowedValues = new Set(
+    Array.from(snapshotSelector?.querySelectorAll("[data-snapshot-option-value]") ?? [])
+      .map((button) => button.dataset.snapshotOptionValue)
+      .filter(Boolean)
+  );
+
+  if (!normalizedValue) {
+    throw new Error("登録時点を選択してください。");
+  }
+
+  if (allowedValues.size > 0 && !allowedValues.has(normalizedValue)) {
+    throw new Error("登録時点は表示されている候補から選択してください。");
+  }
+
+  return normalizedValue;
+}
+
 function buildPayload(formData, form, relationOptions) {
   const payload = {
     name: formData.get("name"),
     player_type: formData.get("player_type"),
+    total_stars: parseTotalStarsField(formData),
     prefecture: formData.get("prefecture"),
     grade: Number(formData.get("grade")),
     admission_year: Number(formData.get("admission_year")),
-    snapshot_label: formData.get("snapshot_label"),
+    snapshot_label: validateSnapshotLabelForSubmit(form, formData.get("snapshot_label")),
     main_position: formData.get("main_position"),
     throwing_hand: formData.get("throwing_hand"),
     batting_hand: formData.get("batting_hand"),
@@ -1123,21 +1444,32 @@ function buildPayload(formData, form, relationOptions) {
     ...serializeRelationInputs(form, relationOptions, {
       includePitchTypes: isPitcherPosition(payload.main_position),
       mainPosition: payload.main_position,
+      mainDefenseValue: resolveMainDefenseValueFromForm(form, payload.fielding),
     }),
   };
 }
 
-async function handleSubmit(event, player, messageElement, relationOptions) {
+async function handleSubmit(event, player, flowContext, messageElement, relationOptions) {
   event.preventDefault();
 
   const form = event.currentTarget;
-  const formData = new FormData(form);
-  const payload = buildPayload(formData, form, relationOptions);
-  const detailHref = buildPlayerDetailUrl(player.id, payload.snapshot_label || player.snapshot_label);
 
   try {
+    const formData = new FormData(form);
+    const payload = buildPayload(formData, form, relationOptions);
+    const isSnapshotCreate = flowContext.mode === "snapshot-create";
+
     setMessage(messageElement, "保存しています...");
-    await updatePlayer(player.id, payload);
+
+    const savedPlayer = isSnapshotCreate
+      ? await addSnapshotToSeries(player.player_series_id, payload)
+      : await updatePlayer(player.id, payload);
+    const detailHref = buildPlayerDetailUrl(
+      savedPlayer.id,
+      savedPlayer.snapshot_label || payload.snapshot_label || player.snapshot_label,
+      flowContext
+    );
+
     setMessage(messageElement, "保存しました。詳細画面へ戻ります。");
     window.setTimeout(() => {
       window.location.href = detailHref;
@@ -1159,13 +1491,22 @@ async function init() {
   try {
     const playerId = getPlayerIdFromQuery();
     const flowContext = getEditFlowContextFromQuery();
+    const editTarget = getRequestedEditTargetFromQuery();
     const [player, relationOptions] = await Promise.all([
       fetchPlayerById(playerId),
       loadRelationOptions(),
     ]);
-    const presentation = buildEditModePresentation(player, flowContext);
-    const ocrEntry = buildOcrEntryPresentation(player, flowContext);
-    const detailHref = buildPlayerDetailUrl(player.id, flowContext.snapshot || player.snapshot_label);
+    const isSnapshotCreate = flowContext.mode === "snapshot-create";
+    const editPlayer = isSnapshotCreate && flowContext.snapshot
+      ? { ...player, snapshot_label: flowContext.snapshot }
+      : player;
+    const presentation = buildEditModePresentation(editPlayer, flowContext);
+    const ocrEntry = buildOcrEntryPresentation(editPlayer, flowContext);
+    const detailHref = buildPlayerDetailUrl(
+      player.id,
+      flowContext.snapshot || player.snapshot_label,
+      flowContext
+    );
 
     setPageHeader(titleElement, contextElement, presentation);
     renderFlowNote(flowNoteElement, presentation.flowNote);
@@ -1182,9 +1523,10 @@ async function init() {
       return;
     }
 
-    renderForm(form, player, relationOptions, {
+    renderForm(form, editPlayer, relationOptions, {
       detailHref,
       returnLabel: presentation.returnLabel,
+      editTarget,
     });
     setupAdmissionYearPickers(form);
     setupSnapshotSelector(form);
@@ -1192,14 +1534,16 @@ async function init() {
     window.addEventListener("resize", () => syncTimelineSnapshotListHeight(form));
     setupRankedAbilityInputs(form);
     bindRelationEditors(form, relationOptions, {
-      getMainPosition: () => form.querySelector("#main_position")?.value ?? player.main_position,
-      getThrowingHand: () => form.querySelector("#throwing_hand")?.value ?? player.throwing_hand,
+      getMainPosition: () => form.querySelector("#main_position")?.value ?? editPlayer.main_position,
+      getThrowingHand: () => form.querySelector("#throwing_hand")?.value ?? editPlayer.throwing_hand,
+      getMainDefenseValue: () => resolveMainDefenseValueFromForm(form, editPlayer.fielding),
     });
     bindAbilitySectionVisibility(form);
     applyRequestedEditScope(form);
+    focusRequestedEditTarget(form, editTarget);
     bindOcrEntryActions(ocrEntryElement, messageElement, ocrEntry);
     form.addEventListener("submit", (event) =>
-      handleSubmit(event, player, messageElement, relationOptions)
+      handleSubmit(event, player, flowContext, messageElement, relationOptions)
     );
   } catch (error) {
     setPageHeader(titleElement, contextElement, {

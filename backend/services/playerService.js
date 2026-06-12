@@ -19,6 +19,20 @@ const {
 } = require("../constants/playerSnapshots");
 
 const ALLOWED_PLAYER_TYPES = ["normal", "genius", "reincarnated"];
+const ALLOWED_PLAYER_ROSTER_STATUSES = ["active", "graduated"];
+const ALLOWED_PLAYER_POSITION_TYPES = ["pitcher", "fielder"];
+const POSITION_SEARCH_CATEGORIES = ["全野手", "全内野手"];
+const ALLOWED_PLAYER_SORT_BY = [
+  "updated_at",
+  "name",
+  "school_name",
+  "admission_year",
+  "school_grade",
+  "roster_status",
+  "snapshot",
+];
+const ALLOWED_SORT_ORDERS = ["asc", "desc"];
+const SCHOOL_SUFFIX = "高校";
 // NOTE:
 // Writes still accept the legacy `post_tournament` label during the transition period
 // so existing clients/data can be updated without forced reclassification.
@@ -27,8 +41,11 @@ const ALLOWED_SNAPSHOT_LABELS = TRANSITIONAL_SNAPSHOT_LABELS;
 const ALLOWED_THROWING_HANDS = ["right", "left"];
 const ALLOWED_BATTING_HANDS = ["right", "left", "both"];
 const ALLOWED_POSITIONS = PLAYER_POSITION_OPTIONS;
+const ALLOWED_PLAYER_SEARCH_POSITIONS = [...ALLOWED_POSITIONS, ...POSITION_SEARCH_CATEGORIES];
 const ADMISSION_YEAR_MIN = 1932;
 const ADMISSION_YEAR_MAX = 2039;
+const TOTAL_STARS_UNSET_VALUE = 0;
+const TOTAL_STARS_MAX = 999;
 const REQUIRED_UPDATE_FIELDS = [
   "name",
   "player_type",
@@ -105,6 +122,31 @@ function pickEditablePlayerFields(player) {
   }, {});
 }
 
+function mergeSubPositionDefenseValues(currentSubPositions = [], updateSubPositions) {
+  if (!Array.isArray(updateSubPositions)) {
+    return updateSubPositions;
+  }
+
+  const currentByPosition = new Map(
+    currentSubPositions
+      .filter((item) => item?.position_name)
+      .map((item) => [item.position_name, item])
+  );
+
+  return updateSubPositions.map((item) => {
+    if (Object.prototype.hasOwnProperty.call(item, "defense_value")) {
+      return item;
+    }
+
+    const currentItem = currentByPosition.get(item?.position_name);
+
+    return {
+      ...item,
+      defense_value: currentItem?.defense_value ?? null,
+    };
+  });
+}
+
 function mergePlayerUpdatePayload(currentPlayer, updatePayload) {
   return {
     ...pickEditablePlayerFields(currentPlayer),
@@ -112,7 +154,9 @@ function mergePlayerUpdatePayload(currentPlayer, updatePayload) {
     school_id: currentPlayer.school_id,
     pitch_types: updatePayload.pitch_types ?? currentPlayer.pitch_types,
     special_abilities: updatePayload.special_abilities ?? currentPlayer.special_abilities,
-    sub_positions: updatePayload.sub_positions ?? currentPlayer.sub_positions,
+    sub_positions: updatePayload.sub_positions
+      ? mergeSubPositionDefenseValues(currentPlayer.sub_positions, updatePayload.sub_positions)
+      : currentPlayer.sub_positions,
   };
 }
 
@@ -146,8 +190,8 @@ function parseRequiredInteger(value, fieldName, options = {}) {
   return parseInteger(value, fieldName, { ...options, required: true });
 }
 
-function parseOptionalInteger(value, fieldName, { min } = {}) {
-  return parseInteger(value, fieldName, { min });
+function parseOptionalInteger(value, fieldName, { min, max } = {}) {
+  return parseInteger(value, fieldName, { min, max });
 }
 
 function parseOptionalText(value) {
@@ -167,6 +211,20 @@ function parseRequiredText(value, fieldName) {
   }
 
   return text;
+}
+
+function normalizeSchoolSearchName(value) {
+  const text = parseOptionalText(value);
+
+  if (!text) {
+    return null;
+  }
+
+  const normalizedName = text.endsWith(SCHOOL_SUFFIX)
+    ? text.slice(0, -SCHOOL_SUFFIX.length).trim()
+    : text;
+
+  return normalizedName || null;
 }
 
 function parseBooleanFlag(value, fieldName) {
@@ -193,6 +251,16 @@ function validateEnum(value, fieldName, allowedValues) {
   return value;
 }
 
+function validateOptionalEnum(value, fieldName, allowedValues) {
+  const text = parseOptionalText(value);
+
+  if (text === null) {
+    return null;
+  }
+
+  return validateEnum(text, fieldName, allowedValues);
+}
+
 function validatePrefecture(value) {
   if (!ALLOWED_PREFECTURE_VALUES.includes(value)) {
     throw createHttpError(400, "prefecture must be one of the allowed prefectures or countries.");
@@ -212,6 +280,15 @@ function validateAdmissionYear(value) {
   }
 
   return admissionYear;
+}
+
+function validateTotalStars(value) {
+  return (
+    parseOptionalInteger(value, "total_stars", {
+      min: TOTAL_STARS_UNSET_VALUE,
+      max: TOTAL_STARS_MAX,
+    }) ?? TOTAL_STARS_UNSET_VALUE
+  );
 }
 
 function deriveTypeFlags(playerType) {
@@ -279,7 +356,49 @@ function cloneSubPositions(items = []) {
   return items.map((item) => ({
     position_name: item.position_name,
     suitability_value: item.suitability_value,
+    defense_value: item.defense_value ?? null,
   }));
+}
+
+function validateOptionalAdmissionYear(value) {
+  return parseOptionalInteger(value, "admission_year", {
+    min: ADMISSION_YEAR_MIN,
+    max: ADMISSION_YEAR_MAX,
+  });
+}
+
+function validateOptionalAdmissionYearSearch(value, fieldName) {
+  return parseOptionalInteger(value, fieldName, {
+    min: ADMISSION_YEAR_MIN,
+    max: ADMISSION_YEAR_MAX,
+  });
+}
+
+function normalizePlayerListQuery(query = {}) {
+  const legacyPositionType = validateOptionalEnum(query.position_type, "position_type", ALLOWED_PLAYER_POSITION_TYPES);
+  const mainPositionFallback = legacyPositionType === "pitcher" ? "投手" : legacyPositionType === "fielder" ? "全野手" : null;
+  const legacyAdmissionYear = validateOptionalAdmissionYearSearch(query.admission_year, "admission_year");
+
+  return {
+    schoolId: parseOptionalInteger(query.school_id, "school_id", { min: 1 }),
+    name: parseOptionalText(query.name),
+    schoolName: normalizeSchoolSearchName(query.school_name),
+    admissionYearFrom:
+      validateOptionalAdmissionYearSearch(query.admission_year_from, "admission_year_from") ??
+      legacyAdmissionYear,
+    admissionYearTo:
+      validateOptionalAdmissionYearSearch(query.admission_year_to, "admission_year_to") ??
+      legacyAdmissionYear,
+    playerType: validateOptionalEnum(query.player_type, "player_type", ALLOWED_PLAYER_TYPES),
+    schoolGrade: parseOptionalInteger(query.school_grade, "school_grade", { min: 1, max: 3 }),
+    rosterStatus: validateOptionalEnum(query.roster_status, "roster_status", ALLOWED_PLAYER_ROSTER_STATUSES),
+    mainPosition:
+      validateOptionalEnum(query.main_position, "main_position", ALLOWED_PLAYER_SEARCH_POSITIONS) ??
+      mainPositionFallback,
+    snapshotLabel: validateOptionalEnum(query.snapshot_label, "snapshot_label", ALLOWED_SNAPSHOT_LABELS),
+    sortBy: validateOptionalEnum(query.sort_by, "sort_by", ALLOWED_PLAYER_SORT_BY) ?? "updated_at",
+    sortOrder: validateOptionalEnum(query.sort_order, "sort_order", ALLOWED_SORT_ORDERS) ?? "desc",
+  };
 }
 
 function buildSnapshotSeedFromPrevious(previousSnapshot, snapshotLabel) {
@@ -428,6 +547,10 @@ function validateSubPositions(items) {
       item.suitability_value,
       `sub_positions[${index}].suitability_value`
     ),
+    defense_value: parseOptionalInteger(item.defense_value, `sub_positions[${index}].defense_value`, {
+      min: 0,
+      max: 100,
+    }),
   }));
 }
 
@@ -468,7 +591,7 @@ function validatePlayerPayload(payload = {}) {
     name,
     player_type: playerType,
     player_type_note: parseOptionalText(payload.player_type_note),
-    total_stars: parseOptionalInteger(payload.total_stars, "total_stars", { min: 0 }) ?? 0,
+    total_stars: validateTotalStars(payload.total_stars),
     prefecture: validatePrefecture(parseRequiredText(payload.prefecture, "prefecture")),
     grade: resolveSnapshotGrade(payload.grade, snapshotLabel),
     admission_year: validateAdmissionYear(payload.admission_year),
@@ -549,6 +672,8 @@ function buildPlayerSeriesResponse(playerSeries, snapshots, currentSnapshot) {
 async function createPlayer(payload) {
   const validatedPayload = validatePlayerPayload(payload);
   const seriesPayload = buildSeriesPayload(validatedPayload, { note: payload?.note });
+  seriesPayload.school_grade = validatedPayload.grade;
+  seriesPayload.roster_status = "active";
 
   await assertActiveSchool(validatedPayload.school_id);
 
@@ -668,19 +793,17 @@ async function getPlayerById(id) {
 }
 
 async function getPlayers(query = {}) {
-  const schoolId = parseInteger(query.school_id, "school_id", { min: 1 });
+  const normalizedQuery = normalizePlayerListQuery(query);
 
-  if (schoolId !== null) {
-    const school = await schoolModel.findById(schoolId);
+  if (normalizedQuery.schoolId !== null) {
+    const school = await schoolModel.findById(normalizedQuery.schoolId);
 
     if (!school || school.is_archived === 1) {
       throw createHttpError(404, "School not found.");
     }
-
-    return playerModel.findBySchoolId(schoolId);
   }
 
-  return playerModel.findAll();
+  return playerModel.findAllActive(normalizedQuery);
 }
 
 async function getPlayerSeriesById(id, query = {}) {

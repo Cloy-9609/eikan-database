@@ -7,6 +7,8 @@ DROP TABLE IF EXISTS player_sub_positions;
 DROP TABLE IF EXISTS player_special_abilities;
 DROP TABLE IF EXISTS player_pitch_types;
 DROP TABLE IF EXISTS players;
+DROP TABLE IF EXISTS school_year_progress_log_players;
+DROP TABLE IF EXISTS school_year_progress_logs;
 DROP TABLE IF EXISTS player_series;
 DROP TABLE IF EXISTS schools;
 
@@ -33,6 +35,8 @@ CREATE TABLE player_series (
   player_type TEXT NOT NULL CHECK (player_type IN ('normal', 'genius', 'reincarnated')),
   player_type_note TEXT,
   admission_year INTEGER NOT NULL,
+  school_grade INTEGER NOT NULL DEFAULT 1 CHECK (school_grade BETWEEN 1 AND 3),
+  roster_status TEXT NOT NULL DEFAULT 'active' CHECK (roster_status IN ('active', 'graduated')),
   throwing_hand TEXT NOT NULL CHECK (throwing_hand IN ('right', 'left')),
   batting_hand TEXT NOT NULL CHECK (batting_hand IN ('right', 'left', 'both')),
   note TEXT,
@@ -40,6 +44,30 @@ CREATE TABLE player_series (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (school_id, series_no),
   FOREIGN KEY (school_id) REFERENCES schools(id) ON UPDATE CASCADE ON DELETE RESTRICT
+);
+
+CREATE TABLE school_year_progress_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  school_id INTEGER NOT NULL,
+  previous_year INTEGER NOT NULL,
+  current_year INTEGER NOT NULL,
+  snapshots_created INTEGER NOT NULL DEFAULT 0 CHECK (snapshots_created >= 0),
+  is_undo_available INTEGER NOT NULL DEFAULT 1 CHECK (is_undo_available IN (0, 1)),
+  undone_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (school_id) REFERENCES schools(id) ON UPDATE CASCADE ON DELETE RESTRICT
+);
+
+CREATE TABLE school_year_progress_log_players (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  log_id INTEGER NOT NULL,
+  player_series_id INTEGER NOT NULL,
+  before_school_grade INTEGER NOT NULL CHECK (before_school_grade BETWEEN 1 AND 3),
+  before_roster_status TEXT NOT NULL CHECK (before_roster_status IN ('active', 'graduated')),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (log_id, player_series_id),
+  FOREIGN KEY (log_id) REFERENCES school_year_progress_logs(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  FOREIGN KEY (player_series_id) REFERENCES player_series(id) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
 CREATE TABLE players (
@@ -126,6 +154,7 @@ CREATE TABLE player_sub_positions (
   player_id INTEGER NOT NULL,
   position_name TEXT NOT NULL,
   suitability_value TEXT NOT NULL,
+  defense_value INTEGER CHECK (defense_value IS NULL OR defense_value BETWEEN 0 AND 100),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (player_id) REFERENCES players(id) ON UPDATE CASCADE ON DELETE CASCADE
@@ -151,6 +180,11 @@ CREATE TABLE player_results (
 
 CREATE INDEX idx_schools_is_archived ON schools(is_archived);
 CREATE INDEX idx_player_series_school_id ON player_series(school_id);
+CREATE INDEX idx_school_year_progress_logs_school_undo
+  ON school_year_progress_logs(school_id, is_undo_available, undone_at, id);
+CREATE INDEX idx_school_year_progress_log_players_log_id ON school_year_progress_log_players(log_id);
+CREATE INDEX idx_school_year_progress_log_players_player_series_id
+  ON school_year_progress_log_players(player_series_id);
 CREATE INDEX idx_players_school_id ON players(school_id);
 CREATE INDEX idx_players_player_series_id ON players(player_series_id);
 CREATE INDEX idx_players_player_type ON players(player_type);

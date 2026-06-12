@@ -81,7 +81,26 @@ function buildGroupedOptions(groups) {
     .join("");
 }
 
-function renderForm(form, schoolId) {
+function formatYearValue(value) {
+  const numericValue = Number(value);
+  return Number.isInteger(numericValue) ? `${numericValue}年` : "未設定";
+}
+
+function getSchoolCurrentYear(school) {
+  const currentYear = Number(school?.current_year);
+
+  if (Number.isInteger(currentYear)) {
+    return currentYear;
+  }
+
+  const startYear = Number(school?.start_year);
+  return Number.isInteger(startYear) ? startYear : new Date().getFullYear();
+}
+
+function renderForm(form, school) {
+  const schoolId = school.id;
+  const schoolCurrentYear = getSchoolCurrentYear(school);
+
   form.innerHTML = `
     <div class="player-form-row">
       <label class="player-form-label" for="name">名前</label>
@@ -119,7 +138,11 @@ function renderForm(form, schoolId) {
     <div class="player-form-row">
       <span class="player-form-label">入学年</span>
       <div class="player-form-control player-form-control--year">
-        ${buildAdmissionYearPicker()}
+        ${buildAdmissionYearPicker({
+          selectedYear: schoolCurrentYear,
+          currentYear: schoolCurrentYear,
+        })}
+        <p class="player-form-help">新規登録の初期値は学校の現在年度 ${formatYearValue(schoolCurrentYear)} を基準にします。</p>
       </div>
     </div>
     <div class="player-form-row">
@@ -154,10 +177,10 @@ function renderForm(form, schoolId) {
         </select>
       </div>
     </div>
-    <input type="hidden" name="school_id" value="${schoolId}">
+    <input type="hidden" name="school_id" value="${escapeAttribute(schoolId)}">
     <div class="player-form-actions">
       <button type="submit" class="player-button player-button-primary">登録する</button>
-      <a class="player-button player-button-secondary" href="./school_detail.html?id=${schoolId}">戻る</a>
+      <a class="player-button player-button-secondary" href="./school_detail.html?id=${encodeURIComponent(schoolId)}">戻る</a>
     </div>
   `;
 }
@@ -212,8 +235,9 @@ async function init() {
     const schoolId = getSchoolIdFromQuery();
     const school = await fetchSchoolById(schoolId);
 
-    schoolElement.textContent = `対象学校: ${formatSchoolName(school.name)} (ID: ${school.id})`;
-    renderForm(form, schoolId);
+    schoolElement.textContent =
+      `対象学校: ${formatSchoolName(school.name)} (ID: ${school.id} / 現在年度: ${formatYearValue(getSchoolCurrentYear(school))})`;
+    renderForm(form, school);
     setupAdmissionYearPickers(form);
     form.addEventListener("submit", (event) => handleSubmit(event, schoolId, messageElement));
   } catch (error) {

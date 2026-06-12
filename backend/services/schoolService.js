@@ -1,5 +1,8 @@
 const schoolModel = require("../models/schoolModel");
 const playerModel = require("../models/playerModel");
+const playerSeriesModel = require("../models/playerSeriesModel");
+const schoolYearProgressLogModel = require("../models/schoolYearProgressLogModel");
+const { transaction } = require("../db/database");
 const { ALLOWED_PREFECTURE_VALUES } = require("../constants/prefectures");
 const {
   SNAPSHOT_LABELS,
@@ -113,26 +116,50 @@ function selectLatestSnapshotForSchoolRoster(snapshots) {
   return [...snapshots].sort(compareSnapshotRecencyDesc)[0] ?? null;
 }
 
-function buildPlayerSeriesSummary(seriesSnapshots) {
+function buildPlayerSeriesSummary(series, seriesSnapshots) {
   const latestSnapshot = selectLatestSnapshotForSchoolRoster(seriesSnapshots);
-  const anchorSnapshot = latestSnapshot ?? seriesSnapshots[0] ?? null;
-
-  if (!anchorSnapshot) {
-    return null;
-  }
-
-  const latestSnapshotLabel = latestSnapshot?.snapshot_label ?? anchorSnapshot.snapshot_label;
+  const latestSnapshotLabel = latestSnapshot?.snapshot_label ?? null;
 
   return {
-    playerSeriesId: anchorSnapshot.player_series_id,
-    latestSnapshotId: latestSnapshot?.id ?? anchorSnapshot.id,
+    playerSeriesId: series.id,
+    latestSnapshotId: latestSnapshot?.id ?? null,
     latestSnapshotLabel,
-    latestSnapshotLabelDisplay: SNAPSHOT_LABELS[latestSnapshotLabel] ?? latestSnapshotLabel,
-    latestSnapshotIsLegacy: isLegacySnapshotLabel(latestSnapshotLabel),
-    name: latestSnapshot?.name ?? anchorSnapshot.name,
-    grade: latestSnapshot?.grade ?? anchorSnapshot.grade,
-    mainPosition: latestSnapshot?.main_position ?? anchorSnapshot.main_position,
-    playerType: latestSnapshot?.player_type ?? anchorSnapshot.player_type,
+    latestSnapshotLabelDisplay: latestSnapshotLabel
+      ? SNAPSHOT_LABELS[latestSnapshotLabel] ?? latestSnapshotLabel
+      : null,
+    latestSnapshotIsLegacy: latestSnapshotLabel ? isLegacySnapshotLabel(latestSnapshotLabel) : false,
+    name: latestSnapshot?.name ?? series.name,
+    schoolGrade: series.school_grade,
+    rosterStatus: series.roster_status,
+    admissionYear: series.admission_year,
+    grade: series.school_grade,
+    latestSnapshotGrade: latestSnapshot?.grade ?? null,
+    mainPosition: latestSnapshot?.main_position ?? null,
+    totalStars: latestSnapshot?.total_stars ?? null,
+    playerType: latestSnapshot?.player_type ?? series.player_type,
+    seriesNo: series.series_no,
+    schoolCode: series.school_code,
+    hasSnapshot: Boolean(latestSnapshot),
+  };
+}
+
+function buildYearProgressUndoState(log) {
+  if (!log) {
+    return {
+      canUndo: false,
+      logId: null,
+      previousYear: null,
+      currentYear: null,
+      createdAt: null,
+    };
+  }
+
+  return {
+    canUndo: true,
+    logId: log.id,
+    previousYear: log.previous_year,
+    currentYear: log.current_year,
+    createdAt: log.created_at,
   };
 }
 
@@ -239,7 +266,10 @@ async function getSchools(query = {}) {
 
 async function getSchoolPlayerSeriesSummaries(id) {
   const school = await getSchoolById(id);
-  const playerSnapshots = await playerModel.findBySchoolId(school.id);
+  const [playerSeriesRows, playerSnapshots] = await Promise.all([
+    playerSeriesModel.findBySchoolId(school.id),
+    playerModel.findBySchoolId(school.id),
+  ]);
   const seriesSnapshotsMap = new Map();
 
   for (const snapshot of playerSnapshots) {
@@ -252,13 +282,15 @@ async function getSchoolPlayerSeriesSummaries(id) {
     seriesSnapshotsMap.get(seriesId).push(snapshot);
   }
 
-  const playerSeriesSummaries = Array.from(seriesSnapshotsMap.values())
-    .map((seriesSnapshots) => buildPlayerSeriesSummary(seriesSnapshots))
-    .filter(Boolean);
+  const playerSeriesSummaries = playerSeriesRows.map((series) =>
+    buildPlayerSeriesSummary(series, seriesSnapshotsMap.get(Number(series.id)) ?? [])
+  );
+  const undoableLog = await schoolYearProgressLogModel.findLatestUndoableBySchoolId(school.id);
 
   return {
     school,
     playerSeriesSummaries,
+    yearProgressUndo: buildYearProgressUndoState(undoableLog),
   };
 }
 
@@ -269,7 +301,12 @@ async function createSchool(payload) {
 
 async function updateSchool(id, payload) {
   const schoolId = validateId(id);
+  const currentSchool = await getSchoolById(schoolId);
   const validatedPayload = validateSchoolPayload(payload);
+  const currentYear = Number(currentSchool.current_year);
+  validatedPayload.currentYear = Number.isInteger(currentYear)
+    ? currentYear
+    : validatedPayload.startYear;
   const updatedSchool = await schoolModel.updateSchool(schoolId, validatedPayload);
 
   if (!updatedSchool) {
@@ -277,6 +314,151 @@ async function updateSchool(id, payload) {
   }
 
   return updatedSchool;
+}
+
+function resolveProgressionBaseYear(school) {
+  const currentYear = Number(school.current_year);
+
+  if (Number.isInteger(currentYear)) {
+    return currentYear;
+  }
+
+  const startYear = Number(school.start_year);
+
+  if (Number.isInteger(startYear)) {
+    return startYear;
+  }
+
+  throw createHttpError(400, "current_year or start_year must be a valid integer.");
+}
+
+async function progressSchoolYear(id) {
+  const schoolId = validateId(id);
+  const transactionResult = await transaction(async () => {
+    const school = await schoolModel.findById(schoolId);
+
+    if (!school || school.is_archived === 1) {
+      throw createHttpError(404, "School not found.");
+    }
+
+    const playerSeriesCount = await playerSeriesModel.countBySchoolId(schoolId);
+
+    if (playerSeriesCount === 0) {
+      throw createHttpError(409, "Cannot progress school year without registered player_series.");
+    }
+
+    const previousYear = resolveProgressionBaseYear(school);
+    const currentYear = previousYear + 1;
+
+    if (currentYear > SCHOOL_YEAR_MAX) {
+      throw createHttpError(409, `current_year cannot exceed ${SCHOOL_YEAR_MAX}.`);
+    }
+
+    const progressionStateRows = await playerSeriesModel.findProgressionStateBySchoolId(schoolId);
+
+    if (progressionStateRows.length === 0) {
+      throw createHttpError(409, "Cannot progress school year without registered player_series.");
+    }
+
+    await schoolYearProgressLogModel.expireUndoableLogsBySchoolId(schoolId);
+    const progressLogId = await schoolYearProgressLogModel.createProgressLog({
+      schoolId,
+      previousYear,
+      currentYear,
+      snapshotsCreated: 0,
+    });
+    await schoolYearProgressLogModel.addProgressLogPlayers(progressLogId, progressionStateRows);
+
+    const updatedSchool = await schoolModel.updateCurrentYear(schoolId, currentYear);
+
+    if (!updatedSchool) {
+      throw createHttpError(404, "School not found.");
+    }
+
+    const progressionCounts = await playerSeriesModel.progressSchoolGradesBySchoolId(schoolId);
+
+    return {
+      previousYear,
+      currentYear,
+      progressionCounts,
+      progressLogId,
+    };
+  });
+  const schoolPlayerSeries = await getSchoolPlayerSeriesSummaries(schoolId);
+
+  return {
+    ...schoolPlayerSeries,
+    progression: {
+      previousYear: transactionResult.previousYear,
+      currentYear: transactionResult.currentYear,
+      advancedCount: transactionResult.progressionCounts.advancedCount,
+      graduatedCount: transactionResult.progressionCounts.graduatedCount,
+      alreadyGraduatedCount: transactionResult.progressionCounts.alreadyGraduatedCount,
+      snapshotsCreated: 0,
+    },
+  };
+}
+
+async function undoSchoolYearProgression(id) {
+  const schoolId = validateId(id);
+  const transactionResult = await transaction(async () => {
+    const school = await schoolModel.findById(schoolId);
+
+    if (!school || school.is_archived === 1) {
+      throw createHttpError(404, "School not found.");
+    }
+
+    const undoableLog = await schoolYearProgressLogModel.findLatestUndoableBySchoolId(schoolId);
+
+    if (!undoableLog) {
+      throw createHttpError(409, "No undoable school year progression log found.");
+    }
+
+    const logPlayers = await schoolYearProgressLogModel.findPlayersByLogId(undoableLog.id);
+
+    const updatedSchool = await schoolModel.updateCurrentYear(schoolId, undoableLog.previous_year);
+
+    if (!updatedSchool) {
+      throw createHttpError(404, "School not found.");
+    }
+
+    for (const logPlayer of logPlayers) {
+      const changes = await playerSeriesModel.restoreProgressionState({
+        schoolId,
+        playerSeriesId: logPlayer.player_series_id,
+        schoolGrade: logPlayer.before_school_grade,
+        rosterStatus: logPlayer.before_roster_status,
+      });
+
+      if (changes === 0) {
+        throw createHttpError(409, "Cannot restore a player_series row from the progression log.");
+      }
+    }
+
+    const undoneChanges = await schoolYearProgressLogModel.markLogUndone(undoableLog.id);
+
+    if (undoneChanges === 0) {
+      throw createHttpError(409, "This school year progression log has already been undone.");
+    }
+
+    return {
+      previousYear: undoableLog.current_year,
+      currentYear: undoableLog.previous_year,
+      restoredPlayerSeriesCount: logPlayers.length,
+      progressLogId: undoableLog.id,
+    };
+  });
+  const schoolPlayerSeries = await getSchoolPlayerSeriesSummaries(schoolId);
+
+  return {
+    ...schoolPlayerSeries,
+    undoProgression: {
+      previousYear: transactionResult.previousYear,
+      currentYear: transactionResult.currentYear,
+      restoredPlayerSeriesCount: transactionResult.restoredPlayerSeriesCount,
+      snapshotsRestored: 0,
+    },
+  };
 }
 
 async function deleteSchool(id) {
@@ -296,5 +478,7 @@ module.exports = {
   getSchoolPlayerSeriesSummaries,
   createSchool,
   updateSchool,
+  progressSchoolYear,
+  undoSchoolYearProgression,
   deleteSchool,
 };
