@@ -49,6 +49,17 @@
 
 実ブラウザ確認は必要に応じて別途行います。
 
+## Codex Cloudでの開発フロー
+
+- 通常開発の統合先は `develop` です。
+- Codex Cloudでの作業確認用 base branch は `codex/staging` です。
+- Codexは `codex/staging` から `codex/<task-name>` 形式の作業ブランチを作成します。
+- Codexの成果物は、`codex/<task-name>` から `codex/staging` 向けの下書き Pull Request として作成します。
+- ユーザーは下書きPRのブランチをローカルに取得し、実ブラウザ確認を行います。
+- 問題なければ、ユーザーが手動で `develop` へ取り込みます。
+- 問題があれば、下書きPRを閉じて採用しません。
+- Codexは `main` と `develop` へ直接 push しません。
+
 ## Database
 
 ### 使用中の DB
