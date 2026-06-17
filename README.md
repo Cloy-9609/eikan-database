@@ -38,6 +38,8 @@
 
 ## 開発時の確認コマンド
 
+通常開発は `develop` を base に、1目的1PRで行います。
+
 `package.json` があるディレクトリで実行します。
 
 - backend 構文確認: `npm run check:backend`
