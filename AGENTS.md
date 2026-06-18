@@ -616,13 +616,21 @@ Avoid asking Codex to perform multiple unrelated tasks in one prompt.
 For Codex Cloud Agent work:
 
 - Use the GitHub repository as the source of truth.
-- Prefer branch-based work.
-- Use one PR per purpose.
-- Read current code before making changes.
-- Keep changes small and reviewable.
-- Run appropriate checks before reporting.
+- Use `codex/staging` as the integration branch for Codex outputs and the branch for real browser verification.
+- Create task branches from `codex/staging` using the `codex/<task-name>` naming pattern.
+- Use one PR per purpose, targeting `codex/staging` unless the user explicitly instructs otherwise.
+- Read current code before changing it, and keep changes small and reviewable.
+- Run `npm run check:all` and `npm run diff:check` before committing when the task expects the standard Codex verification flow.
+- For low-risk small to medium tasks, Codex may push the task branch, create a normal PR to `codex/staging`, and squash merge it with the GitHub API only when the PR is `mergeable clean` and all required verification commands succeeded. Delete the task branch after a successful squash merge.
+- For high-risk tasks, or medium-risk but large tasks, stop after creating the PR. Do not merge automatically.
+- Never push directly to `main` or `develop`.
 - Do not rely on local zip backup once repository workflow is established.
 - If the repository state differs from a zip backup, prefer the repository unless the user says otherwise.
+
+Risk judgment examples for Codex work:
+
+- Low-risk examples: `README.md` / `AGENTS.md`, wording fixes, minor CSS, display-only small fixes, and UI adjustments that do not touch existing logic.
+- High-risk examples: DB schema / migration, save/update/delete logic, snapshot creation or overwrite logic, `player_edit` / `player_detail` navigation, API contract changes, import/export, and changes spanning multiple screens.
 
 Recommended Cloud Environment setup:
 
