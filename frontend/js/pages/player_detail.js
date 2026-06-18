@@ -1066,6 +1066,7 @@ function renderDefensePositionNode(
     mainPosition,
     subPositionByName,
   });
+  const displayRoleLabel = roleLabel === "未設定" ? "-" : roleLabel;
   const canSelectForEdit = !archivedSchool && Boolean(snapshot?.id);
   const isSelected = canSelectForEdit && selectedPosition === slot.position;
   const tagName = canSelectForEdit ? "button" : "div";
@@ -1080,6 +1081,7 @@ function renderDefensePositionNode(
   const interactionClass = canSelectForEdit ? "is-clickable" : "is-readonly";
   const selectedClass = isSelected ? "is-selected" : "";
   const actionLabel = canSelectForEdit ? "。選択すると編集確認を表示" : "";
+  const accessibleLabel = `${slot.label}: ${roleLabel}${actionLabel}`;
   const suitability = isSub && subPosition?.suitability_value
     ? `<span class="defense-position-suitability">${escapeHtml(subPosition.suitability_value)}</span>`
     : "";
@@ -1090,11 +1092,12 @@ function renderDefensePositionNode(
       data-defense-position="${escapeAttribute(slot.position)}"
       ${editAttributes}
       style="--defense-x: ${escapeAttribute(slot.x)}%; --defense-y: ${escapeAttribute(slot.y)}%;"
-      aria-label="${escapeAttribute(`${slot.label}: ${roleLabel}${actionLabel}`)}"
+      aria-label="${escapeAttribute(accessibleLabel)}"
+      title="${escapeAttribute(accessibleLabel)}"
     >
       <span class="defense-position-abbr" aria-hidden="true">${escapeHtml(slot.shortLabel)}</span>
       <span class="defense-position-name">${escapeHtml(slot.label)}</span>
-      <span class="defense-position-role">${escapeHtml(roleLabel)}</span>
+      <span class="defense-position-role">${escapeHtml(displayRoleLabel)}</span>
       ${suitability}
     </${tagName}>
   `;
