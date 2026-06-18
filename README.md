@@ -52,15 +52,34 @@
 ## Codex Cloud / GitHub連携での開発フロー
 
 - GitHub repository `Cloy-9609/eikan-database` を作業の基準にします。
-- 通常開発の統合先は `develop` です。
-- Codex Cloudでの作業確認用 base branch は `codex/staging` です。
-- Codexは `codex/staging` から `codex/<task-name>` 形式の作業ブランチを作成します。
+- Codex成果物の統合先と実ブラウザ確認用の branch は `codex/staging` です。
+- Codex は `codex/staging` から `codex/<task-name>` 形式の作業ブランチを作成します。
 - 変更後は `npm run check:all` と `npm run diff:check` を実行してから commit します。
-- 作業ブランチをGitHubへ push し、`codex/staging` 向けの下書き Pull Request を作成します。
-- ユーザーは下書きPRのブランチをローカルに取得し、実ブラウザ確認を行います。
-- 問題なければ、ユーザーが手動で `develop` へ取り込みます。
-- 問題があれば、下書きPRを閉じて採用しません。
-- Codexは `main` と `develop` へ直接 push しません。
+- 作業ブランチを GitHub へ push し、`codex/staging` 向けの通常 Pull Request を作成します。
+- 低リスク・小〜中規模タスクで、Pull Request が `mergeable clean` かつ確認コマンドが成功している場合のみ、Codex は GitHub API で `codex/staging` へ squash merge し、作業ブランチを削除できます。
+- 高リスク、または中リスクでも大規模なタスクは、Pull Request 作成までで止め、Codex は merge しません。
+- `codex/staging` で実ブラウザ確認を行い、問題なければユーザー判断で `develop` 以降へ取り込みます。
+- Codex は `main` と `develop` へ直接 push しません。
+
+### Codex作業のリスク判断例
+
+低リスクとして扱いやすい例:
+
+- `README.md` / `AGENTS.md` の更新
+- 文言修正
+- 軽微な CSS
+- 表示だけの小修正
+- 既存ロジックに触れない UI 調整
+
+高リスクとして扱う例:
+
+- DB schema / migration
+- 保存・更新・削除処理
+- snapshot 作成・上書き処理
+- `player_edit` / `player_detail` の画面遷移
+- API 仕様変更
+- import/export
+- 複数画面にまたがる変更
 
 ## Database
 
