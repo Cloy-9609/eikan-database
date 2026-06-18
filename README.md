@@ -142,3 +142,5 @@ docs/                       設計・要件・レビュー記録
 
 - 一部の既存ファイルには文字化けした文字列が残っています。
 - 今回の修正対象は主に SQLite 参照先の整理、起動時自動初期化、DB リセット導線の明確化です。
+
+Git credential push/PR verification note.
