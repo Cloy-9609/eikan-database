@@ -22,7 +22,7 @@
 
 ### `player_edit`
 - 主な役割は「1スナップショットの基本情報 + 投手能力 + 野手能力」の編集。
-- 現行 UI で編集できるのは、名前、選手種別、都道府県、学年、入学年、スナップショット種別、メインポジション、投打、投手能力、野手能力。
+- 現行 UI で編集できるのは、名前、選手種別、出身地、学年、入学年、スナップショット種別、メインポジション、投打、投手能力、野手能力。
 - 変化球、特殊能力、サブポジションは未編集。
 - `player_detail` から `basic / pitcher / batter` の各セクションへアンカー付きで遷移できるため、当面は 1 画面編集を維持しつつ、将来的なセクション単位保存へも伸ばしやすい。
 - 再設計後は `snapshot_label` を既存スナップショット上で自由変更させず、新規時点作成時に確定する扱いを基本とする。
@@ -56,7 +56,7 @@
 | 所属学校 `school_name` / `school_id` | あり | なし | なし | `school_id` は service/model 上は扱える | `players.school_id` | 中 | detail は表示のみ。編集 UI は未提供 |
 | 学年 `grade` | あり | あり | あり | あり | `players.grade` | 高 | 現行の基本情報編集対象 |
 | 入学年 `admission_year` | あり | あり | あり | あり | `players.admission_year` | 高 | 現行の基本情報編集対象 |
-| 出身都道府県 `prefecture` | あり | あり | あり | あり | `players.prefecture` | 高 | 現行の基本情報編集対象 |
+| 出身地 `prefecture` | あり | あり | あり | あり | `players.prefecture` | 高 | 現行の基本情報編集対象 |
 | メインポジション `main_position` | あり | あり | あり | あり | `players.main_position` | 高 | 現行の基本情報編集対象 |
 | 選手種別 `player_type` | あり | あり | あり | あり | `players.player_type` | 高 | `is_reincarnated` / `is_genius` との扱い整理は未完 |
 | 投打 `throwing_hand` / `batting_hand` | あり | あり | あり | あり | `players.throwing_hand`, `players.batting_hand` | 高 | detail では合成表示、edit では別入力 |
