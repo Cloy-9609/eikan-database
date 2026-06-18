@@ -31,11 +31,14 @@ const FALLBACK_RELATION_OPTIONS = {
     "ナックルカーブ",
     "パワーカーブ",
     "ドロップ",
+    "Dスライダー",
     "シンカー（スクリュー）",
     "シンカー",
     "スクリュー",
     "Hシンカー",
     "サークルチェンジ",
+    "ファストチェンジ",
+    "シンキングスプリット",
   ],
   subPositionOptions: ["投手", "捕手", "一塁手", "二塁手", "三塁手", "遊撃手", "外野手"],
   subPositionSuitabilitySuggestions: ["S", "A", "B", "C", "D", "E", "F", "G"],
@@ -76,8 +79,8 @@ const PITCH_EDITOR_MAX_VISIBLE_SLOTS = 2;
 
 const PITCH_MOVEMENT_CATEGORIES = [
   { direction: "left", patterns: ["シュート", "Hシュート", "シンキングツーシーム"] },
-  { direction: "down-right", patterns: ["カーブ", "スローカーブ", "ドロップカーブ", "スラーブ", "ナックルカーブ", "パワーカーブ", "ドロップ"] },
-  { direction: "down-left", patterns: ["シンカー（スクリュー）", "シンカー", "スクリュー", "Hシンカー", "サークルチェンジ"] },
+  { direction: "down-right", patterns: ["カーブ", "スローカーブ", "ドロップカーブ", "スラーブ", "ナックルカーブ", "パワーカーブ", "ドロップ", "Dスライダー"] },
+  { direction: "down-left", patterns: ["シンカー（スクリュー）", "シンカー", "スクリュー", "Hシンカー", "サークルチェンジ", "ファストチェンジ", "シンキングスプリット"] },
   {
     direction: "down",
     patterns: ["フォーク", "SFF", "チェンジアップ", "Vスライダー", "Ｖスライダー", "縦スライダー", "パーム", "ナックル"],
