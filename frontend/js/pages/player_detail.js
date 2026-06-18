@@ -1740,7 +1740,7 @@ function renderPlayerLegacy(refs, seriesResponse) {
     const basicInfo = renderDefinitionRows([
       { field: "grade", label: "学年", valueHtml: formatValue(currentSnapshot.grade) },
       { field: "admission_year", label: "入学年", valueHtml: formatValue(playerSeries.admission_year) },
-      { field: "prefecture", label: "出身都道府県", valueHtml: formatValue(playerSeries.prefecture) },
+      { field: "prefecture", label: "出身地", valueHtml: formatValue(playerSeries.prefecture) },
       {
         field: "main_position",
         label: "メインポジション",
@@ -1902,7 +1902,7 @@ function renderPlayerLegacy(refs, seriesResponse) {
   const basicInfo = renderDefinitionRows([
     { field: "grade", label: "学年", valueHtml: formatValue(player.grade) },
     { field: "admission_year", label: "入学年", valueHtml: formatValue(player.admission_year) },
-    { field: "prefecture", label: "出身都道府県", valueHtml: formatValue(player.prefecture) },
+    { field: "prefecture", label: "出身地", valueHtml: formatValue(player.prefecture) },
     { field: "main_position", label: "メインポジション", valueHtml: formatValue(player.main_position) },
     { field: "player_type", label: "選手種別", valueHtml: formatPlayerType(player.player_type) },
     { field: "throw_bat", label: "投打", valueHtml: formatThrowBat(player) },
@@ -2054,7 +2054,7 @@ function renderPlayer(refs, seriesResponse) {
   const basicInfo = renderDefinitionRows([
     { field: "grade", label: "学年", valueHtml: formatValue(currentSnapshot.grade) },
     { field: "admission_year", label: "入学年", valueHtml: formatValue(playerSeries.admission_year) },
-    { field: "prefecture", label: "出身都道府県", valueHtml: formatValue(playerSeries.prefecture) },
+    { field: "prefecture", label: "出身地", valueHtml: formatValue(playerSeries.prefecture) },
     {
       field: "main_position",
       label: "メインポジション",
