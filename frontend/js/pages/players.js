@@ -51,10 +51,10 @@ const ROSTER_STATUS_OPTIONS = [
 ];
 
 const ABILITY_FILTER_OPTIONS = [
-  { value: "velocity", label: "球速", group: "投手能力", min: 0, max: 200, ranked: false },
+  { value: "velocity", label: "球速", group: "投手能力", min: 30, max: 175, ranked: false },
   { value: "control", label: "コントロール", group: "投手能力", min: 0, max: 100, ranked: true },
   { value: "stamina", label: "スタミナ", group: "投手能力", min: 0, max: 100, ranked: true },
-  { value: "trajectory", label: "弾道", group: "野手能力", min: 0, max: 4, ranked: false },
+  { value: "trajectory", label: "弾道", group: "野手能力", min: 1, max: 4, ranked: false },
   { value: "meat", label: "ミート", group: "野手能力", min: 0, max: 100, ranked: true },
   { value: "power", label: "パワー", group: "野手能力", min: 0, max: 100, ranked: true },
   { value: "run_speed", label: "走力", group: "野手能力", min: 0, max: 100, ranked: true },

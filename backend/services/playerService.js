@@ -47,10 +47,10 @@ const ADMISSION_YEAR_MAX = 2039;
 const TOTAL_STARS_UNSET_VALUE = 0;
 const TOTAL_STARS_MAX = 999;
 const ABILITY_FILTER_DEFINITIONS = Object.freeze({
-  velocity: { min: 0 },
+  velocity: { min: 30, max: 175 },
   control: { min: 0, max: 100 },
   stamina: { min: 0, max: 100 },
-  trajectory: { min: 0 },
+  trajectory: { min: 1, max: 4 },
   meat: { min: 0, max: 100 },
   power: { min: 0, max: 100 },
   run_speed: { min: 0, max: 100 },
