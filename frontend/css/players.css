@@ -566,8 +566,8 @@
   text-align: center;
 }
 
-.players-table .players-table-cell--primary {
-  width: 47%;
+.players-table .players-table-cell--full {
+  width: 100%;
   min-width: 0;
   text-align: left;
   vertical-align: top;
@@ -600,28 +600,42 @@
   white-space: nowrap;
 }
 
-.players-row-primary-grid {
+.players-row-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  gap: 7px 14px;
+  grid-template-columns:
+    minmax(150px, 1.45fr)
+    minmax(140px, 1.15fr)
+    minmax(76px, 0.58fr)
+    minmax(68px, 0.46fr)
+    minmax(104px, 0.82fr)
+    minmax(68px, 0.42fr);
+  gap: 7px 10px;
   align-items: start;
   min-width: 0;
   max-width: 100%;
 }
 
-.players-row-primary-name,
-.players-row-primary-school {
+.players-row-field {
   display: flex;
   align-items: center;
   min-width: 0;
   min-height: 30px;
 }
 
-.players-row-primary-school {
+.players-row-field--school,
+.players-row-field--position,
+.players-row-field--total-stars,
+.players-row-field--status,
+.players-row-field--year {
   justify-content: center;
 }
 
-.players-row-primary-school-text {
+.players-row-field-label {
+  display: none;
+}
+
+.players-row-school-text,
+.players-row-year-text {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -629,6 +643,11 @@
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.players-row-year-text {
+  color: #52667b;
+  font-weight: 700;
 }
 
 .players-name-cell-content {
@@ -691,9 +710,9 @@
 }
 
 .players-ability-summary-list {
-  display: flex;
-  flex: 1 1 420px;
-  flex-wrap: wrap;
+  display: grid;
+  flex: 1 1 0;
+  grid-template-columns: repeat(var(--players-ability-summary-columns, 7), minmax(0, 1fr));
   gap: 6px;
   min-width: 0;
   max-width: 100%;
@@ -702,6 +721,7 @@
 .players-ability-summary-item {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   min-width: 0;
   padding: 3px 5px;
@@ -715,8 +735,12 @@
 }
 
 .players-ability-summary-label {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   color: #52667b;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .players-ability-summary-value {
@@ -2117,19 +2141,54 @@
   }
 
   .players-table .players-table-cell--name,
-  .players-table .players-table-cell--primary {
+  .players-table .players-table-cell--full {
     background: #f8fbfe;
     text-align: left;
   }
 
-  .players-row-primary-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 7px;
+  .players-table .players-table-cell--full {
+    display: block;
   }
 
-  .players-row-primary-name,
-  .players-row-primary-school {
+  .players-table .players-table-cell--full::before {
+    content: none;
+  }
+
+  .players-row-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .players-row-field {
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 10px;
     min-height: 0;
+    padding: 11px 0;
+    border-bottom: 1px solid #e5edf4;
+  }
+
+  .players-row-field--school,
+  .players-row-field--position,
+  .players-row-field--total-stars,
+  .players-row-field--status,
+  .players-row-field--year {
+    justify-content: stretch;
+  }
+
+  .players-row-field:last-of-type {
+    border-bottom: 0;
+  }
+
+  .players-row-field-label {
+    display: block;
+    color: #6a7c90;
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .players-row-field .players-position-stack,
+  .players-row-field .players-status-stack {
     justify-content: flex-start;
   }
 
@@ -2173,7 +2232,7 @@
   }
 
   .players-table .players-table-cell--name,
-  .players-table .players-table-cell--primary,
+  .players-table .players-table-cell--full,
   .players-table .players-table-cell--school,
   .players-table .players-table-cell--position,
   .players-table .players-table-cell--total-stars,

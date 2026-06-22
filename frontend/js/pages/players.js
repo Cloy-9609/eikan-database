@@ -512,7 +512,7 @@ function getAbilitySummaryValueClass(item) {
 
 function renderAbilitySummaryItems(items) {
   return `
-    <div class="players-ability-summary-list">
+    <div class="players-ability-summary-list" style="--players-ability-summary-columns: ${Math.max(items.length, 1)};">
       ${items
         .map((item) => {
           const valueClass = getAbilitySummaryValueClass(item);
@@ -1209,9 +1209,10 @@ function renderPlayerRows(players) {
 
       return `
         <tr class="players-table-row">
-          <td class="players-table-cell--primary" colspan="2" data-label="選手名 / 学校名">
-            <div class="players-row-primary-grid">
-              <div class="players-row-primary-name">
+          <td class="players-table-cell--full" colspan="${PLAYERS_TABLE_COLUMN_COUNT}">
+            <div class="players-row-grid">
+              <div class="players-row-field players-row-field--name" aria-label="選手名: ${escapeAttribute(playerName)}">
+                <span class="players-row-field-label">選手名</span>
                 <span class="players-name-cell-content">
                   <button
                     type="button"
@@ -1229,49 +1230,56 @@ function renderPlayerRows(players) {
                   <span class="players-name-text">${escapeHtml(playerName)}</span>
                 </span>
               </div>
-              <div class="players-row-primary-school">
+              <div class="players-row-field players-row-field--school" aria-label="学校名: ${escapeAttribute(schoolName)}">
+                <span class="players-row-field-label">学校名</span>
                 ${
                   schoolHref
                     ? `<a class="players-table-link" href="${schoolHref}" title="${escapeAttribute(schoolName)}">${escapeHtml(schoolName)}</a>`
-                    : `<span class="players-row-primary-school-text">${escapeHtml(schoolName)}</span>`
+                    : `<span class="players-row-school-text">${escapeHtml(schoolName)}</span>`
                 }
+              </div>
+              <div class="players-row-field players-row-field--position" aria-label="メインポジション: ${escapeAttribute(mainPositionBadge.label)}">
+                <span class="players-row-field-label">ポジション</span>
+                <span
+                  class="players-position-stack"
+                  aria-label="${escapeAttribute(`メインポジション: ${mainPositionBadge.label}`)}"
+                >
+                  <span
+                    class="players-position-badge"
+                    aria-label="${escapeAttribute(`メインポジション: ${mainPositionBadge.label}`)}"
+                    title="${escapeAttribute(`メインポジション: ${mainPositionBadge.label}`)}"
+                  >
+                    ${escapeHtml(mainPositionBadge.shortLabel)}
+                  </span>
+                </span>
+              </div>
+              <div class="players-row-field players-row-field--total-stars" aria-label="${escapeAttribute(totalStarsLabel)}">
+                <span class="players-row-field-label">総合星</span>
+                <span
+                  class="players-total-stars ${totalStarsText === "—" ? "is-empty" : ""}"
+                  aria-label="${escapeAttribute(totalStarsLabel)}"
+                  title="${escapeAttribute(totalStarsLabel)}"
+                >
+                  <span class="players-total-stars-mark" aria-hidden="true">★</span>
+                  <span>${escapeHtml(totalStarsText)}</span>
+                </span>
+              </div>
+              <div class="players-row-field players-row-field--status" aria-label="学年と状態: ${escapeAttribute(`${formatSchoolGrade(player.school_grade)} / ${formatRosterStatus(player.roster_status)}`)}">
+                <span class="players-row-field-label">学年 / 状態</span>
+                <span class="players-status-stack">
+                  <span class="players-grade-chip">${escapeHtml(formatSchoolGrade(player.school_grade))}</span>
+                  <span class="players-badge ${getRosterStatusBadgeClass(player.roster_status)}">
+                    ${escapeHtml(formatRosterStatus(player.roster_status))}
+                  </span>
+                </span>
+              </div>
+              <div class="players-row-field players-row-field--year" aria-label="入学年: ${escapeAttribute(formatYear(player.admission_year))}">
+                <span class="players-row-field-label">入学年</span>
+                <span class="players-row-year-text">${escapeHtml(formatYear(player.admission_year))}</span>
               </div>
               ${renderAbilitySummary(player, abilityKey)}
             </div>
           </td>
-          <td class="players-table-cell--position" data-label="ポジション">
-            <span
-              class="players-position-stack"
-              aria-label="${escapeAttribute(`メインポジション: ${mainPositionBadge.label}`)}"
-            >
-              <span
-                class="players-position-badge"
-                aria-label="${escapeAttribute(`メインポジション: ${mainPositionBadge.label}`)}"
-                title="${escapeAttribute(`メインポジション: ${mainPositionBadge.label}`)}"
-              >
-                ${escapeHtml(mainPositionBadge.shortLabel)}
-              </span>
-            </span>
-          </td>
-          <td class="players-table-cell--total-stars" data-label="総合星">
-            <span
-              class="players-total-stars ${totalStarsText === "—" ? "is-empty" : ""}"
-              aria-label="${escapeAttribute(totalStarsLabel)}"
-              title="${escapeAttribute(totalStarsLabel)}"
-            >
-              <span class="players-total-stars-mark" aria-hidden="true">★</span>
-              <span>${escapeHtml(totalStarsText)}</span>
-            </span>
-          </td>
-          <td class="players-table-cell--status" data-label="学年/状態">
-            <span class="players-status-stack">
-              <span class="players-grade-chip">${escapeHtml(formatSchoolGrade(player.school_grade))}</span>
-              <span class="players-badge ${getRosterStatusBadgeClass(player.roster_status)}">
-                ${escapeHtml(formatRosterStatus(player.roster_status))}
-              </span>
-            </span>
-          </td>
-          <td class="players-table-cell--year" data-label="入学年">${escapeHtml(formatYear(player.admission_year))}</td>
         </tr>
         <tr id="${accordionId}" class="players-accordion-row" hidden>
           <td colspan="${PLAYERS_TABLE_COLUMN_COUNT}" data-label="簡易詳細">
