@@ -1209,31 +1209,35 @@ function renderPlayerRows(players) {
 
       return `
         <tr class="players-table-row">
-          <td class="players-table-cell--name" data-label="選手名">
-            <span class="players-name-cell-content">
-              <button
-                type="button"
-                class="players-row-toggle"
-                data-player-detail-toggle
-                data-player="${encodedPlayer}"
-                data-player-name="${escapeAttribute(playerName)}"
-                aria-expanded="false"
-                aria-controls="${accordionId}"
-                aria-label="${escapeAttribute(toggleLabel)}"
-                title="${escapeAttribute(toggleLabel)}"
-              >
-                <span class="players-row-toggle-icon" aria-hidden="true"></span>
-              </button>
-              <span class="players-name-text">${escapeHtml(playerName)}</span>
-            </span>
-            ${renderAbilitySummary(player, abilityKey)}
-          </td>
-          <td class="players-table-cell--school" data-label="学校名">
-            ${
-              schoolHref
-                ? `<a class="players-table-link" href="${schoolHref}" title="${escapeAttribute(schoolName)}">${escapeHtml(schoolName)}</a>`
-                : escapeHtml(schoolName)
-            }
+          <td class="players-table-cell--primary" colspan="2" data-label="選手名 / 学校名">
+            <div class="players-row-primary-grid">
+              <div class="players-row-primary-name">
+                <span class="players-name-cell-content">
+                  <button
+                    type="button"
+                    class="players-row-toggle"
+                    data-player-detail-toggle
+                    data-player="${encodedPlayer}"
+                    data-player-name="${escapeAttribute(playerName)}"
+                    aria-expanded="false"
+                    aria-controls="${accordionId}"
+                    aria-label="${escapeAttribute(toggleLabel)}"
+                    title="${escapeAttribute(toggleLabel)}"
+                  >
+                    <span class="players-row-toggle-icon" aria-hidden="true"></span>
+                  </button>
+                  <span class="players-name-text">${escapeHtml(playerName)}</span>
+                </span>
+              </div>
+              <div class="players-row-primary-school">
+                ${
+                  schoolHref
+                    ? `<a class="players-table-link" href="${schoolHref}" title="${escapeAttribute(schoolName)}">${escapeHtml(schoolName)}</a>`
+                    : `<span class="players-row-primary-school-text">${escapeHtml(schoolName)}</span>`
+                }
+              </div>
+              ${renderAbilitySummary(player, abilityKey)}
+            </div>
           </td>
           <td class="players-table-cell--position" data-label="ポジション">
             <span

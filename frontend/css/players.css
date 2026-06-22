@@ -535,6 +535,10 @@
     box-shadow 0.18s ease;
 }
 
+.players-table-row > td {
+  vertical-align: top;
+}
+
 .players-table-row:nth-of-type(4n + 3) {
   background: #fbfdff;
 }
@@ -560,6 +564,13 @@
   width: 21%;
   min-width: 0;
   text-align: center;
+}
+
+.players-table .players-table-cell--primary {
+  width: 47%;
+  min-width: 0;
+  text-align: left;
+  vertical-align: top;
 }
 
 .players-table .players-table-cell--position {
@@ -589,6 +600,37 @@
   white-space: nowrap;
 }
 
+.players-row-primary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 7px 14px;
+  align-items: start;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.players-row-primary-name,
+.players-row-primary-school {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 30px;
+}
+
+.players-row-primary-school {
+  justify-content: center;
+}
+
+.players-row-primary-school-text {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: #314559;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .players-name-cell-content {
   display: inline-flex;
   align-items: center;
@@ -612,23 +654,26 @@
 
 
 .players-ability-summary {
-  display: grid;
-  gap: 7px;
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 7px 10px;
+  align-items: center;
   min-width: 0;
   max-width: 100%;
-  margin-top: 8px;
-  padding: 8px 9px;
+  margin-top: 2px;
+  padding: 6px 8px;
   border: 1px solid #dbe7f1;
-  border-radius: 11px;
-  background: rgba(248, 251, 254, 0.9);
+  border-radius: 10px;
+  background: rgba(248, 251, 254, 0.72);
 }
 
 .players-ability-summary-header {
-  display: flex;
+  display: inline-flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 6px;
   align-items: center;
-  justify-content: space-between;
   min-width: 0;
 }
 
@@ -647,6 +692,7 @@
 
 .players-ability-summary-list {
   display: flex;
+  flex: 1 1 420px;
   flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
@@ -2070,9 +2116,21 @@
     align-items: center;
   }
 
-  .players-table .players-table-cell--name {
+  .players-table .players-table-cell--name,
+  .players-table .players-table-cell--primary {
     background: #f8fbfe;
     text-align: left;
+  }
+
+  .players-row-primary-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .players-row-primary-name,
+  .players-row-primary-school {
+    min-height: 0;
+    justify-content: flex-start;
   }
 
   .players-ability-summary {
@@ -2115,6 +2173,7 @@
   }
 
   .players-table .players-table-cell--name,
+  .players-table .players-table-cell--primary,
   .players-table .players-table-cell--school,
   .players-table .players-table-cell--position,
   .players-table .players-table-cell--total-stars,
