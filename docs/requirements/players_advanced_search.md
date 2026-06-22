@@ -922,3 +922,57 @@ Prompt5-2について、PC一覧の能力要約に表示する能力項目、ス
 4. 詳細検索UIは、現行レイアウトに馴染むアコーディオン方式を優先してよいですか。sticky asideを将来導入する必要がありますか。
 5. URL反映は最終的に維持、部分維持、廃止のどれにしますか。
 6. 実DBにlegacy `admission` snapshotが残っている可能性を考慮し、入学時検索で `entrance` 以外も対象にする必要がありますか。
+
+## Prompt5-3 確定仕様：players一覧の通常能力範囲検索
+
+Prompt5-3では、既存の「検索・絞り込み」内に通常能力条件を1件だけ追加する。複数能力条件、AND/OR切替、能力値sort、見出しクリックsort、特殊能力検索、総変化量検索、変化球検索、サブポジション検索、snapshot時点指定は対象外とする。URL状態管理の見直しはPrompt5-6で扱う。
+
+### 対象能力
+
+対象は現行players一覧APIが返す最新相当snapshot上の既存カラムとする。
+
+- 投手能力: `velocity`（球速）, `control`（コントロール）, `stamina`（スタミナ）
+- 野手能力: `trajectory`（弾道）, `meat`（ミート）, `power`（パワー）, `run_speed`（走力）, `arm_strength`（肩力）, `fielding`（守備力）, `catching`（捕球）
+
+一覧に表示される能力要約と同じ、現行players一覧SQLが選択する最新相当snapshotを検索対象にする。Prompt5-3では入学時snapshotや任意snapshotへの切替UIは追加しない。
+
+### UIと検索状態
+
+- 1回の検索につき能力条件は1件のみ。
+- UIは能力項目select、下限ランク、下限数値、上限ランク、上限数値で構成する。
+- ランク付き能力（`control`, `stamina`, `meat`, `power`, `run_speed`, `arm_strength`, `fielding`, `catching`）ではG〜Sおよびランク外を選択できる。
+- ランクselectは数値指定補助であり、frontend状態、URL query、API query、backend validation、SQL条件の正本は `ability_min` / `ability_max` の数値とする。
+- 球速 `velocity` と弾道 `trajectory` はランクなしとして扱い、数値範囲のみ指定する。球速の検索範囲は30〜175 km/h、弾道の検索範囲は1〜4とする。
+- 片側指定を許可する。下限のみは `>=`、上限のみは `<=`、両方指定は `>=` と `<=` を同時に適用する。
+- 能力項目だけが指定され、下限・上限が両方未指定の場合は能力フィルターを適用しない。
+- `ability_min > ability_max` の場合はfrontendでAPIを呼ばず、backendでも400系エラーにする。
+
+### ランク連動
+
+ランク境界は以下とする。
+
+- ランク外: 0
+- G: 1〜19
+- F: 20〜39
+- E: 40〜49
+- D: 50〜59
+- C: 60〜69
+- B: 70〜79
+- A: 80〜89
+- S: 90〜100
+
+下限ランク選択時は該当ランクの最小値を下限数値へ入れる。上限ランク選択時は該当ランクの最大値を上限数値へ入れる。数値selectを手動変更した場合は、その数値に対応するランクへ同期する。
+
+### URL / API / backend
+
+URL queryとAPI queryは以下を使う。
+
+- `ability_key`
+- `ability_min`
+- `ability_max`
+
+能力条件が未指定の場合、該当queryは付与しない。ランク文字はURL/APIへ送らない。不正なquery値はfrontendでフォーム/APIへ渡さず、backendでも再validationする。
+
+backendでは、frontendから送信された能力keyをSQLカラム名へ直接埋め込まず、safe whitelist mapで許可済みkeyから `players.<column>` へ変換する。min/max値はSQL parameterとして渡す。DB schema変更、migration、index追加はPrompt5-3では不要とする。能力ごとの検索範囲は、球速30〜175、弾道1〜4、ランク付き通常能力0〜100とする。
+
+nullは数値範囲検索に一致させない。0は既存validation/DB上の有効な数値として扱い、範囲に0が含まれる場合は検索対象に含める。

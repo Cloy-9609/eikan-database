@@ -27,6 +27,19 @@ const latestSnapshotJoinSql = `
     LIMIT 1
   )
 `;
+const ABILITY_FILTER_COLUMNS = Object.freeze({
+  velocity: "players.velocity",
+  control: "players.control",
+  stamina: "players.stamina",
+  trajectory: "players.trajectory",
+  meat: "players.meat",
+  power: "players.power",
+  run_speed: "players.run_speed",
+  arm_strength: "players.arm_strength",
+  fielding: "players.fielding",
+  catching: "players.catching",
+});
+
 const defenseRankSql = `
   CASE
     WHEN defense_value BETWEEN 90 AND 100 THEN 'S'
@@ -214,6 +227,9 @@ function buildPlayerListQuery({
   snapshotLabel = null,
   sortBy = "updated_at",
   sortOrder = "desc",
+  abilityKey = null,
+  abilityMin = null,
+  abilityMax = null,
 } = {}) {
   const conditions = ["schools.is_archived = 0"];
   const params = [];
@@ -272,6 +288,22 @@ function buildPlayerListQuery({
   if (snapshotLabel) {
     conditions.push("players.snapshot_label = ?");
     params.push(snapshotLabel);
+  }
+
+  const abilityColumn = ABILITY_FILTER_COLUMNS[abilityKey];
+
+  if (abilityColumn && (abilityMin !== null || abilityMax !== null)) {
+    conditions.push(`${abilityColumn} IS NOT NULL`);
+
+    if (abilityMin !== null && abilityMin !== undefined) {
+      conditions.push(`${abilityColumn} >= ?`);
+      params.push(abilityMin);
+    }
+
+    if (abilityMax !== null && abilityMax !== undefined) {
+      conditions.push(`${abilityColumn} <= ?`);
+      params.push(abilityMax);
+    }
   }
 
   const sql = `

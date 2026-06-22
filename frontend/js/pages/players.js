@@ -23,6 +23,9 @@ const PLAYER_SEARCH_QUERY_KEYS = [
   "sort_by",
   "sort_order",
   "sort",
+  "ability_key",
+  "ability_min",
+  "ability_max",
 ];
 
 const PLAYER_TYPE_OPTIONS = [
@@ -45,6 +48,31 @@ const SCHOOL_GRADE_OPTIONS = [
 const ROSTER_STATUS_OPTIONS = [
   { value: "active", label: "在籍" },
   { value: "graduated", label: "卒業" },
+];
+
+const ABILITY_FILTER_OPTIONS = [
+  { value: "velocity", label: "球速", group: "投手能力", min: 30, max: 175, ranked: false },
+  { value: "control", label: "コントロール", group: "投手能力", min: 0, max: 100, ranked: true },
+  { value: "stamina", label: "スタミナ", group: "投手能力", min: 0, max: 100, ranked: true },
+  { value: "trajectory", label: "弾道", group: "野手能力", min: 1, max: 4, ranked: false },
+  { value: "meat", label: "ミート", group: "野手能力", min: 0, max: 100, ranked: true },
+  { value: "power", label: "パワー", group: "野手能力", min: 0, max: 100, ranked: true },
+  { value: "run_speed", label: "走力", group: "野手能力", min: 0, max: 100, ranked: true },
+  { value: "arm_strength", label: "肩力", group: "野手能力", min: 0, max: 100, ranked: true },
+  { value: "fielding", label: "守備力", group: "野手能力", min: 0, max: 100, ranked: true },
+  { value: "catching", label: "捕球", group: "野手能力", min: 0, max: 100, ranked: true },
+];
+const ABILITY_FILTER_BY_KEY = new Map(ABILITY_FILTER_OPTIONS.map((option) => [option.value, option]));
+const ABILITY_RANK_RANGES = [
+  { value: "unranked", label: "ランク外", min: 0, max: 0 },
+  { value: "G", label: "G", min: 1, max: 19 },
+  { value: "F", label: "F", min: 20, max: 39 },
+  { value: "E", label: "E", min: 40, max: 49 },
+  { value: "D", label: "D", min: 50, max: 59 },
+  { value: "C", label: "C", min: 60, max: 69 },
+  { value: "B", label: "B", min: 70, max: 79 },
+  { value: "A", label: "A", min: 80, max: 89 },
+  { value: "S", label: "S", min: 90, max: 100 },
 ];
 
 const SORT_OPTIONS = [
@@ -93,6 +121,9 @@ function createDefaultSearchState() {
     rosterStatus: "",
     sortBy: DEFAULT_SORT_BY,
     sortOrder: DEFAULT_SORT_ORDER,
+    abilityKey: "",
+    abilityMin: "",
+    abilityMax: "",
   };
 }
 
@@ -159,6 +190,38 @@ function normalizeSearchState(searchState = {}) {
     rosterStatus: String(searchState.rosterStatus ?? "").trim(),
     sortBy,
     sortOrder,
+    ...normalizeAbilitySearchState(searchState),
+  };
+}
+
+function parseIntegerSearchValue(value) {
+  const text = String(value ?? "").trim();
+
+  if (!text) {
+    return "";
+  }
+
+  const numericValue = Number(text);
+  return Number.isInteger(numericValue) && String(numericValue) === text ? String(numericValue) : "";
+}
+
+function normalizeAbilitySearchState(searchState = {}) {
+  const abilityKey = String(searchState.abilityKey ?? "").trim();
+  const option = ABILITY_FILTER_BY_KEY.get(abilityKey);
+
+  if (!option) {
+    return { abilityKey: "", abilityMin: "", abilityMax: "" };
+  }
+
+  const abilityMin = parseIntegerSearchValue(searchState.abilityMin);
+  const abilityMax = parseIntegerSearchValue(searchState.abilityMax);
+  const minNumber = abilityMin === "" ? null : Number(abilityMin);
+  const maxNumber = abilityMax === "" ? null : Number(abilityMax);
+
+  return {
+    abilityKey,
+    abilityMin: minNumber !== null && minNumber >= option.min && minNumber <= option.max ? abilityMin : "",
+    abilityMax: maxNumber !== null && maxNumber >= option.min && maxNumber <= option.max ? abilityMax : "",
   };
 }
 
@@ -183,6 +246,9 @@ function readSearchStateFromUrl() {
     rosterStatus: params.get("roster_status") ?? "",
     sortBy: parsedSort.sortBy,
     sortOrder: parsedSort.sortOrder,
+    abilityKey: params.get("ability_key") ?? "",
+    abilityMin: params.get("ability_min") ?? "",
+    abilityMax: params.get("ability_max") ?? "",
   });
 }
 
@@ -198,6 +264,9 @@ function buildPlayerListParams(searchState) {
     roster_status: searchState.rosterStatus,
     sort_by: searchState.sortBy,
     sort_order: searchState.sortOrder,
+    ability_key: searchState.abilityKey,
+    ability_min: searchState.abilityMin,
+    ability_max: searchState.abilityMax,
   };
 }
 
@@ -229,7 +298,8 @@ function hasActiveSearchFilters(searchState) {
       searchState.playerType ||
       searchState.mainPosition ||
       searchState.schoolGrade ||
-      searchState.rosterStatus
+      searchState.rosterStatus ||
+      (searchState.abilityKey && (searchState.abilityMin || searchState.abilityMax))
   );
 }
 
@@ -1018,6 +1088,12 @@ function buildActiveFilterItems(searchState) {
     items.push({ label: "在籍状態", value: getOptionLabel(ROSTER_STATUS_OPTIONS, searchState.rosterStatus) });
   }
 
+  const abilityFilterValue = formatAbilityFilterValue(searchState);
+
+  if (abilityFilterValue) {
+    items.push({ label: "能力条件", value: abilityFilterValue });
+  }
+
   return items;
 }
 
@@ -1065,6 +1141,109 @@ function buildOptionalAdmissionYearPicker({ name, id, label, value }) {
         variant: "compact",
       })}
     </div>
+  `;
+}
+
+function getAbilityOption(key) {
+  return ABILITY_FILTER_BY_KEY.get(String(key ?? "")) ?? null;
+}
+
+function getRankForAbilityValue(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  const numericValue = Number(text);
+  const rank = ABILITY_RANK_RANGES.find((item) => numericValue >= item.min && numericValue <= item.max);
+  return rank?.value ?? "";
+}
+
+function buildAbilityKeyOptions(selectedValue = "") {
+  const groups = ["投手能力", "野手能力"];
+  return `<option value=""${selectedValue ? "" : " selected"}>未指定</option>${groups.map((group) => `
+    <optgroup label="${escapeAttribute(group)}">
+      ${ABILITY_FILTER_OPTIONS.filter((option) => option.group === group).map((option) => {
+        const selected = option.value === selectedValue ? " selected" : "";
+        return `<option value="${escapeAttribute(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
+      }).join("")}
+    </optgroup>
+  `).join("")}`;
+}
+
+function buildRankOptions(selectedValue = "") {
+  return `<option value=""${selectedValue ? "" : " selected"}>未指定</option>${ABILITY_RANK_RANGES.map((rank) => {
+    const selected = rank.value === selectedValue ? " selected" : "";
+    return `<option value="${escapeAttribute(rank.value)}"${selected}>${escapeHtml(rank.label)}</option>`;
+  }).join("")}`;
+}
+
+function buildAbilityNumberOptions({ min = 0, max = 100, selectedValue = "" } = {}) {
+  const options = [`<option value=""${selectedValue ? "" : " selected"}>未指定</option>`];
+  for (let value = min; value <= max; value += 1) {
+    const selected = String(value) === String(selectedValue) ? " selected" : "";
+    options.push(`<option value="${value}"${selected}>${value}</option>`);
+  }
+  return options.join("");
+}
+
+function formatAbilityFilterValue(searchState) {
+  const option = getAbilityOption(searchState.abilityKey);
+  if (!option || (!searchState.abilityMin && !searchState.abilityMax)) return "";
+  if (searchState.abilityMin && searchState.abilityMax) return `${option.label} ${searchState.abilityMin}〜${searchState.abilityMax}`;
+  if (searchState.abilityMin) return `${option.label} ${searchState.abilityMin}以上`;
+  return `${option.label} ${searchState.abilityMax}以下`;
+}
+
+function renderAbilityFilterControls(searchState) {
+  const option = getAbilityOption(searchState.abilityKey) ?? ABILITY_FILTER_OPTIONS[0];
+  const ranked = Boolean(getAbilityOption(searchState.abilityKey)?.ranked);
+  const minRank = ranked ? getRankForAbilityValue(searchState.abilityMin) : "";
+  const maxRank = ranked ? getRankForAbilityValue(searchState.abilityMax) : "";
+  const detailsOpen = searchState.abilityKey && (searchState.abilityMin || searchState.abilityMax) ? " open" : "";
+  const rankDisabled = ranked ? "" : " disabled";
+  const rankNoneOption = '<option value="">ランクなし</option>';
+
+  return `
+    <details class="players-ability-filter"${detailsOpen}>
+      <summary class="players-ability-filter-summary">能力条件</summary>
+      <fieldset class="players-search-group players-ability-filter-fieldset" aria-describedby="player-search-ability-error">
+        <legend>通常能力の範囲検索</legend>
+        <div class="players-search-grid players-ability-filter-grid">
+          <div class="players-form-row players-search-field--wide">
+            <label for="player-search-ability-key">能力項目</label>
+            <select id="player-search-ability-key" name="ability_key">
+              ${buildAbilityKeyOptions(searchState.abilityKey)}
+            </select>
+          </div>
+          <div class="players-ability-range" data-ability-range>
+            <div class="players-form-row players-ability-rank-control" data-ability-rank-control>
+              <label for="player-search-ability-min-rank">下限ランク</label>
+              <select id="player-search-ability-min-rank" name="ability_min_rank"${rankDisabled}>
+                ${ranked ? buildRankOptions(minRank) : rankNoneOption}
+              </select>
+            </div>
+            <div class="players-form-row">
+              <label for="player-search-ability-min">下限数値</label>
+              <select id="player-search-ability-min" name="ability_min" aria-describedby="player-search-ability-error">
+                ${buildAbilityNumberOptions({ min: option.min, max: option.max, selectedValue: searchState.abilityMin })}
+              </select>
+            </div>
+            <span class="players-ability-range-separator" aria-hidden="true">〜</span>
+            <div class="players-form-row players-ability-rank-control" data-ability-rank-control>
+              <label for="player-search-ability-max-rank">上限ランク</label>
+              <select id="player-search-ability-max-rank" name="ability_max_rank"${rankDisabled}>
+                ${ranked ? buildRankOptions(maxRank) : rankNoneOption}
+              </select>
+            </div>
+            <div class="players-form-row">
+              <label for="player-search-ability-max">上限数値</label>
+              <select id="player-search-ability-max" name="ability_max" aria-describedby="player-search-ability-error">
+                ${buildAbilityNumberOptions({ min: option.min, max: option.max, selectedValue: searchState.abilityMax })}
+              </select>
+            </div>
+          </div>
+        </div>
+        <p id="player-search-ability-error" class="players-ability-filter-error" aria-live="polite" hidden></p>
+      </fieldset>
+    </details>
   `;
 }
 
@@ -1167,6 +1346,8 @@ function renderShell(root, searchState) {
                 </div>
               </div>
             </fieldset>
+
+            ${renderAbilityFilterControls(searchState)}
           </div>
           <div class="players-search-actions">
             <div class="players-search-action-buttons">
@@ -1471,6 +1652,9 @@ function readSearchStateFromForm(form) {
     rosterStatus: form.elements.roster_status.value,
     sortBy,
     sortOrder,
+    abilityKey: form.elements.ability_key.value,
+    abilityMin: form.elements.ability_min.value,
+    abilityMax: form.elements.ability_max.value,
   });
 }
 
@@ -1484,7 +1668,68 @@ function applySearchStateToForm(form, searchState) {
   form.elements.school_grade.value = searchState.schoolGrade;
   form.elements.roster_status.value = searchState.rosterStatus;
   form.elements.sort.value = serializeSortValue(searchState.sortBy, searchState.sortOrder);
+  form.elements.ability_key.value = searchState.abilityKey;
+  refreshAbilityFilterControls(form, searchState);
 }
+
+function setAbilityError(form, message = "") {
+  const errorElement = form.querySelector("#player-search-ability-error");
+  const hasError = Boolean(message);
+  [form.elements.ability_min, form.elements.ability_max].forEach((element) => {
+    element?.setAttribute("aria-invalid", String(hasError));
+  });
+  if (errorElement) {
+    errorElement.textContent = message;
+    errorElement.hidden = !hasError;
+  }
+}
+
+function validateAbilitySearchState(searchState) {
+  const option = getAbilityOption(searchState.abilityKey);
+  if (!option || (!searchState.abilityMin && !searchState.abilityMax)) return "";
+  const min = searchState.abilityMin === "" ? null : Number(searchState.abilityMin);
+  const max = searchState.abilityMax === "" ? null : Number(searchState.abilityMax);
+  if (min !== null && max !== null && min > max) return "下限値は上限値以下にしてください。";
+  return "";
+}
+
+function refreshAbilityFilterControls(form, searchState = readSearchStateFromForm(form)) {
+  const normalizedState = normalizeSearchState(searchState);
+  const option = getAbilityOption(normalizedState.abilityKey) ?? ABILITY_FILTER_OPTIONS[0];
+  const ranked = Boolean(getAbilityOption(normalizedState.abilityKey)?.ranked);
+  form.elements.ability_min.innerHTML = buildAbilityNumberOptions({ min: option.min, max: option.max, selectedValue: normalizedState.abilityMin });
+  form.elements.ability_max.innerHTML = buildAbilityNumberOptions({ min: option.min, max: option.max, selectedValue: normalizedState.abilityMax });
+  form.elements.ability_min_rank.disabled = !ranked;
+  form.elements.ability_max_rank.disabled = !ranked;
+  form.elements.ability_min_rank.innerHTML = ranked ? buildRankOptions(getRankForAbilityValue(normalizedState.abilityMin)) : '<option value="">ランクなし</option>';
+  form.elements.ability_max_rank.innerHTML = ranked ? buildRankOptions(getRankForAbilityValue(normalizedState.abilityMax)) : '<option value="">ランクなし</option>';
+  form.elements.ability_min.value = normalizedState.abilityMin;
+  form.elements.ability_max.value = normalizedState.abilityMax;
+  setAbilityError(form, validateAbilitySearchState(normalizedState));
+}
+
+function setupAbilityFilterControls(form) {
+  form.elements.ability_key.addEventListener("change", () => {
+    form.elements.ability_min.value = "";
+    form.elements.ability_max.value = "";
+    refreshAbilityFilterControls(form);
+  });
+
+  [form.elements.ability_min_rank, form.elements.ability_max_rank].forEach((element) => {
+    element.addEventListener("change", () => {
+      const rank = ABILITY_RANK_RANGES.find((item) => item.value === element.value);
+      const valueElement = element === form.elements.ability_min_rank ? form.elements.ability_min : form.elements.ability_max;
+      if (!element.value) valueElement.value = "";
+      else if (rank) valueElement.value = String(element === form.elements.ability_min_rank ? rank.min : rank.max);
+      refreshAbilityFilterControls(form);
+    });
+  });
+
+  [form.elements.ability_min, form.elements.ability_max].forEach((element) => {
+    element.addEventListener("change", () => refreshAbilityFilterControls(form));
+  });
+}
+
 
 function setOptionalYearPickerValue(input, value) {
   const picker = input?.closest("[data-year-picker]");
@@ -1561,6 +1806,7 @@ function init() {
   const messageElement = document.getElementById("players-page-message");
 
   setupOptionalYearPickers(form);
+  setupAbilityFilterControls(form);
   setupPlayerAccordion(listRoot);
   applySearchStateToForm(form, searchState);
   writeSearchStateToUrl(searchState, { replace: true });
@@ -1569,6 +1815,13 @@ function init() {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const nextState = readSearchStateFromForm(form);
+    const abilityError = validateAbilitySearchState(nextState);
+
+    setAbilityError(form, abilityError);
+    if (abilityError) {
+      form.querySelector(".players-ability-filter")?.setAttribute("open", "");
+      return;
+    }
 
     writeSearchStateToUrl(nextState);
     loadPlayers(listRoot, messageElement, nextState);
