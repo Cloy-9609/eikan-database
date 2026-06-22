@@ -63,6 +63,7 @@ const SORT_OPTIONS = [
 let latestPlayersRequestId = 0;
 const PLAYER_DETAIL_CACHE = new Map();
 const PLAYER_DETAIL_LOADING = new Map();
+const PLAYER_ABILITY_MODES = new Map();
 const PLAYERS_TABLE_COLUMN_COUNT = 6;
 
 const SNAPSHOT_LABELS = {
@@ -324,8 +325,88 @@ function formatSnapshotLabel(value) {
   return SNAPSHOT_LABELS[normalizedValue] ?? formatOptionalValue(normalizedValue);
 }
 
+function parseFiniteAbilityNumber(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value === "string" && value.trim() === "") {
+    return null;
+  }
+
+  const numericValue = Number(value);
+
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function formatAbilityValue(value, { unit = "" } = {}) {
+  const numericValue = parseFiniteAbilityNumber(value);
+
+  if (numericValue === null) {
+    return "-";
+  }
+
+  return `${numericValue}${unit}`;
+}
+
 function formatStatValue(value) {
-  return value === undefined || value === null || value === "" ? "-" : String(value);
+  return formatAbilityValue(value);
+}
+
+function getAbilityRankClass(value) {
+  const numericValue = parseFiniteAbilityNumber(value);
+
+  if (numericValue === null || numericValue <= 0 || numericValue > 100) {
+    return "players-ability-summary-value--neutral";
+  }
+
+  if (numericValue <= 19) {
+    return "players-ability-summary-value--rank-g";
+  }
+
+  if (numericValue <= 39) {
+    return "players-ability-summary-value--rank-f";
+  }
+
+  if (numericValue <= 49) {
+    return "players-ability-summary-value--rank-e";
+  }
+
+  if (numericValue <= 59) {
+    return "players-ability-summary-value--rank-d";
+  }
+
+  if (numericValue <= 69) {
+    return "players-ability-summary-value--rank-c";
+  }
+
+  if (numericValue <= 79) {
+    return "players-ability-summary-value--rank-b";
+  }
+
+  if (numericValue <= 89) {
+    return "players-ability-summary-value--rank-a";
+  }
+
+  return "players-ability-summary-value--rank-s";
+}
+
+function getTrajectoryClass(value) {
+  const numericValue = parseFiniteAbilityNumber(value);
+
+  if (numericValue === 1 || numericValue === 2 || numericValue === 3 || numericValue === 4) {
+    return `players-ability-summary-value--trajectory-${numericValue}`;
+  }
+
+  return "players-ability-summary-value--neutral";
+}
+
+function getPlayerAbilityKey(player, fallbackKey = "") {
+  return String(player?.id ?? player?.player_series_id ?? fallbackKey ?? "");
+}
+
+function escapeCssAttributeValue(value) {
+  return String(value ?? "").replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
 function formatTotalStars(value) {
@@ -375,7 +456,7 @@ function renderStatGrid(items) {
           (item) => `
             <div class="players-stat-item">
               <span class="players-stat-label">${escapeHtml(item.label)}</span>
-              <span class="players-stat-value">${escapeHtml(formatStatValue(item.value))}</span>
+              <span class="players-stat-value">${escapeHtml(formatAbilityValue(item.value, { unit: item.unit ?? "" }))}</span>
             </div>
           `
         )
@@ -386,21 +467,21 @@ function renderStatGrid(items) {
 
 function getPitcherStatItems(player) {
   return [
-    { label: "球速", value: player.velocity ? `${player.velocity} km/h` : "" },
-    { label: "コントロール", value: player.control },
-    { label: "スタミナ", value: player.stamina },
+    { label: "球速", value: player.velocity, unit: " km/h", tone: "velocity" },
+    { label: "コントロール", value: player.control, tone: "rank" },
+    { label: "スタミナ", value: player.stamina, tone: "rank" },
   ];
 }
 
 function getFielderStatItems(player) {
   return [
-    { label: "弾道", value: player.trajectory },
-    { label: "ミート", value: player.meat },
-    { label: "パワー", value: player.power },
-    { label: "走力", value: player.run_speed },
-    { label: "肩力", value: player.arm_strength },
-    { label: "守備", value: player.fielding },
-    { label: "捕球", value: player.catching },
+    { label: "弾道", value: player.trajectory, tone: "trajectory" },
+    { label: "ミート", value: player.meat, tone: "rank" },
+    { label: "パワー", value: player.power, tone: "rank" },
+    { label: "走力", value: player.run_speed, tone: "rank" },
+    { label: "肩力", value: player.arm_strength, tone: "rank" },
+    { label: "守備力", value: player.fielding, tone: "rank" },
+    { label: "捕球", value: player.catching, tone: "rank" },
   ];
 }
 
@@ -410,6 +491,84 @@ function renderPitcherAbilityPanel(player) {
 
 function renderFielderAbilityPanel(player) {
   return renderStatGrid(getFielderStatItems(player));
+}
+
+
+function getAbilitySummaryValueClass(item) {
+  if (item.tone === "rank") {
+    return getAbilityRankClass(item.value);
+  }
+
+  if (item.tone === "trajectory") {
+    return getTrajectoryClass(item.value);
+  }
+
+  if (item.tone === "velocity") {
+    return "players-ability-summary-value--velocity";
+  }
+
+  return "players-ability-summary-value--neutral";
+}
+
+function renderAbilitySummaryItems(items) {
+  return `
+    <div class="players-ability-summary-list">
+      ${items
+        .map((item) => {
+          const valueClass = getAbilitySummaryValueClass(item);
+          const valueText = formatAbilityValue(item.value, { unit: item.unit ?? "" });
+
+          return `
+            <span class="players-ability-summary-item">
+              <span class="players-ability-summary-label">${escapeHtml(item.label)}</span>
+              <span class="players-ability-summary-value ${valueClass}">${escapeHtml(valueText)}</span>
+            </span>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderAbilitySummary(player, abilityKey) {
+  const fielderPanel = `
+    <div class="players-ability-panel" data-player-ability-panel="fielder" data-active="${isPitcher(player) ? "false" : "true"}" aria-hidden="${isPitcher(player) ? "true" : "false"}">
+      ${renderAbilitySummaryItems(getFielderStatItems(player))}
+    </div>
+  `;
+
+  if (!isPitcher(player)) {
+    return `
+      <div class="players-ability-summary" aria-label="野手能力要約">
+        ${fielderPanel}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="players-ability-summary" data-player-ability-card data-player-ability-key="${escapeAttribute(abilityKey)}" data-player-ability-mode="pitcher" aria-label="能力要約">
+      <div class="players-ability-summary-header">
+        <span class="players-ability-summary-title" data-player-ability-title aria-live="polite">投手能力</span>
+        <button
+          type="button"
+          class="players-ability-toggle players-ability-summary-toggle"
+          data-player-ability-toggle
+          aria-pressed="false"
+          aria-label="現在は投手能力を表示中。野手能力に切り替える"
+          title="野手能力に切り替える"
+        >
+          <span class="players-ability-toggle-icon" aria-hidden="true">⇄</span>
+          <span data-player-ability-toggle-label>野手を見る</span>
+        </button>
+      </div>
+      <div class="players-ability-panel-stack">
+        <div class="players-ability-panel" data-player-ability-panel="pitcher" data-active="true" aria-hidden="false">
+          ${renderAbilitySummaryItems(getPitcherStatItems(player))}
+        </div>
+        ${fielderPanel}
+      </div>
+    </div>
+  `;
 }
 
 function renderAbilitySection(player) {
@@ -425,7 +584,7 @@ function renderAbilitySection(player) {
   }
 
   return `
-    <section class="players-mini-card players-mini-card--stats" data-player-ability-card data-player-ability-mode="pitcher">
+    <section class="players-mini-card players-mini-card--stats" data-player-ability-card data-player-ability-key="${escapeAttribute(getPlayerAbilityKey(player))}" data-player-ability-mode="pitcher">
       <div class="players-mini-card-header">
         <h4 class="players-mini-card-title" data-player-ability-title aria-live="polite">投手能力</h4>
         <button
@@ -752,10 +911,30 @@ function setAbilityCardMode(card, mode = "pitcher") {
   }
 }
 
-function resetAccordionAbilityModes(detailRow) {
-  detailRow
-    ?.querySelectorAll("[data-player-ability-card]")
-    .forEach((card) => setAbilityCardMode(card, "pitcher"));
+function getSharedAbilityMode(abilityKey) {
+  return PLAYER_ABILITY_MODES.get(String(abilityKey ?? "")) ?? "pitcher";
+}
+
+function setSharedAbilityMode(abilityKey, mode = "pitcher") {
+  const normalizedKey = String(abilityKey ?? "");
+  const normalizedMode = mode === "fielder" ? "fielder" : "pitcher";
+
+  if (normalizedKey) {
+    PLAYER_ABILITY_MODES.set(normalizedKey, normalizedMode);
+  }
+
+  document
+    .querySelectorAll(`[data-player-ability-card][data-player-ability-key="${escapeCssAttributeValue(normalizedKey)}"]`)
+    .forEach((card) => setAbilityCardMode(card, normalizedMode));
+}
+
+function applySharedAbilityMode(root, abilityKey) {
+  const normalizedKey = String(abilityKey ?? "");
+  const mode = getSharedAbilityMode(normalizedKey);
+
+  root
+    ?.querySelectorAll(`[data-player-ability-card][data-player-ability-key="${escapeCssAttributeValue(normalizedKey)}"]`)
+    .forEach((card) => setAbilityCardMode(card, mode));
 }
 
 async function getCachedPlayerDetail(playerId) {
@@ -1023,36 +1202,42 @@ function renderPlayerRows(players) {
       const totalStarsText = formatTotalStars(player.total_stars);
       const totalStarsLabel = totalStarsText === "—" ? "総合星: 未設定" : `総合星: ${totalStarsText}`;
       const rowKey = player.id || player.player_series_id || index;
+      const abilityKey = getPlayerAbilityKey(player, rowKey);
       const accordionId = `players-row-detail-${escapeAttribute(rowKey)}`;
       const encodedPlayer = escapeAttribute(JSON.stringify(player));
       const toggleLabel = `${playerName} の簡易詳細を開く`;
 
       return `
         <tr class="players-table-row">
-          <td class="players-table-cell--name" data-label="選手名">
-            <span class="players-name-cell-content">
-              <button
-                type="button"
-                class="players-row-toggle"
-                data-player-detail-toggle
-                data-player="${encodedPlayer}"
-                data-player-name="${escapeAttribute(playerName)}"
-                aria-expanded="false"
-                aria-controls="${accordionId}"
-                aria-label="${escapeAttribute(toggleLabel)}"
-                title="${escapeAttribute(toggleLabel)}"
-              >
-                <span class="players-row-toggle-icon" aria-hidden="true"></span>
-              </button>
-              <span class="players-name-text">${escapeHtml(playerName)}</span>
-            </span>
-          </td>
-          <td class="players-table-cell--school" data-label="学校名">
-            ${
-              schoolHref
-                ? `<a class="players-table-link" href="${schoolHref}" title="${escapeAttribute(schoolName)}">${escapeHtml(schoolName)}</a>`
-                : escapeHtml(schoolName)
-            }
+          <td class="players-table-cell--primary" colspan="2" data-label="選手名 / 学校名">
+            <div class="players-row-primary-grid">
+              <div class="players-row-primary-name">
+                <span class="players-name-cell-content">
+                  <button
+                    type="button"
+                    class="players-row-toggle"
+                    data-player-detail-toggle
+                    data-player="${encodedPlayer}"
+                    data-player-name="${escapeAttribute(playerName)}"
+                    aria-expanded="false"
+                    aria-controls="${accordionId}"
+                    aria-label="${escapeAttribute(toggleLabel)}"
+                    title="${escapeAttribute(toggleLabel)}"
+                  >
+                    <span class="players-row-toggle-icon" aria-hidden="true"></span>
+                  </button>
+                  <span class="players-name-text">${escapeHtml(playerName)}</span>
+                </span>
+              </div>
+              <div class="players-row-primary-school">
+                ${
+                  schoolHref
+                    ? `<a class="players-table-link" href="${schoolHref}" title="${escapeAttribute(schoolName)}">${escapeHtml(schoolName)}</a>`
+                    : `<span class="players-row-primary-school-text">${escapeHtml(schoolName)}</span>`
+                }
+              </div>
+              ${renderAbilitySummary(player, abilityKey)}
+            </div>
           </td>
           <td class="players-table-cell--position" data-label="ポジション">
             <span
@@ -1099,6 +1284,7 @@ function renderPlayerRows(players) {
 }
 
 function renderPlayerList(root, players, { hasFilters = false, searchState = createDefaultSearchState() } = {}) {
+  PLAYER_ABILITY_MODES.clear();
   const safePlayers = Array.isArray(players) ? players : [];
   const normalizedSearchState = normalizeSearchState(searchState);
   const resultCountText = buildResultCountText(safePlayers.length, { hasFilters });
@@ -1184,8 +1370,10 @@ async function loadAccordionDetail(toggleButton, detailRow, player) {
       return;
     }
 
-    panelCell.innerHTML = renderAccordionPanel(player, detail || player);
+    const detailPlayer = detail || player;
+    panelCell.innerHTML = renderAccordionPanel(player, detailPlayer);
     detailRow.dataset.detailLoaded = "true";
+    applySharedAbilityMode(detailRow, getPlayerAbilityKey(detailPlayer, getPlayerAbilityKey(player)));
   } catch (error) {
     panelCell.innerHTML = renderAccordionErrorPanel(player, error);
   }
@@ -1201,10 +1389,8 @@ function setAccordionExpanded(toggleButton, detailRow, shouldExpand) {
   detailRow.hidden = !shouldExpand;
   detailRow.previousElementSibling?.classList.toggle("players-table-row--expanded", shouldExpand);
 
-  if (!shouldExpand) {
-    resetAccordionAbilityModes(detailRow);
-  }
 }
+
 
 function setupPlayerAccordion(listRoot) {
   listRoot.addEventListener("click", (event) => {
@@ -1215,7 +1401,7 @@ function setupPlayerAccordion(listRoot) {
 
       const abilityCard = abilityToggleButton.closest("[data-player-ability-card]");
       const nextMode = abilityCard?.dataset.playerAbilityMode === "fielder" ? "pitcher" : "fielder";
-      setAbilityCardMode(abilityCard, nextMode);
+      setSharedAbilityMode(abilityCard?.dataset.playerAbilityKey, nextMode);
       return;
     }
 
