@@ -452,14 +452,16 @@ function renderStatGrid(items) {
   return `
     <div class="players-stat-grid">
       ${items
-        .map(
-          (item) => `
+        .map((item) => {
+          const valueClass = getAbilityDisplayClass(item);
+
+          return `
             <div class="players-stat-item">
               <span class="players-stat-label">${escapeHtml(item.label)}</span>
-              <span class="players-stat-value">${escapeHtml(formatAbilityValue(item.value, { unit: item.unit ?? "" }))}</span>
+              <span class="players-stat-value ${valueClass}">${escapeHtml(formatAbilityValue(item.value, { unit: item.unit ?? "" }))}</span>
             </div>
-          `
-        )
+          `;
+        })
         .join("")}
     </div>
   `;
@@ -494,7 +496,7 @@ function renderFielderAbilityPanel(player) {
 }
 
 
-function getAbilitySummaryValueClass(item) {
+function getAbilityDisplayClass(item) {
   if (item.tone === "rank") {
     return getAbilityRankClass(item.value);
   }
@@ -515,13 +517,14 @@ function renderAbilitySummaryItems(items) {
     <div class="players-ability-summary-list">
       ${items
         .map((item) => {
-          const valueClass = getAbilitySummaryValueClass(item);
+          const itemClass = getAbilityDisplayClass(item);
           const valueText = formatAbilityValue(item.value, { unit: item.unit ?? "" });
 
           return `
-            <span class="players-ability-summary-item">
+            <span class="players-ability-summary-item ${itemClass}">
               <span class="players-ability-summary-label">${escapeHtml(item.label)}</span>
-              <span class="players-ability-summary-value ${valueClass}">${escapeHtml(valueText)}</span>
+              <span class="players-ability-summary-separator" aria-hidden="true">：</span>
+              <span class="players-ability-summary-value">${escapeHtml(valueText)}</span>
             </span>
           `;
         })
