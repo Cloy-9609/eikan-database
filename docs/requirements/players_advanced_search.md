@@ -996,6 +996,8 @@ Prompt5-4では、既存のsort queryへ通常能力値によるsortを追加す
 
 URLとAPI queryは既存の `sort_by` / `sort_order` を使い、新しいquery keyは追加しない。例: `sort_by=meat&sort_order=desc`。sort基準変更時は現在の `sort_order` を維持し、条件クリア時は既存defaultの `updated_at` / `desc` に戻す。
 
+並べ替えや検索条件変更による再取得時は、既存の検索結果一覧DOMを保持し、API取得開始時に一覧をloading messageへ置換しない。初回読み込み時のみloading placeholderを表示できる。再取得中は `aria-busy` 等で状態を通知し、点滅・pulse・大きなopacity変化は使用しない。更新失敗時は既存結果を維持し、document高さの急変によるscroll jumpを防ぐ。
+
 能力範囲検索の `ability_key` / `ability_min` / `ability_max` とは独立して指定でき、同一能力・別能力のどちらの組み合わせも許可する。選手名、学校名、入学年、選手タイプ、メインポジション、管理学年、在籍状態など既存検索条件との併用も維持する。
 
 backendでは、能力sort keyをsafe whitelistで検証し、SQLカラムは許可済みmapから取得する。frontendのselect項目だけに依存せず、任意の `sort_by` をSQLへ直接埋め込まない。`sort_order` は従来どおり `asc` / `desc` のみ許可する。

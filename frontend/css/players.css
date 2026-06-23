@@ -540,6 +540,34 @@
   font-weight: 700;
 }
 
+
+#players-list-root[aria-busy="true"] {
+  position: relative;
+}
+
+#players-list-root[data-loaded="true"][aria-busy="true"]::before {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  padding: 5px 9px;
+  border: 1px solid rgba(170, 197, 220, 0.9);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1f4566;
+  content: "更新中";
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.players-sort-direction-button:disabled {
+  background: #f3f7fb;
+  color: #52667b;
+  cursor: wait;
+}
+
 .players-table-wrap {
   overflow-x: auto;
   border: 1px solid #d6e0eb;
@@ -2258,6 +2286,7 @@
   .players-filter-chip {
     max-width: 100%;
   }
+
 
   .players-table-wrap {
     overflow-x: visible;

@@ -1669,10 +1669,17 @@ function setupPlayerAccordion(listRoot) {
   });
 }
 
-async function loadPlayers(listRoot, messageElement, searchState) {
+async function loadPlayers(listRoot, messageElement, searchState, { preserveCurrentResults = true, onBusyChange = null } = {}) {
   const requestId = latestPlayersRequestId + 1;
+  const hasExistingResults = listRoot.dataset.loaded === "true";
+
   latestPlayersRequestId = requestId;
-  listRoot.innerHTML = `<p class="players-empty-message">選手一覧を読み込んでいます。</p>`;
+  listRoot.setAttribute("aria-busy", "true");
+  onBusyChange?.(true);
+
+  if (!preserveCurrentResults || !hasExistingResults) {
+    listRoot.innerHTML = `<p class="players-empty-message">選手一覧を読み込んでいます。</p>`;
+  }
 
   try {
     const players = await fetchPlayers(buildPlayerListParams(searchState));
@@ -1685,14 +1692,26 @@ async function loadPlayers(listRoot, messageElement, searchState) {
       hasFilters: hasActiveSearchFilters(searchState),
       searchState,
     });
+    listRoot.dataset.loaded = "true";
     setMessage(messageElement, "");
   } catch (error) {
     if (requestId !== latestPlayersRequestId) {
       return;
     }
 
-    listRoot.innerHTML = "";
-    setMessage(messageElement, `選手一覧の取得に失敗しました。 ${error.message}`, "error");
+    if (!hasExistingResults) {
+      listRoot.innerHTML = "";
+      delete listRoot.dataset.loaded;
+      setMessage(messageElement, `選手一覧の取得に失敗しました。 ${error.message}`, "error");
+      return;
+    }
+
+    setMessage(messageElement, `選手一覧の更新に失敗しました。現在の検索結果を表示しています。 ${error.message}`, "error");
+  } finally {
+    if (requestId === latestPlayersRequestId) {
+      listRoot.setAttribute("aria-busy", "false");
+      onBusyChange?.(false);
+    }
   }
 }
 
@@ -1738,6 +1757,14 @@ function refreshSortDirectionButton(form, sortOrder = DEFAULT_SORT_ORDER) {
 
   button.textContent = getSortDirectionButtonLabel(sortOrder);
   button.setAttribute("aria-label", getSortDirectionAriaLabel(sortOrder));
+}
+
+function setSortControlsBusy(form, isBusy = false) {
+  form.elements.sort_by.disabled = isBusy;
+  const directionButton = form.querySelector("[data-sort-direction-toggle]");
+  if (directionButton) {
+    directionButton.disabled = isBusy;
+  }
 }
 
 function setAbilityError(form, message = "") {
@@ -1878,7 +1905,10 @@ function init() {
   setupPlayerAccordion(listRoot);
   applySearchStateToForm(form, searchState);
   writeSearchStateToUrl(searchState, { replace: true });
-  loadPlayers(listRoot, messageElement, searchState);
+  loadPlayers(listRoot, messageElement, searchState, {
+    preserveCurrentResults: false,
+    onBusyChange: (isBusy) => setSortControlsBusy(form, isBusy),
+  });
 
   const applyCurrentFormState = () => {
     const nextState = readSearchStateFromForm(form);
@@ -1891,7 +1921,10 @@ function init() {
 
     applySearchStateToForm(form, nextState);
     writeSearchStateToUrl(nextState);
-    loadPlayers(listRoot, messageElement, nextState);
+    loadPlayers(listRoot, messageElement, nextState, {
+      preserveCurrentResults: true,
+      onBusyChange: (isBusy) => setSortControlsBusy(form, isBusy),
+    });
   };
 
   form.addEventListener("submit", (event) => {
@@ -1912,14 +1945,20 @@ function init() {
 
     applySearchStateToForm(form, nextState);
     writeSearchStateToUrl(nextState);
-    loadPlayers(listRoot, messageElement, nextState);
+    loadPlayers(listRoot, messageElement, nextState, {
+      preserveCurrentResults: true,
+      onBusyChange: (isBusy) => setSortControlsBusy(form, isBusy),
+    });
   });
 
   window.addEventListener("popstate", () => {
     const nextState = readSearchStateFromUrl();
 
     applySearchStateToForm(form, nextState);
-    loadPlayers(listRoot, messageElement, nextState);
+    loadPlayers(listRoot, messageElement, nextState, {
+      preserveCurrentResults: true,
+      onBusyChange: (isBusy) => setSortControlsBusy(form, isBusy),
+    });
   });
 }
 
