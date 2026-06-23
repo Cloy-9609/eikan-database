@@ -75,7 +75,7 @@ const ABILITY_RANK_RANGES = [
   { value: "S", label: "S", min: 90, max: 100 },
 ];
 
-const SORT_OPTIONS = [
+const BASE_SORT_OPTIONS = [
   { value: "updated_at:desc", sortBy: "updated_at", sortOrder: "desc", label: "更新日時が新しい順" },
   { value: "updated_at:asc", sortBy: "updated_at", sortOrder: "asc", label: "更新日時が古い順" },
   { value: "name:asc", sortBy: "name", sortOrder: "asc", label: "選手名 昇順" },
@@ -87,6 +87,25 @@ const SORT_OPTIONS = [
   { value: "roster_status:asc", sortBy: "roster_status", sortOrder: "asc", label: "在籍状態 昇順" },
   { value: "roster_status:desc", sortBy: "roster_status", sortOrder: "desc", label: "在籍状態 降順" },
 ];
+const ABILITY_SORT_OPTIONS = ABILITY_FILTER_OPTIONS.flatMap((option) => [
+  {
+    value: `${option.value}:desc`,
+    sortBy: option.value,
+    sortOrder: "desc",
+    label: `${option.label} 高い順`,
+  },
+  {
+    value: `${option.value}:asc`,
+    sortBy: option.value,
+    sortOrder: "asc",
+    label: `${option.label} 低い順`,
+  },
+]);
+const SORT_OPTION_GROUPS = [
+  { label: "基本の並び順", options: BASE_SORT_OPTIONS },
+  { label: "能力値", options: ABILITY_SORT_OPTIONS },
+];
+const SORT_OPTIONS = SORT_OPTION_GROUPS.flatMap((group) => group.options);
 
 let latestPlayersRequestId = 0;
 const PLAYER_DETAIL_CACHE = new Map();
@@ -169,9 +188,13 @@ function parseSortValue(value = serializeSortValue()) {
 }
 
 function buildSortOptions(selectedValue = serializeSortValue()) {
-  return SORT_OPTIONS.map((option) => {
-    const selected = option.value === selectedValue ? " selected" : "";
-    return `<option value="${escapeAttribute(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
+  return SORT_OPTION_GROUPS.map((group) => {
+    const optionItems = group.options.map((option) => {
+      const selected = option.value === selectedValue ? " selected" : "";
+      return `<option value="${escapeAttribute(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
+    }).join("");
+
+    return `<optgroup label="${escapeAttribute(group.label)}">${optionItems}</optgroup>`;
   }).join("");
 }
 

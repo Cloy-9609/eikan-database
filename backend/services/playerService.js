@@ -22,15 +22,6 @@ const ALLOWED_PLAYER_TYPES = ["normal", "genius", "reincarnated"];
 const ALLOWED_PLAYER_ROSTER_STATUSES = ["active", "graduated"];
 const ALLOWED_PLAYER_POSITION_TYPES = ["pitcher", "fielder"];
 const POSITION_SEARCH_CATEGORIES = ["全野手", "全内野手"];
-const ALLOWED_PLAYER_SORT_BY = [
-  "updated_at",
-  "name",
-  "school_name",
-  "admission_year",
-  "school_grade",
-  "roster_status",
-  "snapshot",
-];
 const ALLOWED_SORT_ORDERS = ["asc", "desc"];
 const SCHOOL_SUFFIX = "高校";
 // NOTE:
@@ -59,6 +50,16 @@ const ABILITY_FILTER_DEFINITIONS = Object.freeze({
   catching: { min: 0, max: 100 },
 });
 const ALLOWED_ABILITY_FILTER_KEYS = Object.keys(ABILITY_FILTER_DEFINITIONS);
+const ALLOWED_PLAYER_SORT_BY = [
+  "updated_at",
+  "name",
+  "school_name",
+  "admission_year",
+  "school_grade",
+  "roster_status",
+  "snapshot",
+  ...ALLOWED_ABILITY_FILTER_KEYS,
+];
 const REQUIRED_UPDATE_FIELDS = [
   "name",
   "player_type",

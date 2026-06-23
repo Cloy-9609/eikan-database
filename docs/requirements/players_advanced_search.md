@@ -976,3 +976,34 @@ URL queryとAPI queryは以下を使う。
 backendでは、frontendから送信された能力keyをSQLカラム名へ直接埋め込まず、safe whitelist mapで許可済みkeyから `players.<column>` へ変換する。min/max値はSQL parameterとして渡す。DB schema変更、migration、index追加はPrompt5-3では不要とする。能力ごとの検索範囲は、球速30〜175、弾道1〜4、ランク付き通常能力0〜100とする。
 
 nullは数値範囲検索に一致させない。0は既存validation/DB上の有効な数値として扱い、範囲に0が含まれる場合は検索対象に含める。
+
+## Prompt5-4 確定仕様：players一覧の通常能力sort
+
+Prompt5-4では、既存の「並び順」selectへ通常能力値によるsortを追加する。対象はPrompt5-3の通常能力範囲検索と同じ10項目で、一覧表示・能力範囲検索と同じ最新相当snapshotの能力値を使う。
+
+### 対象能力と選択肢
+
+対象能力は以下とする。
+
+- 投手能力: `velocity`（球速）, `control`（コントロール）, `stamina`（スタミナ）
+- 野手能力: `trajectory`（弾道）, `meat`（ミート）, `power`（パワー）, `run_speed`（走力）, `arm_strength`（肩力）, `fielding`（守備力）, `catching`（捕球）
+
+各能力に「高い順」と「低い順」を用意する。高い順は `sort_order=desc`、低い順は `sort_order=asc` とし、弾道も同じ規則で4→1 / 1→4に並べる。
+
+### URL / API / backend
+
+URLとAPI queryは既存の `sort_by` / `sort_order` を使い、新しいquery keyは追加しない。例: `sort_by=meat&sort_order=desc`。
+
+能力範囲検索の `ability_key` / `ability_min` / `ability_max` とは独立して指定でき、同一能力・別能力のどちらの組み合わせも許可する。選手名、学校名、入学年、選手タイプ、メインポジション、管理学年、在籍状態など既存検索条件との併用も維持する。
+
+backendでは、能力sort keyをsafe whitelistで検証し、SQLカラムは許可済みmapから取得する。frontendのselect項目だけに依存せず、任意の `sort_by` をSQLへ直接埋め込まない。`sort_order` は従来どおり `asc` / `desc` のみ許可する。
+
+### ORDER BY規則
+
+能力sortは、現行players一覧SQLが選択する最新相当snapshot行の `players.<ability_column>` をORDER BY対象にする。能力値が `null` の選手は、昇順・降順のどちらでも末尾に置く。0はnullとは区別し、有効な数値として通常どおり並べる。
+
+同じ能力値を持つ選手の並び順を安定させるため、固定tie-breakerを使う。基本方針は「能力値 → 選手名昇順 → `player_series.id` 降順」とする。
+
+### 対象外
+
+Prompt5-4ではDB schema、migration、indexは変更しない。table headerクリックsort、能力要約内の項目クリックsort、複合sort、第2sort条件UI、特殊能力sort、総変化量sort、変化球sort、サブポジションsort、snapshot指定sortは対象外とする。

@@ -211,6 +211,11 @@ function buildPlayerSortClause(sortBy = "updated_at", sortOrder = "desc") {
     return `CASE WHEN snapshot_order IS NULL THEN 1 ELSE 0 END ASC, snapshot_order ${direction}, player_series.id DESC`;
   }
 
+  const abilityColumn = ABILITY_FILTER_COLUMNS[sortBy];
+  if (abilityColumn) {
+    return `CASE WHEN ${abilityColumn} IS NULL THEN 1 ELSE 0 END ASC, ${abilityColumn} ${direction}, player_series.name ASC, player_series.id DESC`;
+  }
+
   return `COALESCE(players.updated_at, player_series.updated_at) ${direction}, player_series.id DESC`;
 }
 
