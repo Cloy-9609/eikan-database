@@ -75,18 +75,44 @@ const ABILITY_RANK_RANGES = [
   { value: "S", label: "S", min: 90, max: 100 },
 ];
 
-const SORT_OPTIONS = [
-  { value: "updated_at:desc", sortBy: "updated_at", sortOrder: "desc", label: "更新日時が新しい順" },
-  { value: "updated_at:asc", sortBy: "updated_at", sortOrder: "asc", label: "更新日時が古い順" },
-  { value: "name:asc", sortBy: "name", sortOrder: "asc", label: "選手名 昇順" },
-  { value: "name:desc", sortBy: "name", sortOrder: "desc", label: "選手名 降順" },
-  { value: "admission_year:desc", sortBy: "admission_year", sortOrder: "desc", label: "入学年が新しい順" },
-  { value: "admission_year:asc", sortBy: "admission_year", sortOrder: "asc", label: "入学年が古い順" },
-  { value: "school_grade:asc", sortBy: "school_grade", sortOrder: "asc", label: "管理学年 昇順" },
-  { value: "school_grade:desc", sortBy: "school_grade", sortOrder: "desc", label: "管理学年 降順" },
-  { value: "roster_status:asc", sortBy: "roster_status", sortOrder: "asc", label: "在籍状態 昇順" },
-  { value: "roster_status:desc", sortBy: "roster_status", sortOrder: "desc", label: "在籍状態 降順" },
+const BASE_SORT_OPTIONS = [
+  {
+    value: "updated_at",
+    sortBy: "updated_at",
+    label: "更新日時",
+    sortLabels: { asc: "更新日時が古い順", desc: "更新日時が新しい順" },
+  },
+  { value: "name", sortBy: "name", label: "選手名", sortLabels: { asc: "選手名 昇順", desc: "選手名 降順" } },
+  {
+    value: "admission_year",
+    sortBy: "admission_year",
+    label: "入学年",
+    sortLabels: { asc: "入学年が古い順", desc: "入学年が新しい順" },
+  },
+  {
+    value: "school_grade",
+    sortBy: "school_grade",
+    label: "管理学年",
+    sortLabels: { asc: "管理学年 昇順", desc: "管理学年 降順" },
+  },
+  {
+    value: "roster_status",
+    sortBy: "roster_status",
+    label: "在籍状態",
+    sortLabels: { asc: "在籍状態 昇順", desc: "在籍状態 降順" },
+  },
 ];
+const ABILITY_SORT_OPTIONS = ABILITY_FILTER_OPTIONS.map((option) => ({
+  value: option.value,
+  sortBy: option.value,
+  label: option.label,
+  sortLabels: { asc: `${option.label} 低い順`, desc: `${option.label} 高い順` },
+}));
+const SORT_OPTION_GROUPS = [
+  { label: "基本の並び順", options: BASE_SORT_OPTIONS },
+  { label: "能力値", options: ABILITY_SORT_OPTIONS },
+];
+const SORT_OPTIONS = SORT_OPTION_GROUPS.flatMap((group) => group.options);
 
 let latestPlayersRequestId = 0;
 const PLAYER_DETAIL_CACHE = new Map();
@@ -160,24 +186,32 @@ function serializeSortValue(sortBy = DEFAULT_SORT_BY, sortOrder = DEFAULT_SORT_O
   return `${sortBy}:${sortOrder}`;
 }
 
-function parseSortValue(value = serializeSortValue()) {
-  const matchedOption = SORT_OPTIONS.find((option) => option.value === value);
+function normalizeSortOrder(sortOrder = DEFAULT_SORT_ORDER) {
+  return String(sortOrder).toLowerCase() === "asc" ? "asc" : DEFAULT_SORT_ORDER;
+}
+
+function parseSortValue(value = DEFAULT_SORT_BY, sortOrder = DEFAULT_SORT_ORDER) {
+  const [rawSortBy, legacySortOrder] = String(value ?? "").split(":");
+  const matchedOption = SORT_OPTIONS.find((option) => option.value === rawSortBy);
 
   return matchedOption
-    ? { sortBy: matchedOption.sortBy, sortOrder: matchedOption.sortOrder }
+    ? { sortBy: matchedOption.sortBy, sortOrder: normalizeSortOrder(legacySortOrder ?? sortOrder) }
     : { sortBy: DEFAULT_SORT_BY, sortOrder: DEFAULT_SORT_ORDER };
 }
 
-function buildSortOptions(selectedValue = serializeSortValue()) {
-  return SORT_OPTIONS.map((option) => {
-    const selected = option.value === selectedValue ? " selected" : "";
-    return `<option value="${escapeAttribute(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
+function buildSortOptions(selectedValue = DEFAULT_SORT_BY) {
+  return SORT_OPTION_GROUPS.map((group) => {
+    const optionItems = group.options.map((option) => {
+      const selected = option.value === selectedValue ? " selected" : "";
+      return `<option value="${escapeAttribute(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
+    }).join("");
+
+    return `<optgroup label="${escapeAttribute(group.label)}">${optionItems}</optgroup>`;
   }).join("");
 }
 
 function normalizeSearchState(searchState = {}) {
-  const sortValue = serializeSortValue(searchState.sortBy, searchState.sortOrder);
-  const { sortBy, sortOrder } = parseSortValue(sortValue);
+  const { sortBy, sortOrder } = parseSortValue(searchState.sortBy, searchState.sortOrder);
 
   return {
     name: String(searchState.name ?? "").trim(),
@@ -230,7 +264,7 @@ function readSearchStateFromUrl() {
   const sortBy = params.get("sort_by") ?? DEFAULT_SORT_BY;
   const sortOrder = params.get("sort_order") ?? DEFAULT_SORT_ORDER;
   const legacySort = params.get("sort");
-  const parsedSort = legacySort ? parseSortValue(legacySort) : { sortBy, sortOrder };
+  const parsedSort = legacySort ? parseSortValue(legacySort) : parseSortValue(sortBy, sortOrder);
   const legacyPositionType = params.get("position_type") ?? "";
   const mainPosition = params.get("main_position") || (legacyPositionType === "pitcher" ? "投手" : legacyPositionType === "fielder" ? "全野手" : "");
   const legacyAdmissionYear = params.get("admission_year") ?? "";
@@ -1051,8 +1085,24 @@ function getOptionLabel(options, value) {
 }
 
 function getSortLabel(searchState) {
-  const sortValue = serializeSortValue(searchState.sortBy, searchState.sortOrder);
-  return SORT_OPTIONS.find((option) => option.value === sortValue)?.label ?? "更新日時が新しい順";
+  const { sortBy, sortOrder } = parseSortValue(searchState.sortBy, searchState.sortOrder);
+  const option = SORT_OPTIONS.find((item) => item.sortBy === sortBy);
+  return option?.sortLabels?.[sortOrder] ?? "更新日時が新しい順";
+}
+
+function getSortDirectionLabel(sortOrder = DEFAULT_SORT_ORDER) {
+  return normalizeSortOrder(sortOrder) === "asc" ? "昇順" : "降順";
+}
+
+function getSortDirectionButtonLabel(sortOrder = DEFAULT_SORT_ORDER) {
+  const directionLabel = getSortDirectionLabel(sortOrder);
+  return normalizeSortOrder(sortOrder) === "asc" ? `↑ ${directionLabel}` : `↓ ${directionLabel}`;
+}
+
+function getSortDirectionAriaLabel(sortOrder = DEFAULT_SORT_ORDER) {
+  const currentLabel = getSortDirectionLabel(sortOrder);
+  const nextLabel = normalizeSortOrder(sortOrder) === "asc" ? "降順" : "昇順";
+  return `現在は${currentLabel}です。クリックすると${nextLabel}へ変更します。`;
 }
 
 function buildActiveFilterItems(searchState) {
@@ -1197,16 +1247,13 @@ function renderAbilityFilterControls(searchState) {
   const ranked = Boolean(getAbilityOption(searchState.abilityKey)?.ranked);
   const minRank = ranked ? getRankForAbilityValue(searchState.abilityMin) : "";
   const maxRank = ranked ? getRankForAbilityValue(searchState.abilityMax) : "";
-  const detailsOpen = searchState.abilityKey && (searchState.abilityMin || searchState.abilityMax) ? " open" : "";
   const rankDisabled = ranked ? "" : " disabled";
   const rankNoneOption = '<option value="">ランクなし</option>';
 
   return `
-    <details class="players-ability-filter"${detailsOpen}>
-      <summary class="players-ability-filter-summary">能力条件</summary>
-      <fieldset class="players-search-group players-ability-filter-fieldset" aria-describedby="player-search-ability-error">
-        <legend>通常能力の範囲検索</legend>
-        <div class="players-search-grid players-ability-filter-grid">
+    <fieldset class="players-ability-filter" aria-describedby="player-search-ability-error">
+      <legend>通常能力</legend>
+      <div class="players-search-grid players-ability-filter-grid">
           <div class="players-form-row players-search-field--wide">
             <label for="player-search-ability-key">能力項目</label>
             <select id="player-search-ability-key" name="ability_key">
@@ -1240,10 +1287,9 @@ function renderAbilityFilterControls(searchState) {
               </select>
             </div>
           </div>
-        </div>
-        <p id="player-search-ability-error" class="players-ability-filter-error" aria-live="polite" hidden></p>
-      </fieldset>
-    </details>
+      </div>
+      <p id="player-search-ability-error" class="players-ability-filter-error" aria-live="polite" hidden></p>
+    </fieldset>
   `;
 }
 
@@ -1338,16 +1384,28 @@ function renderShell(root, searchState) {
                     ${buildSelectOptions(ROSTER_STATUS_OPTIONS, searchState.rosterStatus)}
                   </select>
                 </div>
-                <div class="players-form-row players-search-field--wide">
-                  <label for="player-search-sort">並び順</label>
-                  <select id="player-search-sort" name="sort">
-                    ${buildSortOptions(serializeSortValue(searchState.sortBy, searchState.sortOrder))}
-                  </select>
-                </div>
               </div>
+              ${renderAbilityFilterControls(searchState)}
             </fieldset>
 
-            ${renderAbilityFilterControls(searchState)}
+            <div class="players-sort-panel" aria-labelledby="players-sort-panel-title">
+              <h3 id="players-sort-panel-title" class="players-sort-panel-title">並べ替え</h3>
+              <div class="players-sort-controls">
+                <div class="players-form-row players-sort-by-field">
+                  <label for="player-search-sort-by">並べ替え基準</label>
+                  <select id="player-search-sort-by" name="sort_by">
+                    ${buildSortOptions(searchState.sortBy)}
+                  </select>
+                </div>
+                <input type="hidden" name="sort_order" value="${escapeAttribute(searchState.sortOrder)}">
+                <button
+                  type="button"
+                  class="players-sort-direction-button"
+                  data-sort-direction-toggle
+                  aria-label="${escapeAttribute(getSortDirectionAriaLabel(searchState.sortOrder))}"
+                >${escapeHtml(getSortDirectionButtonLabel(searchState.sortOrder))}</button>
+              </div>
+            </div>
           </div>
           <div class="players-search-actions">
             <div class="players-search-action-buttons">
@@ -1611,10 +1669,17 @@ function setupPlayerAccordion(listRoot) {
   });
 }
 
-async function loadPlayers(listRoot, messageElement, searchState) {
+async function loadPlayers(listRoot, messageElement, searchState, { preserveCurrentResults = true, onBusyChange = null } = {}) {
   const requestId = latestPlayersRequestId + 1;
+  const hasExistingResults = listRoot.dataset.loaded === "true";
+
   latestPlayersRequestId = requestId;
-  listRoot.innerHTML = `<p class="players-empty-message">選手一覧を読み込んでいます。</p>`;
+  listRoot.setAttribute("aria-busy", "true");
+  onBusyChange?.(true);
+
+  if (!preserveCurrentResults || !hasExistingResults) {
+    listRoot.innerHTML = `<p class="players-empty-message">選手一覧を読み込んでいます。</p>`;
+  }
 
   try {
     const players = await fetchPlayers(buildPlayerListParams(searchState));
@@ -1627,19 +1692,31 @@ async function loadPlayers(listRoot, messageElement, searchState) {
       hasFilters: hasActiveSearchFilters(searchState),
       searchState,
     });
+    listRoot.dataset.loaded = "true";
     setMessage(messageElement, "");
   } catch (error) {
     if (requestId !== latestPlayersRequestId) {
       return;
     }
 
-    listRoot.innerHTML = "";
-    setMessage(messageElement, `選手一覧の取得に失敗しました。 ${error.message}`, "error");
+    if (!hasExistingResults) {
+      listRoot.innerHTML = "";
+      delete listRoot.dataset.loaded;
+      setMessage(messageElement, `選手一覧の取得に失敗しました。 ${error.message}`, "error");
+      return;
+    }
+
+    setMessage(messageElement, `選手一覧の更新に失敗しました。現在の検索結果を表示しています。 ${error.message}`, "error");
+  } finally {
+    if (requestId === latestPlayersRequestId) {
+      listRoot.setAttribute("aria-busy", "false");
+      onBusyChange?.(false);
+    }
   }
 }
 
 function readSearchStateFromForm(form) {
-  const { sortBy, sortOrder } = parseSortValue(form.elements.sort.value);
+  const { sortBy, sortOrder } = parseSortValue(form.elements.sort_by.value, form.elements.sort_order.value);
 
   return normalizeSearchState({
     name: form.elements.name.value,
@@ -1667,9 +1744,27 @@ function applySearchStateToForm(form, searchState) {
   form.elements.main_position.value = searchState.mainPosition;
   form.elements.school_grade.value = searchState.schoolGrade;
   form.elements.roster_status.value = searchState.rosterStatus;
-  form.elements.sort.value = serializeSortValue(searchState.sortBy, searchState.sortOrder);
+  form.elements.sort_by.value = searchState.sortBy;
+  form.elements.sort_order.value = searchState.sortOrder;
+  refreshSortDirectionButton(form, searchState.sortOrder);
   form.elements.ability_key.value = searchState.abilityKey;
   refreshAbilityFilterControls(form, searchState);
+}
+
+function refreshSortDirectionButton(form, sortOrder = DEFAULT_SORT_ORDER) {
+  const button = form.querySelector("[data-sort-direction-toggle]");
+  if (!button) return;
+
+  button.textContent = getSortDirectionButtonLabel(sortOrder);
+  button.setAttribute("aria-label", getSortDirectionAriaLabel(sortOrder));
+}
+
+function setSortControlsBusy(form, isBusy = false) {
+  form.elements.sort_by.disabled = isBusy;
+  const directionButton = form.querySelector("[data-sort-direction-toggle]");
+  if (directionButton) {
+    directionButton.disabled = isBusy;
+  }
 }
 
 function setAbilityError(form, message = "") {
@@ -1810,21 +1905,39 @@ function init() {
   setupPlayerAccordion(listRoot);
   applySearchStateToForm(form, searchState);
   writeSearchStateToUrl(searchState, { replace: true });
-  loadPlayers(listRoot, messageElement, searchState);
+  loadPlayers(listRoot, messageElement, searchState, {
+    preserveCurrentResults: false,
+    onBusyChange: (isBusy) => setSortControlsBusy(form, isBusy),
+  });
 
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
+  const applyCurrentFormState = () => {
     const nextState = readSearchStateFromForm(form);
     const abilityError = validateAbilitySearchState(nextState);
 
     setAbilityError(form, abilityError);
     if (abilityError) {
-      form.querySelector(".players-ability-filter")?.setAttribute("open", "");
       return;
     }
 
+    applySearchStateToForm(form, nextState);
     writeSearchStateToUrl(nextState);
-    loadPlayers(listRoot, messageElement, nextState);
+    loadPlayers(listRoot, messageElement, nextState, {
+      preserveCurrentResults: true,
+      onBusyChange: (isBusy) => setSortControlsBusy(form, isBusy),
+    });
+  };
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    applyCurrentFormState();
+  });
+
+  form.elements.sort_by.addEventListener("change", applyCurrentFormState);
+
+  form.querySelector("[data-sort-direction-toggle]")?.addEventListener("click", () => {
+    form.elements.sort_order.value = normalizeSortOrder(form.elements.sort_order.value) === "asc" ? "desc" : "asc";
+    refreshSortDirectionButton(form, form.elements.sort_order.value);
+    applyCurrentFormState();
   });
 
   resetButton.addEventListener("click", () => {
@@ -1832,14 +1945,20 @@ function init() {
 
     applySearchStateToForm(form, nextState);
     writeSearchStateToUrl(nextState);
-    loadPlayers(listRoot, messageElement, nextState);
+    loadPlayers(listRoot, messageElement, nextState, {
+      preserveCurrentResults: true,
+      onBusyChange: (isBusy) => setSortControlsBusy(form, isBusy),
+    });
   });
 
   window.addEventListener("popstate", () => {
     const nextState = readSearchStateFromUrl();
 
     applySearchStateToForm(form, nextState);
-    loadPlayers(listRoot, messageElement, nextState);
+    loadPlayers(listRoot, messageElement, nextState, {
+      preserveCurrentResults: true,
+      onBusyChange: (isBusy) => setSortControlsBusy(form, isBusy),
+    });
   });
 }
 
