@@ -669,37 +669,27 @@ players画面の現行「現在表示中snapshot」は、`latestSnapshotJoinSql`
 
 ### 10.2 一覧全体で単一時点を選ぶ設計
 
-可能である。backend modelの `buildPlayerListQuery()` には既に `snapshotLabel` 条件があり、`players.snapshot_label = ?` を追加できる。ただし現行SQLは `latestSnapshotJoinSql` で先に最新snapshotをjoinした上で `players.snapshot_label = ?` をWHEREに足す構造であるため、「指定時点を表示する」用途には不十分である。
+Prompt5-5で実装済み。`snapshot_label` 未指定時は `latestSnapshotJoinSql` で最新相当snapshotをjoinし、指定時は `players.player_series_id = player_series.id AND players.snapshot_label = ?` で完全一致snapshot行を `INNER JOIN` する。
 
-理由: joinされるplayers行が常に最新相当snapshotなので、WHEREで `snapshot_label = 'entrance'` を指定すると「最新相当snapshotがentranceであるseries」だけが残り、各seriesのentrance snapshotをjoinするわけではない。
-
-したがってsnapshot指定表示を本格実装するには、join対象snapshot選択SQLを「指定labelがある場合はそのlabelのsnapshotをjoinする」形に変更する必要がある。
+これにより、過去時点を指定した場合も最新snapshotを先に選んでWHEREで絞るのではなく、指定時点の `players` 行そのものが一覧表示・検索・sort・詳細/編集リンクの対象になる。
 
 ### 10.3 指定時点が存在しない選手の扱い
 
-候補A: 一覧から除外する。
+確定仕様: 指定時点が存在しないseriesは一覧から除外する。最新snapshot・直前snapshot・null能力行へのfallbackは行わない。
 
-- 長所: 検索・sortの意味が明確。表示値は必ず指定時点のもの。
-- 短所: 件数が大きく減る場合がある。ユーザーが「なぜ消えたか」を理解しにくい。
-
-候補B: 下部へ回し、最新時点で代替表示する。
-
-- 長所: 選手の存在を見失いにくい。
-- 短所: 検索・sort対象が指定時点なのか代替時点なのか曖昧になる。UI注記とSQLが複雑化する。
-
-Codex推奨は初期実装では候補Aである。理由は、能力検索・能力sortと組み合わせたときに意味が明確で、SQLも単純なためである。代替表示はユーザー需要が明確になってから追加する。
+理由: 能力検索・能力sort・ポジション検索の意味を「指定snapshot行に対する条件」として統一でき、表示値も必ず指定時点のものになるため。
 
 ### 10.4 優先順位別の推奨仕様
 
 1. 現在表示中のsnapshot: 初期状態は現行最新相当snapshotとする。ユーザーが一覧のsnapshot selectで選んだ場合は、その時点を現在表示中snapshotとする。
 2. 最新snapshot: 現行 `latestSnapshotJoinSql` と同等の定義を維持する。
-3. 入学時snapshot: `entrance` を対象とする。互換 `admission` の扱いは実DB確認後に判断する。
+3. 入学時snapshot: 正式値の `entrance` を対象とする。legacy `admission` はUIに出さず、新たな検索互換値にも追加しない。
 4. その他の登録済みsnapshot: 公式timelineのlabelをselectで選べるようにする。legacy `post_tournament` は表示専用/互換候補に留める。
 
 ### 10.5 API/DB/性能上の懸念
 
 - DB schema変更は不要。
-- API queryとして `snapshot_label` または `snapshot_mode` の追加/整理が必要。
+- API queryは既存の `snapshot_label` を使用する。新しい `snapshot_mode` は追加しない。
 - modelのJOIN SQL変更が必要。
 - 指定snapshotがないseriesの扱いによりLEFT JOIN/INNER JOINが変わる。
 - snapshot指定と能力sortを同時に行う場合、ORDER BY対象がjoinされたsnapshot行であることを保証する必要がある。
@@ -1011,3 +1001,27 @@ backendでは、能力sort keyをsafe whitelistで検証し、SQLカラムは許
 ### 対象外
 
 Prompt5-4ではDB schema、migration、indexは変更しない。table headerクリックsortは将来の別タスクとし、能力要約内の項目クリックsort、複合sort、第2sort条件UI、特殊能力sort、総変化量sort、変化球sort、サブポジションsort、snapshot指定sortも対象外とする。
+
+## Prompt5-5確定仕様: players一覧の表示時点選択
+
+- defaultは「最新（自動）」とし、URL/APIへ `snapshot_label` を送らない。この場合は従来どおり `latestSnapshotJoinSql` による最新相当snapshot選択を維持する。
+- UIへ表示する選択肢は公式9時点のみとする: `entrance`（入学時）、`y1_summer`、`y1_autumn`、`y1_spring`、`y2_summer`、`y2_autumn`、`y2_spring`、`y3_summer`、`graduation`。
+- URL/API queryは既存の `snapshot_label` を使う。例: `snapshot_label=entrance`、`snapshot_label=y2_summer`、`snapshot_label=graduation`。
+- `snapshot_label` 指定時は、最新snapshotをJOINしてからWHEREで絞るのではなく、`players.player_series_id = player_series.id AND players.snapshot_label = ?` の完全一致snapshot行を `INNER JOIN` する。
+- 指定snapshotを持たないseriesは一覧から除外する。最新snapshot・直前snapshot・null能力行へのfallbackは行わない。
+- 一覧表示、メインポジション検索（全野手/全内野手を含む）、通常能力範囲検索、能力sortは、すべて同じJOIN済みsnapshot行を対象にする。
+- 選手名、学校、入学年、選手タイプ、投打、在籍状態、管理学年などのseries単位項目は現在の `player_series` 由来の値を維持し、過去snapshot時点へ巻き戻さない。
+- 詳細・編集リンク、アコーディオン詳細、特殊能力、変化球、サブポジション、証拠画像は、一覧APIが返す指定snapshot行の `players.id` を使う。
+- legacy値（`post_tournament`、`admission`、`y3_autumn`）はsnapshot選択UIには表示しない。
+- API互換として、既に許可済みの `post_tournament` は引き続きvalidationを通し、完全一致snapshotとして扱う。
+- 「入学時」の正式値は `entrance` とし、`admission` は新たに検索互換値やDB制約へ追加しない。
+- DB schema、migration、index、unique制約、snapshot保存処理、legacyデータ変換は変更しない。
+- 一覧再取得時は既存一覧を保持するちらつき/scroll jump対策を維持し、API応答までloading messageへ置換しない。
+- snapshot指定sortや履歴比較は今回対象外とする。
+
+### 確定済み事項
+
+- 指定snapshotなし: 最新相当snapshotを表示・検索・sortに使う。
+- 指定snapshotあり: その完全一致snapshotを表示・検索・sortに使う。
+- 指定snapshotがない選手: 一覧から除外する。
+- legacy `admission`: 正式値としては使わず、新たな検索互換にも追加しない。

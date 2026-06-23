@@ -27,6 +27,22 @@ const latestSnapshotJoinSql = `
     LIMIT 1
   )
 `;
+
+function buildPlayerSnapshotJoin(snapshotLabel = null) {
+  if (snapshotLabel) {
+    return {
+      sql: `
+  INNER JOIN players
+    ON players.player_series_id = player_series.id
+    AND players.snapshot_label = ?
+`,
+      params: [snapshotLabel],
+    };
+  }
+
+  return { sql: latestSnapshotJoinSql, params: [] };
+}
+
 const ABILITY_FILTER_COLUMNS = Object.freeze({
   velocity: "players.velocity",
   control: "players.control",
@@ -236,63 +252,59 @@ function buildPlayerListQuery({
   abilityMin = null,
   abilityMax = null,
 } = {}) {
+  const snapshotJoin = buildPlayerSnapshotJoin(snapshotLabel);
   const conditions = ["schools.is_archived = 0"];
-  const params = [];
+  const conditionParams = [];
 
   if (schoolId !== null && schoolId !== undefined) {
     conditions.push("player_series.school_id = ?");
-    params.push(schoolId);
+    conditionParams.push(schoolId);
   }
 
   if (name) {
     conditions.push("player_series.name LIKE ?");
-    params.push(`%${name}%`);
+    conditionParams.push(`%${name}%`);
   }
 
   if (schoolName) {
     conditions.push("schools.name LIKE ?");
-    params.push(`%${schoolName}%`);
+    conditionParams.push(`%${schoolName}%`);
   }
 
   if (admissionYearFrom !== null && admissionYearFrom !== undefined) {
     conditions.push("player_series.admission_year >= ?");
-    params.push(admissionYearFrom);
+    conditionParams.push(admissionYearFrom);
   }
 
   if (admissionYearTo !== null && admissionYearTo !== undefined) {
     conditions.push("player_series.admission_year <= ?");
-    params.push(admissionYearTo);
+    conditionParams.push(admissionYearTo);
   }
 
   if (playerType) {
     conditions.push("player_series.player_type = ?");
-    params.push(playerType);
+    conditionParams.push(playerType);
   }
 
   if (schoolGrade !== null && schoolGrade !== undefined) {
     conditions.push("player_series.school_grade = ?");
-    params.push(schoolGrade);
+    conditionParams.push(schoolGrade);
   }
 
   if (rosterStatus) {
     conditions.push("player_series.roster_status = ?");
-    params.push(rosterStatus);
+    conditionParams.push(rosterStatus);
   }
 
   if (mainPosition === "全野手") {
     conditions.push("players.main_position <> ?");
-    params.push("投手");
+    conditionParams.push("投手");
   } else if (mainPosition === "全内野手") {
     conditions.push("players.main_position IN (?, ?, ?, ?)");
-    params.push("一塁手", "二塁手", "三塁手", "遊撃手");
+    conditionParams.push("一塁手", "二塁手", "三塁手", "遊撃手");
   } else if (mainPosition) {
     conditions.push("players.main_position = ?");
-    params.push(mainPosition);
-  }
-
-  if (snapshotLabel) {
-    conditions.push("players.snapshot_label = ?");
-    params.push(snapshotLabel);
+    conditionParams.push(mainPosition);
   }
 
   const abilityColumn = ABILITY_FILTER_COLUMNS[abilityKey];
@@ -302,12 +314,12 @@ function buildPlayerListQuery({
 
     if (abilityMin !== null && abilityMin !== undefined) {
       conditions.push(`${abilityColumn} >= ?`);
-      params.push(abilityMin);
+      conditionParams.push(abilityMin);
     }
 
     if (abilityMax !== null && abilityMax !== undefined) {
       conditions.push(`${abilityColumn} <= ?`);
-      params.push(abilityMax);
+      conditionParams.push(abilityMax);
     }
   }
 
@@ -315,13 +327,13 @@ function buildPlayerListQuery({
     SELECT
       ${PLAYER_SELECT_COLUMNS}
     FROM player_series
-    ${latestSnapshotJoinSql}
+    ${snapshotJoin.sql}
     INNER JOIN schools ON schools.id = player_series.school_id
     WHERE ${conditions.join(" AND ")}
     ORDER BY ${buildPlayerSortClause(sortBy, sortOrder)}
   `;
 
-  return { sql, params };
+  return { sql, params: [...snapshotJoin.params, ...conditionParams] };
 }
 
 async function findAllActive(query = {}) {

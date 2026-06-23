@@ -1,4 +1,5 @@
 import { fetchPlayerById, fetchPlayers } from "../api/playerApi.js";
+import { SNAPSHOT_LABEL_OPTIONS, getSnapshotLabel } from "../utils/playerSnapshots.js";
 import { buildYearPicker, setYearPickerValue, setupYearPickers } from "../components/admissionYearPicker.js";
 import {
   groupPitchMovementDisplayItemsByDirection,
@@ -20,6 +21,7 @@ const PLAYER_SEARCH_QUERY_KEYS = [
   "position_type",
   "school_grade",
   "roster_status",
+  "snapshot_label",
   "sort_by",
   "sort_order",
   "sort",
@@ -120,21 +122,6 @@ const PLAYER_DETAIL_LOADING = new Map();
 const PLAYER_ABILITY_MODES = new Map();
 const PLAYERS_TABLE_COLUMN_COUNT = 6;
 
-const SNAPSHOT_LABELS = {
-  admission: "入学時",
-  entrance: "入学時",
-  y1_summer: "1年夏大会後",
-  y1_autumn: "1年秋大会後",
-  y1_spring: "1年春大会後",
-  y2_summer: "2年夏大会後",
-  y2_autumn: "2年秋大会後",
-  y2_spring: "2年春大会後",
-  y3_summer: "3年夏大会後",
-  y3_autumn: "3年秋大会後",
-  graduation: "卒業時",
-  post_tournament: "大会後",
-};
-
 function createDefaultSearchState() {
   return {
     name: "",
@@ -145,6 +132,7 @@ function createDefaultSearchState() {
     mainPosition: "",
     schoolGrade: "",
     rosterStatus: "",
+    snapshotLabel: "",
     sortBy: DEFAULT_SORT_BY,
     sortOrder: DEFAULT_SORT_ORDER,
     abilityKey: "",
@@ -210,6 +198,15 @@ function buildSortOptions(selectedValue = DEFAULT_SORT_BY) {
   }).join("");
 }
 
+function normalizeSnapshotLabel(value) {
+  const snapshotLabel = String(value ?? "").trim();
+  return SNAPSHOT_LABEL_OPTIONS.some((option) => option.value === snapshotLabel) ? snapshotLabel : "";
+}
+
+function buildSnapshotOptions(selectedValue = "") {
+  return buildSelectOptions(SNAPSHOT_LABEL_OPTIONS, selectedValue, "最新（自動）");
+}
+
 function normalizeSearchState(searchState = {}) {
   const { sortBy, sortOrder } = parseSortValue(searchState.sortBy, searchState.sortOrder);
 
@@ -222,6 +219,7 @@ function normalizeSearchState(searchState = {}) {
     mainPosition: String(searchState.mainPosition ?? "").trim(),
     schoolGrade: String(searchState.schoolGrade ?? "").trim(),
     rosterStatus: String(searchState.rosterStatus ?? "").trim(),
+    snapshotLabel: normalizeSnapshotLabel(searchState.snapshotLabel),
     sortBy,
     sortOrder,
     ...normalizeAbilitySearchState(searchState),
@@ -278,6 +276,7 @@ function readSearchStateFromUrl() {
     mainPosition,
     schoolGrade: params.get("school_grade") ?? "",
     rosterStatus: params.get("roster_status") ?? "",
+    snapshotLabel: params.get("snapshot_label") ?? "",
     sortBy: parsedSort.sortBy,
     sortOrder: parsedSort.sortOrder,
     abilityKey: params.get("ability_key") ?? "",
@@ -296,6 +295,7 @@ function buildPlayerListParams(searchState) {
     main_position: searchState.mainPosition,
     school_grade: searchState.schoolGrade,
     roster_status: searchState.rosterStatus,
+    snapshot_label: searchState.snapshotLabel,
     sort_by: searchState.sortBy,
     sort_order: searchState.sortOrder,
     ability_key: searchState.abilityKey,
@@ -333,6 +333,7 @@ function hasActiveSearchFilters(searchState) {
       searchState.mainPosition ||
       searchState.schoolGrade ||
       searchState.rosterStatus ||
+      searchState.snapshotLabel ||
       (searchState.abilityKey && (searchState.abilityMin || searchState.abilityMax))
   );
 }
@@ -426,7 +427,7 @@ function isPitcher(player) {
 
 function formatSnapshotLabel(value) {
   const normalizedValue = String(value ?? "").trim();
-  return SNAPSHOT_LABELS[normalizedValue] ?? formatOptionalValue(normalizedValue);
+  return getSnapshotLabel(normalizedValue, formatOptionalValue(normalizedValue));
 }
 
 function parseFiniteAbilityNumber(value) {
@@ -1138,6 +1139,10 @@ function buildActiveFilterItems(searchState) {
     items.push({ label: "在籍状態", value: getOptionLabel(ROSTER_STATUS_OPTIONS, searchState.rosterStatus) });
   }
 
+  if (searchState.snapshotLabel) {
+    items.push({ label: "表示時点", value: getSnapshotLabel(searchState.snapshotLabel) });
+  }
+
   const abilityFilterValue = formatAbilityFilterValue(searchState);
 
   if (abilityFilterValue) {
@@ -1383,6 +1388,13 @@ function renderShell(root, searchState) {
                   <select id="player-search-roster-status" name="roster_status">
                     ${buildSelectOptions(ROSTER_STATUS_OPTIONS, searchState.rosterStatus)}
                   </select>
+                </div>
+                <div class="players-form-row players-snapshot-field">
+                  <label for="player-search-snapshot-label">表示時点</label>
+                  <select id="player-search-snapshot-label" name="snapshot_label" aria-describedby="player-search-snapshot-help">
+                    ${buildSnapshotOptions(searchState.snapshotLabel)}
+                  </select>
+                  <span id="player-search-snapshot-help" class="players-form-help">能力表示・検索・並べ替えに使用する時点</span>
                 </div>
               </div>
               ${renderAbilityFilterControls(searchState)}
@@ -1727,6 +1739,7 @@ function readSearchStateFromForm(form) {
     mainPosition: form.elements.main_position.value,
     schoolGrade: form.elements.school_grade.value,
     rosterStatus: form.elements.roster_status.value,
+    snapshotLabel: form.elements.snapshot_label.value,
     sortBy,
     sortOrder,
     abilityKey: form.elements.ability_key.value,
@@ -1744,6 +1757,7 @@ function applySearchStateToForm(form, searchState) {
   form.elements.main_position.value = searchState.mainPosition;
   form.elements.school_grade.value = searchState.schoolGrade;
   form.elements.roster_status.value = searchState.rosterStatus;
+  form.elements.snapshot_label.value = searchState.snapshotLabel;
   form.elements.sort_by.value = searchState.sortBy;
   form.elements.sort_order.value = searchState.sortOrder;
   refreshSortDirectionButton(form, searchState.sortOrder);
