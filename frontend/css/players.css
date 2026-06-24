@@ -2669,3 +2669,19 @@
     min-height: 18px;
   }
 }
+
+.players-form-help {
+  color: #66788f;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.players-snapshot-field select {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .players-snapshot-field {
+    grid-column: auto;
+  }
+}
