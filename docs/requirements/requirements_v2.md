@@ -1,5 +1,12 @@
 # 要件定義 v2
 
+
+## 2026年6月時点の補足
+
+この文書は要件定義 v2 の基礎資料であり、一部に Phase 1〜Phase 2 初期の表現が残る。現行の実装状況は `docs/phases/phase2.md`、画面導線は `docs/requirements/screen_list.md`、データ構造の概要は `docs/design/data_model.md` を優先して参照する。
+
+現行では、独立した `players.html`、`player_series` / snapshot 構造、正式 snapshot timeline、players 一覧の検索・能力範囲検索・sort、学校年度進行、守備位置図、管理コード基盤が追加されている。OCR本体MVP、DB backup / restore、export / import、自動回帰テストの本格整備、公開用認証・権限管理は未実装である。
+
 ## 目的
 栄冠データベースの要件定義本体を管理する。
 

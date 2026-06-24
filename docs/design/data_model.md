@@ -1,7 +1,9 @@
 # データ構造定義
 
 ## School
+
 - id
+- school_code
 - name
 - prefecture
 - play_style
@@ -12,8 +14,29 @@
 - created_at
 - updated_at
 
-## Player
+## PlayerSeries
+
+同一選手を時系列で束ねる親レコード。
+
 - id
+- school_id
+- series_no
+- name
+- school_grade
+- roster_status
+- admission_year
+- prefecture
+- player_type
+- player_type_note
+- created_at
+- updated_at
+
+## Player
+
+`players` は `player_series` に属する各登録時点 snapshot を表す。
+
+- id
+- player_series_id
 - school_id
 - name
 - player_type
@@ -23,6 +46,7 @@
 - grade
 - admission_year
 - snapshot_label
+- snapshot_note
 - main_position
 - throwing_hand
 - batting_hand
@@ -32,7 +56,24 @@
 - created_at
 - updated_at
 
+### snapshot_label
+
+正式 snapshot timeline は以下を基本とする。
+
+- `entrance`
+- `y1_summer`
+- `y1_autumn`
+- `y1_spring`
+- `y2_summer`
+- `y2_autumn`
+- `y2_spring`
+- `y3_summer`
+- `graduation`
+
+legacy / compatibility 値として、`admission`、`post_tournament`、`y3_autumn` が残る場合がある。
+
 ### 野手能力
+
 - trajectory
 - meat
 - power
@@ -42,11 +83,13 @@
 - catching
 
 ### 投手能力
+
 - velocity
 - control
 - stamina
 
 ## PlayerPitchType
+
 - id
 - player_id
 - pitch_name
@@ -57,6 +100,7 @@
 - updated_at
 
 ## PlayerSpecialAbility
+
 - id
 - player_id
 - ability_name
@@ -66,6 +110,7 @@
 - updated_at
 
 ## PlayerSubPosition
+
 - id
 - player_id
 - position_name
@@ -75,6 +120,7 @@
 - updated_at
 
 ## PlayerResult
+
 - id
 - player_id
 - result_label
@@ -90,17 +136,37 @@
 - created_at
 - updated_at
 
+## SchoolYearProgressLog
+
+学校年度進行と直前 1 回 undo のためのログ。
+
+- id
+- school_id
+- from_year
+- to_year
+- affected_series_count
+- graduated_count
+- snapshots_created
+- is_undo_available
+- undone_at
+- created_at
+
 ## リレーション
-- School 1 --- N Player
+
+- School 1 --- N PlayerSeries
+- PlayerSeries 1 --- N Player(snapshot)
 - Player 1 --- N PlayerPitchType
 - Player 1 --- N PlayerSpecialAbility
 - Player 1 --- N PlayerSubPosition
 - Player 1 --- N PlayerResult
+- School 1 --- N SchoolYearProgressLog
 
 ## 補足
+
 - `play_style` は `three_year` または `continuous` を取る。
 - `School.name` は本体名のみ保持し、`高校` の表示付与はフロントエンド helper で行う。
-- `player_type` は `normal`、`genius`、`reincarnated` を取る。
-- `snapshot_label` は `entrance` または `post_tournament` を取る。
-- `ability_category` は投手特能、野手特能、緑特などの区分を保持する。
+- `school_code`、`series_no`、`snapshot_key` は管理コード基盤として扱う。
+- school 管理上の現在学年・在籍状態は `player_series` 側で扱う。
+- snapshot 時点の能力値や relation 系データは `players` とその子テーブルで扱う。
+- 学校年度進行は `player_series.school_grade` / `roster_status` を更新するが、snapshot は自動生成しない。
 - 旧表記の `player_skills` は、現行モデルでは `PlayerSpecialAbility` に相当する。

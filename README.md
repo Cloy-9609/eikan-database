@@ -1,14 +1,53 @@
 # eikan-database
 
-栄冠ナインの学校・選手データを管理するためのローカル Web アプリです。  
+栄冠ナイン風の学校・選手データを管理するためのローカル Web アプリです。
 `Express + SQLite + 静的フロントエンド` で構成されています。
 
 ## 現在の状態
 
+2026年6月時点では、Phase 1 は完了済みで、現在地は Phase 2後半〜終盤入口です。
+
+### 実装済みの主要機能
+
+- 学校管理
+  - 学校作成、一覧、詳細、編集、論理削除
+  - 学校一覧の basic 検索・sort
+  - 学校年度進行と直前 1 回 undo
+- 選手管理
+  - 選手登録、詳細、編集
+  - `player_series` / `players` snapshot 管理
+  - snapshot 作成・切替・編集
+  - snapshot表示時点選択
+- 独立した `players.html` 全体選手一覧
+  - 基本検索・絞り込み
+  - 通常能力範囲検索
+  - 通常能力 sort
+  - 一覧内 accordion 簡易詳細
+- relation 系編集
+  - 変化球
+  - 特殊能力
+  - サブポジション
+- `player_detail` の守備位置図
+- 管理コード基盤
+  - `school_code`
+  - `series_no`
+  - `snapshot_key`
+  - 生成 helper、migration、backfill
+
+### 未実装または本格整備前
+
+- OCR本体MVP
+- DB backup / restore
+- export / import
+- 公開用の認証・権限管理・ユーザー所有権
+- 自動回帰テストの本格整備
+- 管理コードの画面表示・検索・export連携への本格展開
+
+### 基本構成
+
 - バックエンドは起動時に SQLite に接続し、空の DB であれば `backend/db/schema.sql` を自動適用します。
 - 既定の DB ファイルは `database/eikan-app.sqlite` です。
-- 学校一覧 API は `GET /api/schools`、選手一覧 API は `GET /api/players` です。
-- フロントエンドは `frontend/pages/` 配下の HTML を `Express` から静的配信しています。
+- フロントエンドは `frontend/` 配下を `Express` から静的配信しています。
 
 ## 起動方法
 
@@ -22,6 +61,7 @@
 
 - トップ: `http://localhost:3000/`
 - 学校一覧: `http://localhost:3000/pages/schools.html`
+- 選手一覧: `http://localhost:3000/pages/players.html`
 
 開発サーバーでは以下が自動で行われます。
 
@@ -38,28 +78,46 @@
 
 ## 開発時の確認コマンド
 
-通常開発は `develop` を base に、1目的1PRで行います。
-
 `package.json` があるディレクトリで実行します。
 
 - backend 構文確認: `npm run check:backend`
 - frontend 構文確認: `npm run check:frontend`
 - 一括確認: `npm run check:all`
+- DB 診断: `npm run db:check`
 - 差分の空白確認: `npm run diff:check`
 
+`npm run db:check` は現在、以下を実行します。
+
+```text
+node scripts/diagnostics/check-data-integrity.js
+```
+
+この診断 script は、現時点では少なくとも以下を確認・表示します。DB全体の完全性を保証するものではありません。
+
+- `schools` カラム確認
+- `player_series` カラム確認
+- `school_code` 重複確認
+- `(school_id, series_no)` 重複確認
+- sample 表示
+
 実ブラウザ確認は必要に応じて別途行います。
+
+## Branch 運用
+
+- `develop`: ユーザーが安定版を保管・統合する branch
+- `codex/staging`: Codex成果物の統合・実ブラウザ確認用 branch
+- `codex/<task>`: Codex作業 branch
+- Codex task PR の base は原則 `codex/staging`
+- `codex/staging` で実ブラウザ確認後、ユーザー判断で `develop` へ取り込みます
+- Codex は `develop` や `main` へ直接 push しません
 
 ## Codex Cloud / GitHub連携での開発フロー
 
 - GitHub repository `Cloy-9609/eikan-database` を作業の基準にします。
-- Codex成果物の統合先と実ブラウザ確認用の branch は `codex/staging` です。
 - Codex は `codex/staging` から `codex/<task-name>` 形式の作業ブランチを作成します。
 - 変更後は `npm run check:all` と `npm run diff:check` を実行してから commit します。
 - 作業ブランチを GitHub へ push し、`codex/staging` 向けの通常 Pull Request を作成します。
-- 低リスク・小〜中規模タスクで、Pull Request が `mergeable clean` かつ確認コマンドが成功している場合のみ、Codex は GitHub API で `codex/staging` へ squash merge し、作業ブランチを削除できます。
 - 高リスク、または中リスクでも大規模なタスクは、Pull Request 作成までで止め、Codex は merge しません。
-- `codex/staging` で実ブラウザ確認を行い、問題なければユーザー判断で `develop` 以降へ取り込みます。
-- Codex は `main` と `develop` へ直接 push しません。
 
 ### Codex作業のリスク判断例
 
@@ -97,9 +155,27 @@
 - `schema.sql` には `DROP TABLE IF EXISTS ...` が含まれるため、既存データは削除されます。
 - 開発用の再作成コマンドとして扱ってください。
 
+### DB 診断
+
+- コマンド: `npm run db:check`
+- 実体: `scripts/diagnostics/check-data-integrity.js`
+- 管理コード基盤に関わるカラム・重複・sample を確認します。
+- DB全体を完全保証するものではありません。
+
 ### 補足
 
-- `database/eikan.sqlite` は今回の不具合調査以前に参照されていた旧ファイルで、現在の既定参照先ではありません。
+- `database/eikan.sqlite` は過去に参照されていた旧ファイルで、現在の既定参照先ではありません。
+- SQLite DB は Git 管理外です。source archive とは別に backup が必要です。
+
+## Source archive
+
+source archive は Windows Git Bash などで `git archive` から作成できます。
+
+```bash
+git archive --format=zip --output=eikan-database-source.zip HEAD
+```
+
+この archive には `node_modules` や `.git` は含まれません。SQLite DB は Git 管理外のため、必要に応じて別途 backup してください。
 
 ## ディレクトリ構成
 
@@ -117,9 +193,17 @@ backend/
 
 frontend/
   pages/                    画面 HTML
+    index.html
+    schools.html
+    school_detail.html
+    players.html
+    player_register.html
+    player_detail.html
+    player_edit.html
   js/
     api/                    API 呼び出し
     pages/                  画面ごとの JS
+      players.js
     components/             UI 部品
     constants/              定数
     utils/                  補助関数
@@ -129,6 +213,8 @@ scripts/
   setup_db.js               現在の DB 再作成スクリプト
   init_db.js                旧初期化スクリプト
   migrate.js                旧 migration プレースホルダ
+  diagnostics/
+    check-data-integrity.js DB 診断スクリプト
 
 database/                   ローカル SQLite ファイル置き場
 docs/                       設計・要件・レビュー記録
@@ -143,21 +229,27 @@ docs/                       設計・要件・レビュー記録
 - `POST /api/schools`
 - `PATCH /api/schools/:id`
 - `DELETE /api/schools/:id`
+- `POST /api/schools/:id/progress-year`
+- `POST /api/schools/:id/progress-year/undo`
 - `GET /api/players`
 - `GET /api/players/:id`
+- `GET /api/players/:id/detail`
 - `POST /api/players`
 - `PUT /api/players/:id`
+- `GET /api/player-series/:id`
+- `POST /api/player-series/:id/snapshots`
 
 ### フロント画面
 
 - `frontend/pages/index.html`
 - `frontend/pages/schools.html`
 - `frontend/pages/school_detail.html`
+- `frontend/pages/players.html`
 - `frontend/pages/player_register.html`
 - `frontend/pages/player_detail.html`
 - `frontend/pages/player_edit.html`
 
 ## メモ
 
-- 一部の既存ファイルには文字化けした文字列が残っています。
-- 今回の修正対象は主に SQLite 参照先の整理、起動時自動初期化、DB リセット導線の明確化です。
+- OCR本体MVP、DB backup / restore、export / import、自動回帰テストの本格整備は今後の作業です。
+- 現在の Phase と機能一覧は `docs/phases/phase2.md` と `docs/requirements/feature_list.md` を参照してください。
