@@ -22,3 +22,12 @@
 ### よく使うコマンド
 - `git remote prune origin`  
 ・頻繁にクラウド上で更新がかかるため、手動でリモートブランチを更新する必要があるときに使用する。
+
+- 
+`
+  git archive \
+    --format=zip \
+    --output="../eikan-database-source-$(date +%Y%m%d-%H%M).zip" \
+    HEAD
+`
+・node_moduleを含まない、軽量なバックアップのzipファイルを作成するときに使用する。
