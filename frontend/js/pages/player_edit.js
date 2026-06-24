@@ -1,4 +1,4 @@
-﻿import { addSnapshotToSeries, fetchPlayerById, updatePlayer } from "../api/playerApi.js";
+import { addSnapshotToSeries, fetchPlayerById, fetchSnapshotSeed, updatePlayer } from "../api/playerApi.js";
 import {
   buildAdmissionYearPicker,
   setupAdmissionYearPickers,
@@ -1497,8 +1497,11 @@ async function init() {
       loadRelationOptions(),
     ]);
     const isSnapshotCreate = flowContext.mode === "snapshot-create";
-    const editPlayer = isSnapshotCreate && flowContext.snapshot
-      ? { ...player, snapshot_label: flowContext.snapshot }
+    const snapshotSeed = isSnapshotCreate && flowContext.snapshot
+      ? await fetchSnapshotSeed(player.player_series_id, flowContext.snapshot)
+      : null;
+    const editPlayer = snapshotSeed?.seed
+      ? { ...player, ...snapshotSeed.seed }
       : player;
     const presentation = buildEditModePresentation(editPlayer, flowContext);
     const ocrEntry = buildOcrEntryPresentation(editPlayer, flowContext);

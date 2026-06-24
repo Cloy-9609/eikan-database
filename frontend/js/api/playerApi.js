@@ -1,4 +1,4 @@
-﻿const PLAYER_API_BASE = "/api/players";
+const PLAYER_API_BASE = "/api/players";
 
 const PLAYER_SERIES_API_BASE = "/api/player-series";
 
@@ -72,6 +72,23 @@ export async function fetchPlayerSeriesById(id, { snapshot } = {}) {
   const query = params.toString();
   const response = await fetch(
     query ? `${PLAYER_SERIES_API_BASE}/${id}?${query}` : `${PLAYER_SERIES_API_BASE}/${id}`
+  );
+  return parseResponse(response);
+}
+
+export async function fetchSnapshotSeed(playerSeriesId, snapshotLabel) {
+  const params = new URLSearchParams();
+
+  if (snapshotLabel) {
+    params.set("snapshot_label", snapshotLabel);
+  }
+
+  const query = params.toString();
+  const response = await fetch(
+    query
+      ? `${PLAYER_SERIES_API_BASE}/${playerSeriesId}/snapshot-seed?${query}`
+      : `${PLAYER_SERIES_API_BASE}/${playerSeriesId}/snapshot-seed`,
+    { cache: "no-store" }
   );
   return parseResponse(response);
 }

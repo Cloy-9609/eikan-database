@@ -29,6 +29,7 @@
 ### Player series
 
 - `GET /api/player-series/:id`
+- `GET /api/player-series/:id/snapshot-seed`
 - `POST /api/player-series/:id/snapshots`
 
 ## API 詳細
@@ -50,7 +51,24 @@
 | POST | `/api/players` | `201`, `400` | 有効学校に対して選手を新規登録する |
 | PUT | `/api/players/:id` | `200`, `400`, `404` | 選手 snapshot と relation 系情報を更新する。削除済み学校所属選手の更新は拒否する |
 | GET | `/api/player-series/:id` | `200`, `404` | `player_series` と登録済み snapshot 情報を取得する |
-| POST | `/api/player-series/:id/snapshots` | `201`, `400`, `404` | 指定 `player_series` に新しい snapshot を作成する |
+| GET | `/api/player-series/:id/snapshot-seed` | `200`, `400`, `404`, `409` | 新規 snapshot 作成画面用に、公式時系列上の引き継ぎ元と snapshot 固有初期値を読み取り専用で取得する |
+| POST | `/api/player-series/:id/snapshots` | `201`, `400`, `404`, `409` | 指定 `player_series` に新しい snapshot を作成する |
+
+
+### `GET /api/player-series/:id/snapshot-seed`
+
+新規 snapshot 作成画面で使用する読み取り専用 API。DB への INSERT / UPDATE / DELETE は行わない。
+
+- query: `snapshot_label`
+- 対象: 公式9時点のみ
+- 成功: `200`
+- 不正な series ID または不正な `snapshot_label`: `400`
+- series 不存在: `404`
+- 同じ `snapshot_label` が既に series 内に存在する場合: `409`
+- response: `source_snapshot` と `seed` を返す
+- `source_snapshot` は、作成対象より前で最も近い登録済み公式 snapshot。存在しない場合は `null`
+- 未来側 snapshot、DB 登録順、更新日時上の最新 snapshot へ fallback しない
+- `seed` には `grade`、`snapshot_label`、能力値、変化球、特殊能力、サブポジションなど、編集画面の snapshot 固有初期値を含める
 
 ## レスポンス形式
 
