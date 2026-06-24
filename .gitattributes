@@ -1,0 +1,46 @@
+# Gitがテキストファイルを自動判定し、改行コードを正規化する
+
+* text=auto
+
+# ソースコード・設定・ドキュメントはLFへ統一する
+
+*.js text eol=lf
+*.cjs text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.sql text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+
+# Git関連の設定ファイルもLFへ統一する
+
+.gitattributes text eol=lf
+.gitignore text eol=lf
+
+# データベースや画像などはテキスト変換しない
+
+*.sqlite binary
+*.sqlite-* binary
+*.db binary
+*.db-* binary
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.svg text eol=lf
+
+*.pdf binary
+*.zip binary
+*.mp4 binary
+
+*.woff binary
+*.woff2 binary
+*.ttf binary

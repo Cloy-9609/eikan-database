@@ -2148,9 +2148,9 @@
   display: grid;
   gap: 3px;
   place-items: center;
-  min-width: 58px;
-  min-height: 52px;
-  padding: var(--player-space-xs) var(--player-space-sm);
+  min-width: 56px;
+  min-height: 50px;
+  padding: var(--player-space-2xs) var(--player-space-sm);
   border: 1px solid rgba(221, 230, 240, 0.94);
   border-radius: var(--player-radius-xl);
   background: rgba(255, 255, 255, 0.94);
@@ -2280,6 +2280,7 @@ button.defense-position-node {
   background:
     linear-gradient(180deg, rgba(236, 253, 243, 0.94) 0%, rgba(255, 255, 255, 0.9) 100%);
   color: #0f766e;
+  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.1);
 }
 
 .defense-position-node.is-sub .defense-position-abbr {
@@ -2288,7 +2289,23 @@ button.defense-position-node {
 }
 
 .defense-position-node.is-empty {
-  opacity: 0.72;
+  min-width: 52px;
+  min-height: 46px;
+  border-color: rgba(148, 163, 184, 0.46);
+  border-style: dashed;
+  background: rgba(248, 250, 252, 0.86);
+  color: #64748b;
+  box-shadow: 0 6px 14px rgba(71, 85, 105, 0.08);
+  opacity: 0.82;
+}
+
+.defense-position-node.is-empty .defense-position-abbr {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.defense-position-node.is-empty .defense-position-role {
+  color: #94a3b8;
 }
 
 .defense-map-side {

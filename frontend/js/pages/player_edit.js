@@ -1202,7 +1202,7 @@ function renderForm(form, player, relationOptions, { detailHref, returnLabel = "
       }),
       renderSelectRow({
         field: "prefecture",
-        label: "出身都道府県",
+        label: "出身地",
         options: PREFECTURE_GROUPS,
         value: player.prefecture,
         required: true,

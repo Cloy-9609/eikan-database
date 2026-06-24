@@ -27,6 +27,35 @@ const latestSnapshotJoinSql = `
     LIMIT 1
   )
 `;
+
+function buildPlayerSnapshotJoin(snapshotLabel = null) {
+  if (snapshotLabel) {
+    return {
+      sql: `
+  INNER JOIN players
+    ON players.player_series_id = player_series.id
+    AND players.snapshot_label = ?
+`,
+      params: [snapshotLabel],
+    };
+  }
+
+  return { sql: latestSnapshotJoinSql, params: [] };
+}
+
+const ABILITY_FILTER_COLUMNS = Object.freeze({
+  velocity: "players.velocity",
+  control: "players.control",
+  stamina: "players.stamina",
+  trajectory: "players.trajectory",
+  meat: "players.meat",
+  power: "players.power",
+  run_speed: "players.run_speed",
+  arm_strength: "players.arm_strength",
+  fielding: "players.fielding",
+  catching: "players.catching",
+});
+
 const defenseRankSql = `
   CASE
     WHEN defense_value BETWEEN 90 AND 100 THEN 'S'
@@ -198,6 +227,11 @@ function buildPlayerSortClause(sortBy = "updated_at", sortOrder = "desc") {
     return `CASE WHEN snapshot_order IS NULL THEN 1 ELSE 0 END ASC, snapshot_order ${direction}, player_series.id DESC`;
   }
 
+  const abilityColumn = ABILITY_FILTER_COLUMNS[sortBy];
+  if (abilityColumn) {
+    return `CASE WHEN ${abilityColumn} IS NULL THEN 1 ELSE 0 END ASC, ${abilityColumn} ${direction}, player_series.name ASC, player_series.id DESC`;
+  }
+
   return `COALESCE(players.updated_at, player_series.updated_at) ${direction}, player_series.id DESC`;
 }
 
@@ -214,77 +248,92 @@ function buildPlayerListQuery({
   snapshotLabel = null,
   sortBy = "updated_at",
   sortOrder = "desc",
+  abilityKey = null,
+  abilityMin = null,
+  abilityMax = null,
 } = {}) {
+  const snapshotJoin = buildPlayerSnapshotJoin(snapshotLabel);
   const conditions = ["schools.is_archived = 0"];
-  const params = [];
+  const conditionParams = [];
 
   if (schoolId !== null && schoolId !== undefined) {
     conditions.push("player_series.school_id = ?");
-    params.push(schoolId);
+    conditionParams.push(schoolId);
   }
 
   if (name) {
     conditions.push("player_series.name LIKE ?");
-    params.push(`%${name}%`);
+    conditionParams.push(`%${name}%`);
   }
 
   if (schoolName) {
     conditions.push("schools.name LIKE ?");
-    params.push(`%${schoolName}%`);
+    conditionParams.push(`%${schoolName}%`);
   }
 
   if (admissionYearFrom !== null && admissionYearFrom !== undefined) {
     conditions.push("player_series.admission_year >= ?");
-    params.push(admissionYearFrom);
+    conditionParams.push(admissionYearFrom);
   }
 
   if (admissionYearTo !== null && admissionYearTo !== undefined) {
     conditions.push("player_series.admission_year <= ?");
-    params.push(admissionYearTo);
+    conditionParams.push(admissionYearTo);
   }
 
   if (playerType) {
     conditions.push("player_series.player_type = ?");
-    params.push(playerType);
+    conditionParams.push(playerType);
   }
 
   if (schoolGrade !== null && schoolGrade !== undefined) {
     conditions.push("player_series.school_grade = ?");
-    params.push(schoolGrade);
+    conditionParams.push(schoolGrade);
   }
 
   if (rosterStatus) {
     conditions.push("player_series.roster_status = ?");
-    params.push(rosterStatus);
+    conditionParams.push(rosterStatus);
   }
 
   if (mainPosition === "全野手") {
     conditions.push("players.main_position <> ?");
-    params.push("投手");
+    conditionParams.push("投手");
   } else if (mainPosition === "全内野手") {
     conditions.push("players.main_position IN (?, ?, ?, ?)");
-    params.push("一塁手", "二塁手", "三塁手", "遊撃手");
+    conditionParams.push("一塁手", "二塁手", "三塁手", "遊撃手");
   } else if (mainPosition) {
     conditions.push("players.main_position = ?");
-    params.push(mainPosition);
+    conditionParams.push(mainPosition);
   }
 
-  if (snapshotLabel) {
-    conditions.push("players.snapshot_label = ?");
-    params.push(snapshotLabel);
+  const abilityColumn = ABILITY_FILTER_COLUMNS[abilityKey];
+
+  if (abilityColumn && (abilityMin !== null || abilityMax !== null)) {
+    conditions.push(`${abilityColumn} IS NOT NULL`);
+
+    if (abilityMin !== null && abilityMin !== undefined) {
+      conditions.push(`${abilityColumn} >= ?`);
+      conditionParams.push(abilityMin);
+    }
+
+    if (abilityMax !== null && abilityMax !== undefined) {
+      conditions.push(`${abilityColumn} <= ?`);
+      conditionParams.push(abilityMax);
+    }
   }
 
   const sql = `
     SELECT
       ${PLAYER_SELECT_COLUMNS}
     FROM player_series
-    ${latestSnapshotJoinSql}
+    ${snapshotJoin.sql}
     INNER JOIN schools ON schools.id = player_series.school_id
     WHERE ${conditions.join(" AND ")}
     ORDER BY ${buildPlayerSortClause(sortBy, sortOrder)}
   `;
 
-  return { sql, params };
+  return { sql, params: [...snapshotJoin.params, ...conditionParams] };
 }
 
 async function findAllActive(query = {}) {

@@ -22,15 +22,6 @@ const ALLOWED_PLAYER_TYPES = ["normal", "genius", "reincarnated"];
 const ALLOWED_PLAYER_ROSTER_STATUSES = ["active", "graduated"];
 const ALLOWED_PLAYER_POSITION_TYPES = ["pitcher", "fielder"];
 const POSITION_SEARCH_CATEGORIES = ["全野手", "全内野手"];
-const ALLOWED_PLAYER_SORT_BY = [
-  "updated_at",
-  "name",
-  "school_name",
-  "admission_year",
-  "school_grade",
-  "roster_status",
-  "snapshot",
-];
 const ALLOWED_SORT_ORDERS = ["asc", "desc"];
 const SCHOOL_SUFFIX = "高校";
 // NOTE:
@@ -46,6 +37,29 @@ const ADMISSION_YEAR_MIN = 1932;
 const ADMISSION_YEAR_MAX = 2039;
 const TOTAL_STARS_UNSET_VALUE = 0;
 const TOTAL_STARS_MAX = 999;
+const ABILITY_FILTER_DEFINITIONS = Object.freeze({
+  velocity: { min: 30, max: 175 },
+  control: { min: 0, max: 100 },
+  stamina: { min: 0, max: 100 },
+  trajectory: { min: 1, max: 4 },
+  meat: { min: 0, max: 100 },
+  power: { min: 0, max: 100 },
+  run_speed: { min: 0, max: 100 },
+  arm_strength: { min: 0, max: 100 },
+  fielding: { min: 0, max: 100 },
+  catching: { min: 0, max: 100 },
+});
+const ALLOWED_ABILITY_FILTER_KEYS = Object.keys(ABILITY_FILTER_DEFINITIONS);
+const ALLOWED_PLAYER_SORT_BY = [
+  "updated_at",
+  "name",
+  "school_name",
+  "admission_year",
+  "school_grade",
+  "roster_status",
+  "snapshot",
+  ...ALLOWED_ABILITY_FILTER_KEYS,
+];
 const REQUIRED_UPDATE_FIELDS = [
   "name",
   "player_type",
@@ -374,10 +388,35 @@ function validateOptionalAdmissionYearSearch(value, fieldName) {
   });
 }
 
+function normalizeAbilityFilterQuery(query = {}) {
+  const abilityKey = validateOptionalEnum(query.ability_key, "ability_key", ALLOWED_ABILITY_FILTER_KEYS);
+  const abilityMinRaw = parseOptionalText(query.ability_min);
+  const abilityMaxRaw = parseOptionalText(query.ability_max);
+
+  if (!abilityKey) {
+    return { abilityKey: null, abilityMin: null, abilityMax: null };
+  }
+
+  if (abilityMinRaw === null && abilityMaxRaw === null) {
+    return { abilityKey: null, abilityMin: null, abilityMax: null };
+  }
+
+  const definition = ABILITY_FILTER_DEFINITIONS[abilityKey];
+  const abilityMin = parseOptionalInteger(abilityMinRaw, "ability_min", definition);
+  const abilityMax = parseOptionalInteger(abilityMaxRaw, "ability_max", definition);
+
+  if (abilityMin !== null && abilityMax !== null && abilityMin > abilityMax) {
+    throw createHttpError(400, "ability_min must be less than or equal to ability_max.");
+  }
+
+  return { abilityKey, abilityMin, abilityMax };
+}
+
 function normalizePlayerListQuery(query = {}) {
   const legacyPositionType = validateOptionalEnum(query.position_type, "position_type", ALLOWED_PLAYER_POSITION_TYPES);
   const mainPositionFallback = legacyPositionType === "pitcher" ? "投手" : legacyPositionType === "fielder" ? "全野手" : null;
   const legacyAdmissionYear = validateOptionalAdmissionYearSearch(query.admission_year, "admission_year");
+  const abilityFilter = normalizeAbilityFilterQuery(query);
 
   return {
     schoolId: parseOptionalInteger(query.school_id, "school_id", { min: 1 }),
@@ -398,6 +437,7 @@ function normalizePlayerListQuery(query = {}) {
     snapshotLabel: validateOptionalEnum(query.snapshot_label, "snapshot_label", ALLOWED_SNAPSHOT_LABELS),
     sortBy: validateOptionalEnum(query.sort_by, "sort_by", ALLOWED_PLAYER_SORT_BY) ?? "updated_at",
     sortOrder: validateOptionalEnum(query.sort_order, "sort_order", ALLOWED_SORT_ORDERS) ?? "desc",
+    ...abilityFilter,
   };
 }
 

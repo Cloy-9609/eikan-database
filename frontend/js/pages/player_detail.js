@@ -1066,6 +1066,7 @@ function renderDefensePositionNode(
     mainPosition,
     subPositionByName,
   });
+  const displayRoleLabel = roleLabel === "未設定" ? "-" : roleLabel;
   const canSelectForEdit = !archivedSchool && Boolean(snapshot?.id);
   const isSelected = canSelectForEdit && selectedPosition === slot.position;
   const tagName = canSelectForEdit ? "button" : "div";
@@ -1080,6 +1081,7 @@ function renderDefensePositionNode(
   const interactionClass = canSelectForEdit ? "is-clickable" : "is-readonly";
   const selectedClass = isSelected ? "is-selected" : "";
   const actionLabel = canSelectForEdit ? "。選択すると編集確認を表示" : "";
+  const accessibleLabel = `${slot.label}: ${roleLabel}${actionLabel}`;
   const suitability = isSub && subPosition?.suitability_value
     ? `<span class="defense-position-suitability">${escapeHtml(subPosition.suitability_value)}</span>`
     : "";
@@ -1090,11 +1092,12 @@ function renderDefensePositionNode(
       data-defense-position="${escapeAttribute(slot.position)}"
       ${editAttributes}
       style="--defense-x: ${escapeAttribute(slot.x)}%; --defense-y: ${escapeAttribute(slot.y)}%;"
-      aria-label="${escapeAttribute(`${slot.label}: ${roleLabel}${actionLabel}`)}"
+      aria-label="${escapeAttribute(accessibleLabel)}"
+      title="${escapeAttribute(accessibleLabel)}"
     >
       <span class="defense-position-abbr" aria-hidden="true">${escapeHtml(slot.shortLabel)}</span>
       <span class="defense-position-name">${escapeHtml(slot.label)}</span>
-      <span class="defense-position-role">${escapeHtml(roleLabel)}</span>
+      <span class="defense-position-role">${escapeHtml(displayRoleLabel)}</span>
       ${suitability}
     </${tagName}>
   `;
@@ -1740,7 +1743,7 @@ function renderPlayerLegacy(refs, seriesResponse) {
     const basicInfo = renderDefinitionRows([
       { field: "grade", label: "学年", valueHtml: formatValue(currentSnapshot.grade) },
       { field: "admission_year", label: "入学年", valueHtml: formatValue(playerSeries.admission_year) },
-      { field: "prefecture", label: "出身都道府県", valueHtml: formatValue(playerSeries.prefecture) },
+      { field: "prefecture", label: "出身地", valueHtml: formatValue(playerSeries.prefecture) },
       {
         field: "main_position",
         label: "メインポジション",
@@ -1902,7 +1905,7 @@ function renderPlayerLegacy(refs, seriesResponse) {
   const basicInfo = renderDefinitionRows([
     { field: "grade", label: "学年", valueHtml: formatValue(player.grade) },
     { field: "admission_year", label: "入学年", valueHtml: formatValue(player.admission_year) },
-    { field: "prefecture", label: "出身都道府県", valueHtml: formatValue(player.prefecture) },
+    { field: "prefecture", label: "出身地", valueHtml: formatValue(player.prefecture) },
     { field: "main_position", label: "メインポジション", valueHtml: formatValue(player.main_position) },
     { field: "player_type", label: "選手種別", valueHtml: formatPlayerType(player.player_type) },
     { field: "throw_bat", label: "投打", valueHtml: formatThrowBat(player) },
@@ -2054,7 +2057,7 @@ function renderPlayer(refs, seriesResponse) {
   const basicInfo = renderDefinitionRows([
     { field: "grade", label: "学年", valueHtml: formatValue(currentSnapshot.grade) },
     { field: "admission_year", label: "入学年", valueHtml: formatValue(playerSeries.admission_year) },
-    { field: "prefecture", label: "出身都道府県", valueHtml: formatValue(playerSeries.prefecture) },
+    { field: "prefecture", label: "出身地", valueHtml: formatValue(playerSeries.prefecture) },
     {
       field: "main_position",
       label: "メインポジション",

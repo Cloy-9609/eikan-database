@@ -117,7 +117,7 @@ function renderForm(form, school) {
       </div>
     </div>
     <div class="player-form-row">
-      <label class="player-form-label" for="prefecture">都道府県</label>
+      <label class="player-form-label" for="prefecture">出身地</label>
       <div class="player-form-control">
         <select id="prefecture" name="prefecture" required>
           <option value="">選択してください</option>

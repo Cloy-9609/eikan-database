@@ -9,6 +9,7 @@
     "start": "node backend/app.js",
     "db:reset": "node scripts/setup_db.js",
     "db:migrate": "node scripts/migrate.js",
+    "db:check": "node scripts/diagnostics/check-data-integrity.js",
     "check:backend": "node scripts/check-backend.js",
     "check:frontend": "node scripts/check-frontend.js",
     "check:all": "node scripts/check-all.js",
