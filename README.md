@@ -1,6 +1,6 @@
 # eikan-database
 
-栄冠ナイン風の学校・選手データを管理するためのローカル Web アプリです。
+栄冠ナインの学校・選手データを管理するためのローカル Web アプリです。
 `Express + SQLite + 静的フロントエンド` で構成されています。
 
 ## 現在の状態
@@ -117,7 +117,9 @@ node scripts/diagnostics/check-data-integrity.js
 - Codex は `codex/staging` から `codex/<task-name>` 形式の作業ブランチを作成します。
 - 変更後は `npm run check:all` と `npm run diff:check` を実行してから commit します。
 - 作業ブランチを GitHub へ push し、`codex/staging` 向けの通常 Pull Request を作成します。
-- 高リスク、または中リスクでも大規模なタスクは、Pull Request 作成までで止め、Codex は merge しません。
+- 低リスク、または中リスクでも小〜中規模のタスクは、確認コマンドが成功し、Pull Request が競合なく merge 可能な場合に限り、Codex が `codex/staging` へ merge できます。
+- 高リスク、または中リスクでも大規模なタスクは Pull Request 作成までで停止し、ユーザーが確認・merge します。
+- Codex は `develop` や `main` へ自動 merge しません。
 
 ### Codex作業のリスク判断例
 

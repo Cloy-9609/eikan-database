@@ -36,11 +36,11 @@
 
 - `players.html` → `player_detail.html`
   - 一覧から詳細へ遷移
-  - snapshot表示時点を指定している場合は、選択中の時点を引き継ぐ導線を持つ
+  - snapshot表示時点を指定している場合は、選択時点に対応する `players.id` を使って詳細画面へ遷移する
 
 - `players.html` → `player_edit.html`
   - 一覧から編集へ遷移
-  - snapshot表示時点を指定している場合は、選択中の時点を引き継ぐ導線を持つ
+  - snapshot表示時点を指定している場合は、選択時点に対応する `players.id` を使って編集画面へ遷移する
 
 - `players.html` → `school_detail.html`
   - 一覧内の学校リンクから学校詳細へ遷移
