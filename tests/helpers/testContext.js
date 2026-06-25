@@ -107,7 +107,7 @@ async function createTestContext() {
       port,
       baseUrl,
       db: dbModule,
-      requestJson: (options) => requestJson({ baseUrl, ...options }),
+      requestJson: (options = {}) => requestJson({ ...options, baseUrl }),
       cleanup,
     };
   } catch (error) {

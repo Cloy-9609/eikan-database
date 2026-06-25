@@ -13,7 +13,12 @@ test("core test foundation uses an isolated database and temporary HTTP server",
   assert.notEqual(path.resolve(context.databasePath), path.resolve(context.defaultDatabasePath));
   assert.ok(context.databasePath.startsWith(context.tempDirectory));
   assert.ok(fs.existsSync(context.databasePath), "schema initialization should create the temp DB");
-  assert.notEqual(context.port, 3000);
+  assert.equal(Number.isInteger(context.port), true);
+  assert.equal(context.port > 0, true);
+  const serverAddress = context.server.address();
+  assert.equal(typeof serverAddress, "object");
+  assert.notEqual(serverAddress, null);
+  assert.equal(serverAddress.port, context.port);
   assert.equal(context.server.listening, true);
 
   const tables = await context.db.all(
@@ -25,6 +30,14 @@ test("core test foundation uses an isolated database and temporary HTTP server",
   assert.equal(listBefore.status, 200);
   assert.equal(listBefore.body.success, true);
   assert.deepEqual(listBefore.body.data, []);
+
+  const baseUrlOverrideResponse = await context.requestJson({
+    baseUrl: "http://127.0.0.1:1",
+    path: "/api/schools",
+  });
+  assert.equal(baseUrlOverrideResponse.status, 200);
+  assert.equal(baseUrlOverrideResponse.body.success, true);
+  assert.deepEqual(baseUrlOverrideResponse.body.data, []);
 
   const createResponse = await context.requestJson({
     method: "POST",
