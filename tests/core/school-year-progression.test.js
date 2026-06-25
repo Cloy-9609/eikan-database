@@ -86,6 +86,7 @@ async function createFourSeriesSchool(name = "基本") {
     await createSeriesWithState(school.id, "C", 3, "active", "y2_autumn"),
     await createSeriesWithState(school.id, "D", 3, "graduated", "graduation"),
   ];
+  await addPlayerResultsForSeries(series);
   return { school, series };
 }
 
@@ -115,26 +116,184 @@ async function getLogPlayers(logId) {
   );
 }
 
+async function createPlayerResult(playerId, overrides = {}) {
+  const result = {
+    result_label: "summer",
+    batting_average: null,
+    home_runs: null,
+    runs_batted_in: null,
+    stolen_bases: null,
+    earned_run_average: null,
+    wins: null,
+    losses: null,
+    holds: null,
+    saves: null,
+    ...overrides,
+  };
+  await context.db.run(
+    `INSERT INTO player_results (
+      player_id,
+      result_label,
+      batting_average,
+      home_runs,
+      runs_batted_in,
+      stolen_bases,
+      earned_run_average,
+      wins,
+      losses,
+      holds,
+      saves
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      playerId,
+      result.result_label,
+      result.batting_average,
+      result.home_runs,
+      result.runs_batted_in,
+      result.stolen_bases,
+      result.earned_run_average,
+      result.wins,
+      result.losses,
+      result.holds,
+      result.saves,
+    ]
+  );
+}
+
+async function addPlayerResultsForSeries(series) {
+  if (series.length < 2) {
+    return;
+  }
+
+  await createPlayerResult(series[0].playerId, {
+    result_label: "summer",
+    batting_average: 0.321,
+    home_runs: 3,
+    runs_batted_in: 12,
+    stolen_bases: 4,
+  });
+  await createPlayerResult(series[1].playerId, {
+    result_label: "autumn",
+    earned_run_average: 2.45,
+    wins: 5,
+    losses: 1,
+    saves: 2,
+  });
+}
+
 async function captureSnapshotState(schoolId) {
   const players = await context.db.all(
-    `SELECT id, player_series_id, snapshot_label, total_stars, velocity, power, snapshot_note
-     FROM players WHERE school_id = ? ORDER BY id ASC`,
+    `SELECT
+      id,
+      player_series_id,
+      school_id,
+      name,
+      player_type,
+      player_type_note,
+      total_stars,
+      prefecture,
+      grade,
+      admission_year,
+      snapshot_label,
+      snapshot_note,
+      main_position,
+      throwing_hand,
+      batting_hand,
+      is_reincarnated,
+      is_genius,
+      velocity,
+      control,
+      stamina,
+      trajectory,
+      meat,
+      power,
+      run_speed,
+      arm_strength,
+      fielding,
+      catching,
+      evidence_image_path,
+      created_at,
+      updated_at
+    FROM players
+    WHERE school_id = ?
+    ORDER BY id ASC`,
     [schoolId]
   );
-  const relationCounts = {};
-  for (const table of ["player_pitch_types", "player_special_abilities", "player_sub_positions", "player_results"]) {
-    const row = await context.db.get(
-      `SELECT COUNT(*) AS count FROM ${table} INNER JOIN players ON players.id = ${table}.player_id WHERE players.school_id = ?`,
-      [schoolId]
-    );
-    relationCounts[table] = row.count;
-  }
-  return { players, relationCounts };
+  const pitchTypes = await context.db.all(
+    `SELECT
+      player_pitch_types.id,
+      player_pitch_types.player_id,
+      player_pitch_types.pitch_name,
+      player_pitch_types.level,
+      player_pitch_types.is_original,
+      player_pitch_types.original_pitch_name
+    FROM player_pitch_types
+    INNER JOIN players ON players.id = player_pitch_types.player_id
+    WHERE players.school_id = ?
+    ORDER BY player_pitch_types.id ASC`,
+    [schoolId]
+  );
+  const specialAbilities = await context.db.all(
+    `SELECT
+      player_special_abilities.id,
+      player_special_abilities.player_id,
+      player_special_abilities.ability_name,
+      player_special_abilities.ability_category,
+      player_special_abilities.rank_value
+    FROM player_special_abilities
+    INNER JOIN players ON players.id = player_special_abilities.player_id
+    WHERE players.school_id = ?
+    ORDER BY player_special_abilities.id ASC`,
+    [schoolId]
+  );
+  const subPositions = await context.db.all(
+    `SELECT
+      player_sub_positions.id,
+      player_sub_positions.player_id,
+      player_sub_positions.position_name,
+      player_sub_positions.suitability_value,
+      player_sub_positions.defense_value
+    FROM player_sub_positions
+    INNER JOIN players ON players.id = player_sub_positions.player_id
+    WHERE players.school_id = ?
+    ORDER BY player_sub_positions.id ASC`,
+    [schoolId]
+  );
+  const playerResults = await context.db.all(
+    `SELECT
+      player_results.id,
+      player_results.player_id,
+      player_results.result_label,
+      player_results.batting_average,
+      player_results.home_runs,
+      player_results.runs_batted_in,
+      player_results.stolen_bases,
+      player_results.earned_run_average,
+      player_results.wins,
+      player_results.losses,
+      player_results.holds,
+      player_results.saves
+    FROM player_results
+    INNER JOIN players ON players.id = player_results.player_id
+    WHERE players.school_id = ?
+    ORDER BY player_results.id ASC`,
+    [schoolId]
+  );
+
+  return {
+    players,
+    relations: {
+      player_pitch_types: pitchTypes,
+      player_special_abilities: specialAbilities,
+      player_sub_positions: subPositions,
+      player_results: playerResults,
+    },
+  };
 }
 
 function assertSnapshotStateUnchanged(before, after) {
   assert.deepEqual(after.players, before.players);
-  assert.deepEqual(after.relationCounts, before.relationCounts);
+  assert.deepEqual(after.relations, before.relations);
 }
 
 function assertProgressedRows(series, rows) {
@@ -167,7 +326,13 @@ test("player_seriesが0件の学校は年度進行を409で拒否し、部分更
   const afterSchool = await getSchool(school.id);
   assert.equal(afterSchool.current_year, beforeSchool.current_year);
   assert.equal((await getLogs(school.id)).length, 0);
-  const logPlayers = await context.db.get("SELECT COUNT(*) AS count FROM school_year_progress_log_players", []);
+  const logPlayers = await context.db.get(
+    `SELECT COUNT(*) AS count
+     FROM school_year_progress_log_players AS log_players
+     INNER JOIN school_year_progress_logs AS logs ON logs.id = log_players.log_id
+     WHERE logs.school_id = ?`,
+    [school.id]
+  );
   assert.equal(logPlayers.count, 0);
   assert.equal((await getSeriesRows(school.id)).length, 0);
 });
@@ -324,11 +489,13 @@ test("2039年の学校は年度進行できず状態を変更しない", async (
 });
 
 test("progress/undoのID・不存在validation", async () => {
+  const row = await context.db.get("SELECT COALESCE(MAX(id), 0) AS max_id FROM schools");
+  const missingSchoolId = Number(row.max_id) + 1000;
   const cases = [
     { method: "POST", path: "/api/schools/not-number/progress-year", status: 400 },
-    { method: "POST", path: "/api/schools/999999/progress-year", status: 404 },
+    { method: "POST", path: `/api/schools/${missingSchoolId}/progress-year`, status: 404 },
     { method: "POST", path: "/api/schools/not-number/progress-year/undo", status: 400 },
-    { method: "POST", path: "/api/schools/999999/progress-year/undo", status: 404 },
+    { method: "POST", path: `/api/schools/${missingSchoolId}/progress-year/undo`, status: 404 },
   ];
 
   for (const item of cases) {
