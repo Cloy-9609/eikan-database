@@ -448,7 +448,17 @@ function buildSnapshotSeedFromPrevious(previousSnapshot, snapshotLabel) {
       snapshot_label: snapshotLabel,
       snapshot_note: null,
       main_position: null,
-      total_stars: 0,
+      total_stars: TOTAL_STARS_UNSET_VALUE,
+      velocity: null,
+      control: null,
+      stamina: null,
+      trajectory: null,
+      meat: null,
+      power: null,
+      run_speed: null,
+      arm_strength: null,
+      fielding: null,
+      catching: null,
       evidence_image_path: null,
       pitch_types: [],
       special_abilities: [],
@@ -516,19 +526,46 @@ function findNearestPreviousSnapshotSummary(snapshots, snapshotLabel) {
     return selectLatestSnapshotFallback(snapshots);
   }
 
-  const orderedOfficialSnapshots = snapshots
-    .filter((snapshot) => getSnapshotOrder(snapshot.snapshot_label) !== null)
-    .sort((left, right) => getSnapshotOrder(left.snapshot_label) - getSnapshotOrder(right.snapshot_label));
+  return snapshots
+    .filter((snapshot) => {
+      const snapshotOrder = getSnapshotOrder(snapshot.snapshot_label);
+      return snapshotOrder !== null && snapshotOrder < targetOrder;
+    })
+    .sort((left, right) => getSnapshotOrder(right.snapshot_label) - getSnapshotOrder(left.snapshot_label))[0] ?? null;
+}
 
-  for (let index = orderedOfficialSnapshots.length - 1; index >= 0; index -= 1) {
-    const candidate = orderedOfficialSnapshots[index];
+function buildSnapshotSeedResponse(playerSeriesId, requestedSnapshotLabel, sourceSnapshotSummary, seed) {
+  return {
+    player_series_id: playerSeriesId,
+    target_snapshot_label: requestedSnapshotLabel,
+    target_snapshot_label_display: SNAPSHOT_LABELS[requestedSnapshotLabel] ?? requestedSnapshotLabel,
+    source_snapshot: sourceSnapshotSummary
+      ? {
+          id: sourceSnapshotSummary.id,
+          snapshot_label: sourceSnapshotSummary.snapshot_label,
+          snapshot_label_display:
+            SNAPSHOT_LABELS[sourceSnapshotSummary.snapshot_label] ?? sourceSnapshotSummary.snapshot_label,
+          snapshot_order: getSnapshotOrder(sourceSnapshotSummary.snapshot_label),
+        }
+      : null,
+    seed,
+  };
+}
 
-    if (getSnapshotOrder(candidate.snapshot_label) < targetOrder) {
-      return candidate;
-    }
+async function resolveSnapshotSeedForSeries(playerSeriesId, requestedSnapshotLabel) {
+  const snapshots = await playerModel.findSnapshotsBySeriesId(playerSeriesId);
+
+  if (snapshots.some((snapshot) => snapshot.snapshot_label === requestedSnapshotLabel)) {
+    throw createHttpError(409, "This snapshot_label already exists in the selected player_series.");
   }
 
-  return selectLatestSnapshotFallback(snapshots);
+  const previousSnapshotSummary = findNearestPreviousSnapshotSummary(snapshots, requestedSnapshotLabel);
+  const previousSnapshot = previousSnapshotSummary
+    ? await playerModel.findById(previousSnapshotSummary.id)
+    : null;
+  const seed = buildSnapshotSeedFromPrevious(previousSnapshot, requestedSnapshotLabel);
+
+  return buildSnapshotSeedResponse(playerSeriesId, requestedSnapshotLabel, previousSnapshotSummary, seed);
 }
 
 function validatePitchTypes(items) {
@@ -745,17 +782,8 @@ async function addSnapshotToSeries(seriesId, payload = {}) {
     "snapshot_label",
     ALLOWED_SNAPSHOT_LABELS
   );
-  const snapshots = await playerModel.findSnapshotsBySeriesId(playerSeriesId);
-
-  if (snapshots.some((snapshot) => snapshot.snapshot_label === requestedSnapshotLabel)) {
-    throw createHttpError(409, "This snapshot_label already exists in the selected player_series.");
-  }
-
-  const previousSnapshotSummary = findNearestPreviousSnapshotSummary(snapshots, requestedSnapshotLabel);
-  const previousSnapshot = previousSnapshotSummary
-    ? await playerModel.findById(previousSnapshotSummary.id)
-    : null;
-  const seededPayload = buildSnapshotSeedFromPrevious(previousSnapshot, requestedSnapshotLabel);
+  const snapshotSeed = await resolveSnapshotSeedForSeries(playerSeriesId, requestedSnapshotLabel);
+  const seededPayload = snapshotSeed.seed;
   const validatedPayload = validatePlayerPayload({
     school_id: playerSeries.school_id,
     name: playerSeries.name,
@@ -780,6 +808,23 @@ async function addSnapshotToSeries(seriesId, payload = {}) {
   } catch (error) {
     return mapSqliteConstraintError(error);
   }
+}
+
+async function getSnapshotSeedForSeries(seriesId, query = {}) {
+  const playerSeriesId = parseRequiredInteger(seriesId, "player_series id", { min: 1 });
+  const playerSeries = await playerSeriesModel.findById(playerSeriesId);
+
+  if (!playerSeries) {
+    throw createHttpError(404, "Player series not found.");
+  }
+
+  const requestedSnapshotLabel = validateEnum(
+    parseRequiredText(query.snapshot_label, "snapshot_label"),
+    "snapshot_label",
+    OFFICIAL_SNAPSHOT_LABELS
+  );
+
+  return resolveSnapshotSeedForSeries(playerSeriesId, requestedSnapshotLabel);
 }
 
 async function updatePlayer(id, payload) {
@@ -908,5 +953,6 @@ module.exports = {
   getPlayerSeriesById,
   createPlayer,
   addSnapshotToSeries,
+  getSnapshotSeedForSeries,
   updatePlayer,
 };
