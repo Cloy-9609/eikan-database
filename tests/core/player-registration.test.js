@@ -54,6 +54,8 @@ test("POST /api/players creates a player_series, first snapshot, and relations",
   const detailResponse = await context.requestJson({ path: `/api/players/${player.id}` });
   assert.equal(detailResponse.status, 200);
   assert.deepEqual(stripRelationIds(detailResponse.body.data.pitch_types), payload.pitch_types);
+  assert.deepEqual(stripRelationIds(detailResponse.body.data.special_abilities), payload.special_abilities);
+  assert.deepEqual(stripRelationIds(detailResponse.body.data.sub_positions), payload.sub_positions);
 
   const seriesResponse = await context.requestJson({ path: `/api/player-series/${player.player_series_id}` });
   assert.equal(seriesResponse.status, 200);

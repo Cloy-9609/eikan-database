@@ -46,6 +46,33 @@ function assertAbilities(player, expected) {
   }
 }
 
+function sortByStableFields(items, keys) {
+  return [...items].sort((left, right) => {
+    for (const key of keys) {
+      const compared = String(left[key] ?? "").localeCompare(String(right[key] ?? ""));
+      if (compared !== 0) {
+        return compared;
+      }
+    }
+    return 0;
+  });
+}
+
+function assertRelationsEqual(actual, expected) {
+  assert.deepEqual(
+    sortByStableFields(stripRelationIds(actual.pitch_types), ["pitch_name", "level"]),
+    sortByStableFields(stripRelationIds(expected.pitch_types), ["pitch_name", "level"])
+  );
+  assert.deepEqual(
+    sortByStableFields(stripRelationIds(actual.special_abilities), ["ability_category", "ability_name", "rank_value"]),
+    sortByStableFields(stripRelationIds(expected.special_abilities), ["ability_category", "ability_name", "rank_value"])
+  );
+  assert.deepEqual(
+    sortByStableFields(stripRelationIds(actual.sub_positions), ["position_name", "suitability_value", "defense_value"]),
+    sortByStableFields(stripRelationIds(expected.sub_positions), ["position_name", "suitability_value", "defense_value"])
+  );
+}
+
 function assertEmptySeed(seed) {
   assert.equal(seed.main_position, null);
   assert.equal(seed.total_stars, 0);
@@ -71,9 +98,7 @@ test("seed uses the nearest previous official snapshot, skipping missing middle 
   assert.equal(seed.main_position, autumn.main_position);
   assert.equal(seed.total_stars, autumn.total_stars);
   assertAbilities(seed, autumn);
-  assert.deepEqual(stripRelationIds(seed.pitch_types), stripRelationIds(autumn.pitch_types));
-  assert.deepEqual(stripRelationIds(seed.special_abilities), stripRelationIds(autumn.special_abilities));
-  assert.deepEqual(stripRelationIds(seed.sub_positions), stripRelationIds(autumn.sub_positions));
+  assertRelationsEqual(seed, autumn);
   assert.equal(seed.snapshot_note, null);
   assert.equal(seed.evidence_image_path, null);
 });
@@ -86,13 +111,25 @@ test("POST snapshot persists seeded values as independent relation rows and lets
   assert.equal(created.snapshot_note, null);
   assert.equal(created.evidence_image_path, null);
   assertAbilities(created, source);
-  assert.deepEqual(stripRelationIds(created.pitch_types), stripRelationIds(source.pitch_types));
+  assertRelationsEqual(created, source);
   assert.notDeepEqual(created.pitch_types.map((r) => r.id), source.pitch_types.map((r) => r.id));
+  assert.notDeepEqual(created.special_abilities.map((r) => r.id), source.special_abilities.map((r) => r.id));
+  assert.notDeepEqual(created.sub_positions.map((r) => r.id), source.sub_positions.map((r) => r.id));
 
-  const sourcePitchCount = await context.db.get("SELECT COUNT(*) AS count FROM player_pitch_types WHERE player_id = ?", [source.id]);
-  const createdPitchCount = await context.db.get("SELECT COUNT(*) AS count FROM player_pitch_types WHERE player_id = ?", [created.id]);
-  assert.equal(sourcePitchCount.count, source.pitch_types.length);
-  assert.equal(createdPitchCount.count, source.pitch_types.length);
+  for (const [table, relationKey] of [
+    ["player_pitch_types", "pitch_types"],
+    ["player_special_abilities", "special_abilities"],
+    ["player_sub_positions", "sub_positions"],
+  ]) {
+    const sourceCount = await context.db.get(`SELECT COUNT(*) AS count FROM ${table} WHERE player_id = ?`, [source.id]);
+    const createdCount = await context.db.get(`SELECT COUNT(*) AS count FROM ${table} WHERE player_id = ?`, [created.id]);
+    assert.equal(sourceCount.count, source[relationKey].length);
+    assert.equal(createdCount.count, source[relationKey].length);
+  }
+
+  const sourceAfterCreate = await context.requestJson({ path: `/api/players/${source.id}` });
+  assert.equal(sourceAfterCreate.status, 200);
+  assertRelationsEqual(sourceAfterCreate.body.data, source);
 
   const overridePitch = [{ pitch_name: "シュート", level: 6, is_original: 0, original_pitch_name: null }];
   const overrideAbility = [{ ability_name: "流し打ち", ability_category: "batter_unranked", rank_value: null }];
@@ -117,25 +154,37 @@ test("empty seed does not fall back to future snapshots", async () => {
 
   const created = await addSnapshot(future.player_series_id, { snapshot_label: "entrance", main_position: "捕手" });
   assert.equal(created.main_position, "捕手");
-  assert.equal(created.velocity, null);
-  assert.equal(created.power, null);
+  assert.equal(created.total_stars, 0);
+  assertAbilities(created, { velocity: null, control: null, stamina: null, trajectory: null, meat: null, power: null, run_speed: null, arm_strength: null, fielding: null, catching: null });
   assert.deepEqual(created.pitch_types, []);
   assert.deepEqual(created.special_abilities, []);
   assert.deepEqual(created.sub_positions, []);
+  assert.equal(created.snapshot_note, null);
+  assert.equal(created.evidence_image_path, null);
+  assert.notEqual(created.velocity, future.velocity);
+  assert.notEqual(created.power, future.power);
 });
 
 test("seed source is official order, not creation order, updated_at, or max id", async () => {
   const entrance = await createPlayer({ name: "順序非依存", snapshot_label: "entrance", velocity: 120 });
-  const spring = await addSnapshot(entrance.player_series_id, { snapshot_label: "y1_spring", velocity: 150 });
-  const summer = await addSnapshot(entrance.player_series_id, { snapshot_label: "y1_summer", velocity: 135 });
-  await context.db.run("UPDATE players SET updated_at = '2099-01-01 00:00:00' WHERE id = ?", [entrance.id]);
+  const summer = await addSnapshot(entrance.player_series_id, { snapshot_label: "y1_summer", velocity: 135, power: 45 });
+  const spring = await addSnapshot(entrance.player_series_id, { snapshot_label: "y1_spring", velocity: 150, power: 88 });
+  assert.ok(spring.id > summer.id);
+
+  const maxIdRow = await context.db.get("SELECT MAX(id) AS max_id FROM players WHERE player_series_id = ?", [entrance.player_series_id]);
+  assert.equal(maxIdRow.max_id, spring.id);
+
   await context.db.run("UPDATE players SET updated_at = '2000-01-01 00:00:00' WHERE id = ?", [summer.id]);
-  await context.db.run("UPDATE players SET updated_at = '1999-01-01 00:00:00' WHERE id = ?", [spring.id]);
+  await context.db.run("UPDATE players SET updated_at = '2099-01-01 00:00:00' WHERE id = ?", [spring.id]);
+  await context.db.run("UPDATE players SET updated_at = '2088-01-01 00:00:00' WHERE id = ?", [entrance.id]);
 
   const seedResponse = await context.requestJson({ path: `/api/player-series/${entrance.player_series_id}/snapshot-seed?snapshot_label=y1_autumn` });
   assert.equal(seedResponse.status, 200);
   assert.equal(seedResponse.body.data.source_snapshot.snapshot_label, "y1_summer");
   assert.equal(seedResponse.body.data.seed.velocity, summer.velocity);
+  assert.equal(seedResponse.body.data.seed.power, summer.power);
+  assert.notEqual(seedResponse.body.data.seed.velocity, spring.velocity);
+  assert.notEqual(seedResponse.body.data.seed.power, spring.power);
 });
 
 test("duplicate snapshot labels are rejected without mutating snapshots or relations", async () => {
@@ -185,6 +234,15 @@ test("legacy post_tournament remains readable but is not a seed target or offici
   const list = await context.requestJson({ path: "/api/players?snapshot_label=post_tournament" });
   assert.equal(list.status, 200);
   assert.ok(list.body.data.some((item) => item.player_series_id === legacy.player_series_id));
+
+  const officialSeedWithoutOfficialSource = await context.requestJson({ path: `/api/player-series/${legacy.player_series_id}/snapshot-seed?snapshot_label=y1_summer` });
+  assert.equal(officialSeedWithoutOfficialSource.status, 200);
+  assert.equal(officialSeedWithoutOfficialSource.body.data.source_snapshot, null);
+  assertEmptySeed(officialSeedWithoutOfficialSource.body.data.seed);
+  assert.notEqual(officialSeedWithoutOfficialSource.body.data.seed.velocity, legacy.velocity);
+  assert.deepEqual(officialSeedWithoutOfficialSource.body.data.seed.pitch_types, []);
+  assert.deepEqual(officialSeedWithoutOfficialSource.body.data.seed.special_abilities, []);
+  assert.deepEqual(officialSeedWithoutOfficialSource.body.data.seed.sub_positions, []);
 
   const legacyTarget = await context.requestJson({ path: `/api/player-series/${legacy.player_series_id}/snapshot-seed?snapshot_label=post_tournament` });
   assert.equal(legacyTarget.status, 400);
