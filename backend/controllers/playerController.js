@@ -65,6 +65,19 @@ async function getPlayerSeriesById(req, res, next) {
   }
 }
 
+async function getSnapshotSeedForSeries(req, res, next) {
+  try {
+    const snapshotSeed = await playerService.getSnapshotSeedForSeries(req.params.id, req.query);
+    res.json({
+      success: true,
+      data: snapshotSeed,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function createPlayer(req, res, next) {
   try {
     const player = await playerService.createPlayer(req.body);
@@ -110,6 +123,7 @@ module.exports = {
   getPlayerRelationOptions,
   getPlayerDetailById,
   getPlayerSeriesById,
+  getSnapshotSeedForSeries,
   createPlayer,
   addSnapshotToSeries,
   updatePlayer,
