@@ -73,7 +73,7 @@
 - `catching`
 - `total_stars`
 - `evidence_image_path`
-- `snapshot_memo`
+- `snapshot_note`
 - `created_at`
 - `updated_at`
 
@@ -152,8 +152,8 @@
 - `throwing_hand` / `batting_hand`: 親の共通情報として扱い、新規作成時は親情報をそのまま適用する。互換都合で子にも値を持たせる場合は、親値と一致させる。
 - 能力値と `total_stars`: 引き継ぎ元がある場合はコピーし、その時点に合わせて編集する。引き継ぎ元がない場合は空または未設定値で開始する。
 - 変化球、特殊能力、サブポジション: 引き継ぎ元がある場合は内容を clone して初期値にする。引き継ぎ元がない場合は空配列にする。
-- `evidence_image_path`: 初期値としてコピーしない。新時点ごとに別証跡を持つ想定とし、空で開始する。ただし、新規作成画面でユーザーが入力した値は保存できる。
-- `snapshot_memo`: 初期値としてコピーしない。空で開始する。ただし、新規作成画面でユーザーが入力した値は保存できる。
+- `evidence_image_path`: 初期値としてコピーしない。新時点ごとに別証跡を持つ想定とし、空で開始する。API payload として新しい値が送られた場合は保存可能だが、現行の `player_edit` には入力 UI はなく、今回は追加しない。
+- `snapshot_note`: 初期値としてコピーしない。空で開始する。API payload として新しい値が送られた場合は保存可能だが、現行の `player_edit` には入力 UI はなく、今回は追加しない。
 
 ## 特殊能力・変化球の扱い方針
 
@@ -197,7 +197,7 @@
 - `player_series` テーブル追加
 - `players.player_series_id` 追加
 - `player_series_id + snapshot_label` の一意制約追加
-- `snapshot_memo`、`common_memo` など新規メモ欄追加の要否整理
+- `snapshot_note`、`common_memo` など新規メモ欄追加の要否整理
 - `snapshot_label` の許可値を正式9値へ統一
 - `grade` を導出値扱いに寄せるか、互換列として残すかを決定
 
