@@ -13,7 +13,10 @@
     "check:backend": "node scripts/check-backend.js",
     "check:frontend": "node scripts/check-frontend.js",
     "check:all": "node scripts/check-all.js",
-    "diff:check": "git diff --check"
+    "diff:check": "git diff --check",
+    "db:check:test": "node scripts/diagnostics/check-test-database.js",
+    "test:core": "node scripts/run-core-tests.js",
+    "verify:all": "node scripts/run-verify-all.js"
   },
   "dependencies": {
     "express": "^5.2.1",

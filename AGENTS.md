@@ -708,3 +708,20 @@ If a UI task references パワプロ-like design, follow the safety rule:
 Use the idea and interaction pattern only, then redesign as an original baseball-game-like UI.
 
 Do not use official assets, copied screenshots, or exact UI reproduction.
+---
+
+## 18. Core Regression Test Foundation
+
+- Core regression tests use Node.js standard `node:test` and `node:assert/strict`.
+- Do not add Jest, Vitest, Mocha, Playwright, Supertest, or other external test frameworks for core tests.
+- Run core tests with `npm run test:core`.
+- Run temporary DB diagnostics with `npm run db:check:test`.
+- Run the standard all-in-one verification with `npm run verify:all`.
+- Core tests must use only temporary SQLite databases under the OS temp directory.
+- Set `EIKAN_DB_PATH` before requiring `backend/app.js`, `backend/db/database.js`, or backend modules that may load the DB module.
+- Start test servers with `startServer(0)` and read the actual port from `server.address()`.
+- Do not use fixed test ports such as 3000 or 3001; core tests must coexist with a development server on port 3000.
+- Cleanup must close the HTTP server, call `cleanupHotReload()`, close the DB connection, and remove the temporary directory.
+- Do not write test fixtures to `database/eikan-app.sqlite`.
+- Core test files are initially run serially with `--test-concurrency=1`.
+- Task 6.3-1 provides only the foundation and a smoke test; player snapshot, school progression, and players search/sort regression tests should be added in later tasks.

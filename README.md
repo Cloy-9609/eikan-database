@@ -83,22 +83,23 @@
 - backend 構文確認: `npm run check:backend`
 - frontend 構文確認: `npm run check:frontend`
 - 一括確認: `npm run check:all`
+- core smoke / 回帰テスト基盤確認: `npm run test:core`
 - DB 診断: `npm run db:check`
+- 一時DB診断: `npm run db:check:test`
+- 総合確認: `npm run verify:all`
 - 差分の空白確認: `npm run diff:check`
 
-`npm run db:check` は現在、以下を実行します。
+`npm run db:check` は以下を実行します。
 
 ```text
 node scripts/diagnostics/check-data-integrity.js
 ```
 
-この診断 script は、現時点では少なくとも以下を確認・表示します。DB全体の完全性を保証するものではありません。
+この診断 script は、`EIKAN_DB_PATH` が指定されている場合はそのDBを、未指定の場合は既定の `database/eikan-app.sqlite` を確認します。必須table/column、`school_code`、`(school_id, series_no)`、`players(player_series_id, snapshot_label)` の重複を重大な異常として扱い、異常時は非0終了します。sample 表示は確認補助であり、それ自体は失敗条件ではありません。
 
-- `schools` カラム確認
-- `player_series` カラム確認
-- `school_code` 重複確認
-- `(school_id, series_no)` 重複確認
-- sample 表示
+`npm run db:check:test` は OS 一時ディレクトリに fresh なSQLite DBを作成し、既存の `initializeDatabase()` で schema を初期化してから診断します。通常DBを参照しないため、`verify:all` では通常DB向けの `db:check` ではなく `db:check:test` を使います。
+
+`npm run test:core` は Node.js 標準の `node:test` / `node:assert/strict` を使います。外部テストframeworkやHTTP client dependencyは使わず、テストDBは `EIKAN_DB_PATH` を backend require 前に OS 一時ディレクトリのSQLiteへ向けます。テストサーバーは `startServer(0)` で空きポートを使用するため、開発サーバーが `localhost:3000` で起動中でも競合しません。テスト終了時は HTTP server、hot reload watcher、DB接続、一時fileをcleanupします。現時点では基盤と smoke test のみで、本格的なdomain回帰テストは後続タスクで追加します。詳細は `docs/testing/core_regression_tests.md` を参照してください。
 
 実ブラウザ確認は必要に応じて別途行います。
 
@@ -217,6 +218,13 @@ scripts/
   migrate.js                旧 migration プレースホルダ
   diagnostics/
     check-data-integrity.js DB 診断スクリプト
+    check-test-database.js 一時DB診断スクリプト
+  run-core-tests.js       core test runner
+  run-verify-all.js       総合確認 runner
+
+tests/
+  core/                    node:test smoke / core regression tests
+  helpers/                 test context / HTTP helper
 
 database/                   ローカル SQLite ファイル置き場
 docs/                       設計・要件・レビュー記録
