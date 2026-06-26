@@ -8,6 +8,12 @@ Core regression tests use Node.js built-in `node:test` with temporary SQLite dat
 - `tests/core/player-snapshot-regression.test.js` fixes the current player snapshot behavior as regression tests: official timeline seed selection, missing-middle snapshot fallback to the nearest previous official snapshot, relation cloning, note/evidence non-copying, user payload precedence, no future fallback, duplicate rejection, timeline ordering/current snapshot behavior, legacy `post_tournament` read compatibility, and seed API validation errors.
 - `tests/helpers/playerFixtures.js` builds valid school/player payloads and relation fixtures without copying production data or writing to the normal application database.
 
+## Players list search, filter, sort, and validation coverage
+
+- `tests/core/players-list-validation.test.js` fixes production query validation for admission-year range direction and ability `min > max` handling.
+- `tests/core/players-search-filter.test.js` verifies `GET /api/players` search and filter behavior with an isolated temporary DB: one row per `player_series`, latest official snapshot selection, legacy-only snapshot read compatibility, player-name and school-name partial search, trailing `高校` search normalization, `school_id`, admission-year ranges and legacy `admission_year`, player type, series grade, roster status, exact and aggregate positions, legacy `position_type`, `snapshot_label`, ten ability range filters, snapshot-specific ability/position filtering, and multi-condition AND searches.
+- `tests/core/players-sort.test.js` verifies `GET /api/players` ordering with a separate isolated temporary DB: normal sort keys, roster-status CASE ordering, official snapshot timeline ordering, explicit `updated_at` timestamps, default sort equivalence, ten ability sorts, null ability values at the end in both directions, and snapshot-specific ability sorting.
+- `tests/helpers/playersListFixtures.js` provides list-test-only fixture helpers that create data through the HTTP API and only adjust regression-control fields in the temporary SQLite database.
 
 ## School year progression and undo coverage
 
@@ -27,9 +33,13 @@ Core regression tests use Node.js built-in `node:test` with temporary SQLite dat
 
 ```text
 node --check tests/helpers/playerFixtures.js
+node --check tests/helpers/playersListFixtures.js
 node --check tests/core/player-registration.test.js
 node --check tests/core/player-snapshot-regression.test.js
 node --check tests/core/school-year-progression.test.js
+node --check tests/core/players-list-validation.test.js
+node --check tests/core/players-search-filter.test.js
+node --check tests/core/players-sort.test.js
 npm run test:core
 npm run db:check:test
 npm run verify:all
