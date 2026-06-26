@@ -80,6 +80,10 @@ async function setSnapshotUpdatedAt(context, playerId, updatedAt) {
   await context.db.run("UPDATE players SET updated_at = ? WHERE id = ?", [updatedAt, playerId]);
 }
 
+async function setSnapshotLabel(context, playerId, snapshotLabel) {
+  await context.db.run("UPDATE players SET snapshot_label = ? WHERE id = ?", [snapshotLabel, playerId]);
+}
+
 function bySeriesId(items) {
   return new Map(items.map((item) => [item.player_series_id, item]));
 }
@@ -115,6 +119,7 @@ module.exports = {
   addSnapshot,
   setSeriesState,
   setSnapshotUpdatedAt,
+  setSnapshotLabel,
   bySeriesId,
   sortedSeriesIds,
   assertSuccessList,
