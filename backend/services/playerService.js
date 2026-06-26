@@ -416,18 +416,31 @@ function normalizePlayerListQuery(query = {}) {
   const legacyPositionType = validateOptionalEnum(query.position_type, "position_type", ALLOWED_PLAYER_POSITION_TYPES);
   const mainPositionFallback = legacyPositionType === "pitcher" ? "投手" : legacyPositionType === "fielder" ? "全野手" : null;
   const legacyAdmissionYear = validateOptionalAdmissionYearSearch(query.admission_year, "admission_year");
+  const admissionYearFrom =
+    validateOptionalAdmissionYearSearch(query.admission_year_from, "admission_year_from") ??
+    legacyAdmissionYear;
+  const admissionYearTo =
+    validateOptionalAdmissionYearSearch(query.admission_year_to, "admission_year_to") ??
+    legacyAdmissionYear;
   const abilityFilter = normalizeAbilityFilterQuery(query);
+
+  if (
+    admissionYearFrom !== null &&
+    admissionYearTo !== null &&
+    admissionYearFrom > admissionYearTo
+  ) {
+    throw createHttpError(
+      400,
+      "admission_year_from must be less than or equal to admission_year_to."
+    );
+  }
 
   return {
     schoolId: parseOptionalInteger(query.school_id, "school_id", { min: 1 }),
     name: parseOptionalText(query.name),
     schoolName: normalizeSchoolSearchName(query.school_name),
-    admissionYearFrom:
-      validateOptionalAdmissionYearSearch(query.admission_year_from, "admission_year_from") ??
-      legacyAdmissionYear,
-    admissionYearTo:
-      validateOptionalAdmissionYearSearch(query.admission_year_to, "admission_year_to") ??
-      legacyAdmissionYear,
+    admissionYearFrom,
+    admissionYearTo,
     playerType: validateOptionalEnum(query.player_type, "player_type", ALLOWED_PLAYER_TYPES),
     schoolGrade: parseOptionalInteger(query.school_grade, "school_grade", { min: 1, max: 3 }),
     rosterStatus: validateOptionalEnum(query.roster_status, "roster_status", ALLOWED_PLAYER_ROSTER_STATUSES),
