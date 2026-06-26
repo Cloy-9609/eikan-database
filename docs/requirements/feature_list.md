@@ -53,6 +53,17 @@
 - 表示用複合コード helper
 - migration / backfill
 
+### テスト・診断
+
+- backend / frontend の構文確認 script
+- core regression test
+- 通常 DB を使わない一時 SQLite DB によるテスト実行
+- DB 診断 script `scripts/diagnostics/check-data-integrity.js`
+- `git diff --check` 用 script
+- `npm run verify:all`
+- GitHub Actions `verify-all`
+- `codex/staging` Ruleset による required status check `verify-all`
+
 ## 一部実装
 
 ### OCR
@@ -67,19 +78,12 @@
 - 生成・backfill の基盤は実装済み
 - 画面表示・検索・URL / API・export / import 連携への本格展開は未実装
 
-### テスト・診断
-
-- backend / frontend の構文確認 script
-- `git diff --check` 用 script
-- DB 診断 script `scripts/diagnostics/check-data-integrity.js`
-- snapshot・検索・年度進行などを対象にした自動回帰テストは未整備
 
 ## 未実装・今後
 
 - OCR本体MVP
 - DB backup / restore
 - export / import
-- 自動回帰テストの本格整備
 - Prompt5-6 URL・状態管理整理
 - 管理コードの画面表示・検索への本格展開
 - 特殊能力の高度検索
