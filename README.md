@@ -33,6 +33,11 @@
   - `series_no`
   - `snapshot_key`
   - 生成 helper、migration、backfill
+- テスト・CI 基盤
+  - Node.js 標準の `node:test` による core regression test
+  - OS 一時ディレクトリ上の SQLite DB を使う安全なテスト
+  - `npm run verify:all` による構文確認・core 回帰テスト・一時DB診断・空白確認の一括実行
+  - GitHub Actions の `verify-all` による PR merge 前の自動検証
 
 ### 未実装または本格整備前
 
@@ -40,7 +45,6 @@
 - DB backup / restore
 - export / import
 - 公開用の認証・権限管理・ユーザー所有権
-- 自動回帰テストの本格整備
 - 管理コードの画面表示・検索・export連携への本格展開
 
 ### 基本構成
@@ -83,7 +87,7 @@
 - backend 構文確認: `npm run check:backend`
 - frontend 構文確認: `npm run check:frontend`
 - 一括確認: `npm run check:all`
-- core smoke / 回帰テスト基盤確認: `npm run test:core`
+- core回帰テスト: `npm run test:core`
 - DB 診断: `npm run db:check`
 - 一時DB診断: `npm run db:check:test`
 - 総合確認: `npm run verify:all`
@@ -101,7 +105,7 @@ node scripts/diagnostics/check-data-integrity.js
 
 `npm run db:check:test` は OS 一時ディレクトリに fresh なSQLite DBを作成し、既存の `initializeDatabase()` で schema を初期化してから診断します。通常DBを参照しないため、`verify:all` では通常DB向けの `db:check` ではなく `db:check:test` を使います。
 
-`npm run test:core` は Node.js 標準の `node:test` / `node:assert/strict` を使います。外部テストframeworkやHTTP client dependencyは使わず、テストDBは `EIKAN_DB_PATH` を backend require 前に OS 一時ディレクトリのSQLiteへ向けます。テストサーバーは `startServer(0)` で空きポートを使用するため、開発サーバーが `localhost:3000` で起動中でも競合しません。テスト終了時は HTTP server、hot reload watcher、DB接続、一時fileをcleanupします。現時点では基盤と smoke test のみで、本格的なdomain回帰テストは後続タスクで追加します。詳細は `docs/testing/core_regression_tests.md` を参照してください。
+`npm run test:core` は Node.js 標準の `node:test` / `node:assert/strict` を使います。外部テストframeworkやHTTP client dependencyは使わず、テストDBは `EIKAN_DB_PATH` を backend require 前に OS 一時ディレクトリのSQLiteへ向けます。テストサーバーは `startServer(0)` で空きポートを使用するため、開発サーバーが `localhost:3000` で起動中でも競合しません。テスト終了時は HTTP server、hot reload watcher、DB接続、一時fileをcleanupします。現在は、選手登録、snapshot 作成・seed・重複防止、legacy snapshot の読み取り互換、players 一覧 validation、入学年度範囲、検索・絞り込み、ability filter、sort、snapshot 指定時の検索・sort、学校年度進行、undo を core 回帰テストで確認します。いずれも一時DBを使うため、通常DBを保護したまま実行できます。詳細は `docs/testing/core_regression_tests.md` を参照してください。
 
 実ブラウザ確認は必要に応じて別途行います。
 
@@ -263,5 +267,5 @@ docs/                       設計・要件・レビュー記録
 
 ## メモ
 
-- OCR本体MVP、DB backup / restore、export / import、自動回帰テストの本格整備は今後の作業です。
+- OCR本体MVP、DB backup / restore、export / importは今後の作業です。
 - 現在の Phase と機能一覧は `docs/phases/phase2.md` と `docs/requirements/feature_list.md` を参照してください。
