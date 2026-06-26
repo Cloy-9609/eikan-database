@@ -37,7 +37,7 @@ async function seedSortFixtures(context) {
   const specs = [
     ["alpha", schools.b.id, "Sort Alpha", 2025, 2, "active", "entrance", { velocity: 120, control: 40, stamina: 70, trajectory: 1, meat: 55, power: 20, run_speed: 65, arm_strength: 75, fielding: 45, catching: 35 }, "2000-01-01 00:00:00"],
     ["bravo", schools.a.id, "Sort Bravo", 2024, 1, "graduated", "entrance", { velocity: 140, control: 70, stamina: 40, trajectory: 2, meat: 85, power: 60, run_speed: 45, arm_strength: 55, fielding: 85, catching: 75 }, "2010-01-01 00:00:00"],
-    ["charlie", schools.c.id, "Sort Charlie", 2026, 3, "active", "y2_summer", { velocity: 160, control: 55, stamina: 85, trajectory: 4, meat: 35, power: 90, run_speed: 85, arm_strength: 35, fielding: 65, catching: 55 }, "2020-01-01 00:00:00"],
+    ["charlie", schools.c.id, "Sort Charlie", 2026, 3, "active", "y2_summer", { velocity: 160, control: 55, stamina: 85, trajectory: 4, meat: 35, power: 50, run_speed: 85, arm_strength: 35, fielding: 65, catching: 55 }, "2020-01-01 00:00:00"],
     ["nuller", schools.c.id, "Sort Nuller", 2027, 2, "graduated", "y1_summer", { velocity: null, control: null, stamina: null, trajectory: null, meat: null, power: null, run_speed: null, arm_strength: null, fielding: null, catching: null }, "2030-01-01 00:00:00"],
   ];
   const players = {};
@@ -55,9 +55,15 @@ async function seedSortFixtures(context) {
   await setSnapshotUpdatedAt(context, switchSummer.id, "2025-01-01 00:00:00");
   players.switcher = { ...switchSummer, entrance_id: switchEntrance.id, entrance_series_id: switchEntrance.player_series_id, player_series_id: switchEntrance.player_series_id };
   players.bravo.summer_id = bravoSummer.id;
-  const legacy = await createPlayer(context, schools.snapshot.id, { name: "Sort Legacy", snapshot_label: "entrance", admission_year: 2024, main_position: "遊撃手", ...baseAbilities });
-  await setSnapshotLabel(context, legacy.id, "post_tournament");
-  players.legacy = legacy;
+  const snapSummer = await createPlayer(context, schools.snapshot.id, { name: "Snapshot Summer", snapshot_label: "y1_summer", admission_year: 2024, main_position: "遊撃手", ...baseAbilities });
+  const snapLegacy = await createPlayer(context, schools.snapshot.id, { name: "Snapshot Legacy", snapshot_label: "entrance", admission_year: 2024, main_position: "遊撃手", ...baseAbilities });
+  const snapEntrance = await createPlayer(context, schools.snapshot.id, { name: "Snapshot Entrance", snapshot_label: "entrance", admission_year: 2024, main_position: "遊撃手", ...baseAbilities });
+  const snapSecondSummer = await createPlayer(context, schools.snapshot.id, { name: "Snapshot Second Summer", snapshot_label: "y2_summer", admission_year: 2024, main_position: "遊撃手", ...baseAbilities });
+  await setSnapshotLabel(context, snapLegacy.id, "post_tournament");
+  players.snapshotEntrance = snapEntrance;
+  players.snapshotSummer = snapSummer;
+  players.snapshotSecondSummer = snapSecondSummer;
+  players.legacy = snapLegacy;
   return { schools, players };
 }
 
@@ -90,9 +96,13 @@ test("sorts snapshot labels by official timeline order instead of id order", asy
 
 test("snapshot sort keeps legacy labels at the end in both directions", async () => {
   const asc = await rows(`?school_id=${fx.schools.snapshot.id}&sort_by=snapshot&sort_order=asc`);
-  assert.deepEqual(asc.map((row) => row.snapshot_label), ["post_tournament"]);
+  assert.deepEqual(asc.map((row) => row.snapshot_label), ["entrance", "y1_summer", "y2_summer", "post_tournament"]);
+  assert.deepEqual(seriesOrder(asc), ids("snapshotEntrance", "snapshotSummer", "snapshotSecondSummer", "legacy"));
+  assert.equal(new Set(asc.map((row) => row.player_series_id)).size, asc.length);
   const desc = await rows(`?school_id=${fx.schools.snapshot.id}&sort_by=snapshot&sort_order=desc`);
-  assert.deepEqual(desc.map((row) => row.snapshot_label), ["post_tournament"]);
+  assert.deepEqual(desc.map((row) => row.snapshot_label), ["y2_summer", "y1_summer", "entrance", "post_tournament"]);
+  assert.deepEqual(seriesOrder(desc), ids("snapshotSecondSummer", "snapshotSummer", "snapshotEntrance", "legacy"));
+  assert.equal(new Set(desc.map((row) => row.player_series_id)).size, desc.length);
 });
 
 
@@ -106,7 +116,7 @@ test("sorts all ability columns asc and desc with null ability values last", asy
   const abilityValues = {
     alpha: { velocity: 120, control: 40, stamina: 70, trajectory: 1, meat: 55, power: 20, run_speed: 65, arm_strength: 75, fielding: 45, catching: 35 },
     bravo: { velocity: 145, control: 45, stamina: 60, trajectory: 3, meat: 65, power: 80, run_speed: 55, arm_strength: 65, fielding: 75, catching: 85 },
-    charlie: { velocity: 160, control: 55, stamina: 85, trajectory: 4, meat: 35, power: 90, run_speed: 85, arm_strength: 35, fielding: 65, catching: 55 },
+    charlie: { velocity: 160, control: 55, stamina: 85, trajectory: 4, meat: 35, power: 50, run_speed: 85, arm_strength: 35, fielding: 65, catching: 55 },
     switcher: { velocity: 110, control: 85, stamina: 55, trajectory: 3, meat: 75, power: 10, run_speed: 75, arm_strength: 45, fielding: 55, catching: 65 },
     nuller: { velocity: null, control: null, stamina: null, trajectory: null, meat: null, power: null, run_speed: null, arm_strength: null, fielding: null, catching: null },
   };
@@ -119,6 +129,9 @@ test("sorts all ability columns asc and desc with null ability values last", asy
     if (leftValue !== rightValue) return direction === "asc" ? leftValue - rightValue : rightValue - leftValue;
     return abilityValues[left].name?.localeCompare?.(abilityValues[right].name) ?? left.localeCompare(right);
   });
+  const uniqueAscOrders = new Set(ABILITY_KEYS.map((key) => JSON.stringify(expectedKeys(key, "asc"))));
+  assert.equal(uniqueAscOrders.size, ABILITY_KEYS.length);
+  assert.notDeepEqual(expectedKeys("velocity", "asc"), expectedKeys("power", "asc"));
   for (const key of ABILITY_KEYS) {
     await expectOrder(`?school_name=Sort%20School&sort_by=${key}&sort_order=asc`, expectedKeys(key, "asc"));
     await expectOrder(`?school_name=Sort%20School&sort_by=${key}&sort_order=desc`, expectedKeys(key, "desc"));
