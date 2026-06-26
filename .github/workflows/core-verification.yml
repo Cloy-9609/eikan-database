@@ -1,0 +1,67 @@
+name: Core Verification
+
+on:
+  pull_request:
+    branches:
+      - codex/staging
+      - develop
+  push:
+    branches:
+      - codex/staging
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-verification-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify-all
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check committed diff whitespace for pull requests
+        if: github.event_name == 'pull_request'
+        run: git diff --check "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}"
+
+      - name: Check committed diff whitespace for pushes
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        run: git diff --check "${{ github.event.before }}...${{ github.sha }}"
+
+      - name: Skip committed diff whitespace for initial pushes
+        if: github.event_name == 'push' && github.event.before == '0000000000000000000000000000000000000000'
+        run: echo "Skipping committed diff whitespace check because this push has no before commit."
+
+      - name: Check committed diff whitespace for manual runs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            git diff --check HEAD^...HEAD
+          else
+            git diff --check
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run project verification
+        run: npm run verify:all

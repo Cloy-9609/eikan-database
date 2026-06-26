@@ -89,6 +89,8 @@
 - 総合確認: `npm run verify:all`
 - 差分の空白確認: `npm run diff:check`
 
+GitHub Actions でも `npm run verify:all` を実行します。workflow status 名は `verify-all` です。詳細は `docs/testing/github_actions.md` を参照してください。
+
 `npm run db:check` は以下を実行します。
 
 ```text
