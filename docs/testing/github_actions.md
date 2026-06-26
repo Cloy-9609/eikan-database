@@ -75,6 +75,25 @@ todo 0
 - workflow 内では `npm run db:reset`、`npm run db:migrate`、`npm run db:check`、`npm start`、`npm run dev`、`npm run dev:watch` を実行しない。
 - DB 関連では、`verify:all` 内の一時 SQLite DB 診断である `npm run db:check:test` だけを使う。
 
-## Branch protection
+## codex/staging Ruleset
 
-workflow 導入後に GitHub Actions の実行結果を確認したら、GitHub Settings で `verify-all` を required status check に設定できます。このドキュメント作成タスクでは branch protection 設定自体は変更しません。
+`codex/staging` には、GitHub Ruleset `Protect codex/staging` を Active で適用しています。対象 branch は `codex/staging` です。
+
+主な設定は次の通りです。
+
+- `codex/staging` への merge は PR 経由に限定する。
+- Required approvals は 0 とし、承認数ではなく自動検証と会話解決を必須条件にする。
+- merge 前に conversation resolution を必須にする。
+- GitHub Actions を source とする `verify-all` を required status check にする。
+- merge 前に task branch を最新の base branch に追随させる。
+- branch deletion を制限する。
+- force push を禁止する。
+- bypass list は空にする。
+
+通常の開発フローは次の通りです。
+
+1. `codex/staging` から `codex/<task>` branch を作る。
+2. task branch へ push する。
+3. `codex/staging` 向け PR を作る。
+4. `verify-all` が実行される。
+5. check 成功と conversation 解決後に merge する。
