@@ -159,8 +159,8 @@ loadPlayers
 | key | 分類 | 内部 state | default | 正規化方法 | API 送信 | canonical URL 書戻し | 不正値時の現在挙動 | 維持すべき互換性 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `name` | canonical | `name` | `""` | `String(...).trim()`。API / URL 出力時は末尾の `高校` を除去する。 | はい。ただし空は wrapper で省略。 | はい。ただし空は省略。 | 文字列として trim される。 | `青葉高校` query は canonical URL / API では `青葉` になる。 |
-| `prefecture` | canonical | `prefecture` | `""` | trim のみ。許可値 check はない。 | はい。 | はい。 | 不明な値もそのまま送信・書戻し。 | 既存 URL の任意 prefecture 値を壊さない。 |
-| `play_style` | canonical | `playStyle` | `""` | trim のみ。許可値 check はない。 | はい。 | はい。 | 不明な値もそのまま送信・書戻し。 | API 側 validation / filtering に委ねる現在挙動を維持。 |
+| `prefecture` | canonical | `prefecture` | `""` | trim のみ。現在は許可値 check はない。 | はい。 | はい。 | 不正値も URL / normalized state / API query に残るが、select に一致する option がないため form には同じ値を復元できず、URL・state・API と form が不一致になる。 | 後続実装では `PREFECTURE_GROUPS` 内の候補以外を空へ正規化し、canonical URL / API query から削除する。 |
+| `play_style` | canonical | `playStyle` | `""` | trim のみ。現在は許可値 check はない。 | はい。 | はい。 | 不正値も URL / normalized state / API query に残るが、select に一致する option がないため form には同じ値を復元できず、URL・state・API と form が不一致になる。 | 後続実装では `continuous` / `three_year` 以外を空へ正規化し、canonical URL / API query から削除する。 |
 | `sort_by` | canonical | `sortBy` | `updated_at` | `sort_by:sort_order` を `SORT_OPTIONS` 完全一致で検証。 | はい。 | はい。default でも書戻す。 | invalid 組み合わせは `updated_at` に戻る。 | default sort 明示を維持する場合は常に出力。 |
 | `sort_order` | canonical | `sortOrder` | `desc` | `sort_by:sort_order` を `SORT_OPTIONS` 完全一致で検証。 | はい。 | はい。default でも書戻す。 | invalid 組み合わせは `desc` に戻る。 | default sort 明示を維持する場合は常に出力。 |
 | `sort` | legacy | `sortBy` / `sortOrder` | なし | `SORT_OPTIONS.value` と完全一致。存在すれば canonical sort より優先。 | いいえ。 | いいえ。`sort_by` / `sort_order` へ置換。 | invalid legacy sort は default sort。 | 旧 URL `?sort=name:asc` を読める。 |
@@ -180,11 +180,11 @@ loadPlayers
 | `admission_year_from` | canonical | `admissionYearFrom` | `""` | trim のみ。整数 check はない。 | はい。 | はい。空は省略。 | 不正文字列も送信・書戻し。 | 現在の緩い挙動を変える場合は Decision required。 |
 | `admission_year_to` | canonical | `admissionYearTo` | `""` | trim のみ。整数 check はない。 | はい。 | はい。空は省略。 | 不正文字列も送信・書戻し。 | 現在の緩い挙動を変える場合は Decision required。 |
 | `admission_year` | legacy | `admissionYearFrom` / `admissionYearTo` | なし | canonical from/to が `null` の場合だけ両方へ補完。trim のみ。 | いいえ。 | いいえ。from/to へ置換。 | 不正文字列も from/to へ入る。 | 旧単一年 URL を range URL として読める。 |
-| `player_type` | canonical | `playerType` | `""` | trim のみ。 | はい。 | はい。 | 不明値も送信・書戻し。 | API 側に委ねる現在挙動を維持。 |
-| `main_position` | canonical | `mainPosition` | `""` | trim のみ。 | はい。 | はい。 | 不明値も送信・書戻し。 | 表示上のポジション名を URL に使う。 |
+| `player_type` | canonical | `playerType` | `""` | trim のみ。現在は許可値 check はない。 | はい。 | はい。 | 不正値も URL / normalized state / API query に残るが、select に一致する option がないため form には同じ値を復元できず、URL・state・API と form が不一致になる。 | 後続実装では `normal` / `genius` / `reincarnated` 以外を空へ正規化し、canonical URL / API query から削除する。 |
+| `main_position` | canonical | `mainPosition` | `""` | trim のみ。現在は許可値 check はない。 | はい。 | はい。 | 不正値も URL / normalized state / API query に残るが、select に一致する option がないため form には同じ値を復元できず、URL・state・API と form が不一致になる。 | 後続実装では production code の固定候補以外を空へ正規化し、canonical URL / API query から削除する。legacy `position_type` の `pitcher -> 投手`, `fielder -> 全野手` は維持する。 |
 | `position_type` | legacy | `mainPosition` | なし | canonical `main_position` が truthy なら canonical 優先。legacy `pitcher` は `投手`、`fielder` は `全野手`。 | いいえ。 | いいえ。`main_position` へ置換。 | `pitcher` / `fielder` 以外は空。 | 旧分類 URL を読める。 |
-| `school_grade` | canonical | `schoolGrade` | `""` | trim のみ。 | はい。 | はい。 | 不明値も送信・書戻し。 | 既存 URL を維持。 |
-| `roster_status` | canonical | `rosterStatus` | `""` | trim のみ。 | はい。 | はい。 | 不明値も送信・書戻し。 | 既存 URL を維持。 |
+| `school_grade` | canonical | `schoolGrade` | `""` | trim のみ。現在は許可値 check はない。 | はい。 | はい。 | 不正値も URL / normalized state / API query に残るが、select に一致する option がないため form には同じ値を復元できず、URL・state・API と form が不一致になる。 | 後続実装では `1` / `2` / `3` 以外を空へ正規化し、canonical URL / API query から削除する。 |
+| `roster_status` | canonical | `rosterStatus` | `""` | trim のみ。現在は許可値 check はない。 | はい。 | はい。 | 不正値も URL / normalized state / API query に残るが、select に一致する option がないため form には同じ値を復元できず、URL・state・API と form が不一致になる。 | 後続実装では `active` / `graduated` 以外を空へ正規化し、canonical URL / API query から削除する。 |
 | `snapshot_label` | canonical | `snapshotLabel` | `""` | `SNAPSHOT_LABEL_OPTIONS` に存在する値だけ許可。 | はい。 | はい。 | invalid は空になり URL から消える。 | snapshot helper の許可値に合わせる。 |
 | `sort_by` | canonical | `sortBy` | `updated_at` | `SORT_OPTIONS.value` に存在する sort key だけ許可。 | はい。 | はい。default でも書戻す。 | invalid は default。 | 能力値 sort key も許可。 |
 | `sort_order` | canonical | `sortOrder` | `desc` | `asc` のみ asc、それ以外は desc。legacy `sort` がある場合は legacy 内 order 優先。 | はい。 | はい。default でも書戻す。 | invalid は desc。 | 大文字や不正値は desc に寄せる。 |
@@ -193,7 +193,7 @@ loadPlayers
 | `ability_min` | canonical | `abilityMin` | `""` | 整数文字列かつ ability option の min/max 範囲内だけ許可。 | はい。 | はい。 | invalid は空。 | 範囲外値を URL へ残さない。 |
 | `ability_max` | canonical | `abilityMax` | `""` | 整数文字列かつ ability option の min/max 範囲内だけ許可。 | はい。 | はい。 | invalid は空。 | 範囲外値を URL へ残さない。 |
 
-注: `ability_min > ability_max` は normalize ではなく submit / sort / reset 時の `validateAbilitySearchState` で error として扱う。初期 URL 読込では validate が走らないため、reversed range は canonical URL と API query に残る現在挙動である。Decision required。
+注: `ability_min > ability_max` の現在挙動は、初期 URL 読込時には reversed range が canonical URL と API query に残り得る一方、submit 時には `validateAbilitySearchState` により validation error になる。後続実装では初期 URL 読込・submit・sort 操作のすべてで同じ正規化を行い、`min > max` の場合は `abilityKey` を残して `abilityMin` / `abilityMax` だけ空にする。これは target behavior test の対象にする。
 
 ## 6. legacy query precedence
 
@@ -329,7 +329,11 @@ loadPlayers
 | CommonJS wrapper | Node test は容易。 | browser 側との二重管理、wrapper の drift risk。 | 非推奨。 |
 | 動的 import + `.mjs` | `.test.js` は CommonJS のまま、必要な pure module だけ `await import()`。 | test helper が少し冗長。 | 推奨。 |
 
-推奨: 後続で pure function を作る場合は `.mjs` を採用し、`.test.js` から dynamic `import()` する。既存 page script は browser ES module のまま `.mjs` を import できる。使用されない module は今回作成しない。
+推奨: 後続で pure function を作る場合は `.mjs` を採用し、CommonJS の `.test.js` から dynamic `import()` する。ただし pure `.mjs` は既存 frontend `.js` ES module を直接 import しない。Node.js test で `.mjs -> .js` の transitive import を発生させると、package 全体が CommonJS であるため既存 `.js` が CommonJS として解釈され失敗する可能性がある。
+
+production 定数を無意味に複製せず、state module へ必要な許可値を依存注入する。players の snapshot label は、`players.js` が既存 `playerSnapshots.js` から `SNAPSHOT_LABEL_OPTIONS` を取得し、許可 snapshot key 集合を `playerSearchState.mjs` へ渡す。`playerSearchState.mjs` は渡された `allowedSnapshotLabels` で pure normalization を行い、Node test は test fixture として `allowedSnapshotLabels` を渡す。候補 API は `normalizePlayerSearchState(input, { allowedSnapshotLabels })` のような小さな関数を基本とし、大規模な factory abstraction は避ける。
+
+後続で新しい `.mjs` を作成する際は、存在するファイルだけを `scripts/check-js.js` の `frontendFiles` へ明示的に追加する。候補は `frontend/js/state/schoolSearchState.mjs`, `frontend/js/state/playerSearchState.mjs`, `frontend/js/utils/urlState.mjs`。各後続タスクの acceptance criteria では、`npm run check:frontend` が新規 `.mjs` を検査し、`npm run verify:all` が新規 `.mjs` の構文エラーを検出できることを確認する。
 
 ## 12. 目標仕様
 
@@ -350,7 +354,34 @@ loadPlayers
 - flash message は検索状態と分離し、読み取り後に削除できる。
 - accordion 開閉や loading 表示は検索 URL へ保存しない。
 
-## 13. 未決事項
+## 13. 決定済み事項
+
+### ユーザー判断済みの正式方針
+
+1. 不正な固定 select 値は空へ正規化する。対象は schools の `prefecture` / `play_style` と、players の `player_type` / `main_position` / `school_grade` / `roster_status`。後続実装では normalized state は空、form は未指定、canonical URL から key を削除、API query へ送信しない。
+2. reversed ability range は min/max を自動で入れ替えず、ability key は残し、min/max だけ削除する。初期 URL 読込時、submit 時、sort 操作時で同じ正規化結果にする。
+3. schools へ players と同等の stale response protection を導入する。古い request は success 時に描画せず、error message を表示せず、最新 request の busy 状態を解除しない。
+
+### Phase 6.4 の互換性優先方針
+
+- default sort は URL へ明示する現在方針を維持する。
+- unrelated query と hash は保持する。
+- legacy precedence は原則として現在挙動を維持する。
+- submit / reset / players sort の `pushState` 方針は現在挙動を維持する。
+- canonicalization には `replaceState` を使う。
+- schools stale response protection は導入決定済みだが、最新 request 失敗時に既存一覧を残すか消すかは通常 error policy の別仕様として扱う。Phase 6.4-5 ではまず stale response による上書き防止を実装し、通常 error policy の全面変更はしない。
+
+### 固定 select の許可値
+
+- schools `prefecture`: `PREFECTURE_GROUPS` 内の都道府県・地域候補。
+- schools `play_style`: `continuous`, `three_year`。
+- players `player_type`: `normal`, `genius`, `reincarnated`。
+- players `main_position`: `投手`, `捕手`, `一塁手`, `二塁手`, `三塁手`, `遊撃手`, `外野手`, `全野手`, `全内野手`。
+- players `school_grade`: `1`, `2`, `3`。
+- players `roster_status`: `active`, `graduated`。
+- legacy `position_type`: `pitcher -> 投手`, `fielder -> 全野手` を維持する。
+
+## 14. 未決事項
 
 | 項目 | 現在挙動 | 選択肢 | 推奨案 | 影響範囲 | 後から変更する難易度 |
 | --- | --- | --- | --- | --- | --- |
@@ -360,15 +391,15 @@ loadPlayers
 | invalid query を URL から除去するか | sort / snapshot / ability は除去または default 化、trim のみ項目は残る。 | A: 現状維持 / B: 全 key 厳格化。 | A から characterization、厳格化は個別 Decision required。 | 既存共有 URL、API query。 | 中〜高。 |
 | unrelated query を保持するか | 保持。 | A: 保持 / B: 削除。 | A。外部導線や debug query を壊さない。 | URL canonicalization。 | 低だが互換性影響あり。 |
 | legacy key と canonical key の優先順位 | key ごとに異なる。`sort` は legacy 優先、admission range は canonical key 存在優先、position は canonical 非空優先。 | A: 現状維持 / B: canonical 常時優先 / C: legacy 常時優先。 | A。変更するなら Decision required。 | 旧 URL と混在 URL。 | 中。test 更新が必要。 |
-| schools stale request protection | なし。 | A: 現状維持 / B: players と同様に導入。 | B を推奨。ただし user-visible error/list behavior も絡むため Decision required。 | schools 一覧の競合、error 表示。 | 中。 |
-| players reversed ability range の初期 URL | 初期読込では API query に残り得る。submit 操作では validation error。 | A: 現状維持 / B: 初期読込でも invalid として URL から除去 / C: min/max 入替。 | B を推奨。ただし現在挙動変更なので Decision required。 | players URL、API query、validation。 | 中。 |
+| schools の最新 request 失敗時に既存一覧を残すか | 現在は失敗時に一覧を消す。stale response protection は導入決定済み。 | A: 現在の error policy を維持 / B: players と同様に既存一覧を保持。 | Phase 6.4-5 では A のまま stale response 上書き防止のみ導入し、B は別判断。 | schools 一覧の error 表示、既存結果保持。 | 中。 |
+| 不正な入学年度文字列を厳格に削除するか | trim のみで残る。 | A: 現状維持 / B: 整数文字列以外を削除。 | Phase 6.4 では A。厳格化は別判断。 | players URL、API query、backend validation。 | 中。 |
 
-## 14. 実装順序
+## 15. 実装順序
 
 | タスク | 目的 | 主な変更ファイル | acceptance criteria | リスク | 規模 | 前提 | 実ブラウザ確認 | 自動merge推奨 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 6.4-2 schools URL state pure functions・characterization test | schools の現状 contract を pure function に切り出し、legacy / canonical / hash / unrelated query の test を固定。 | `frontend/js/state/schoolSearchState.mjs`, `frontend/js/pages/schools.js`, `tests/core/...` | production 動作が変わらず、URL contract test が通る。 | 低〜中。URL 出力差分に注意。 | 小〜中 | 6.4-1 | 必要。検索、reset、back。 | 不可または慎重。URL contract 初回変更のため。 |
-| 6.4-3 players URL state pure functions・characterization test | players の複雑な legacy / ability / snapshot contract を pure function に切り出す。 | `frontend/js/state/playerSearchState.mjs`, `frontend/js/pages/players.js`, `tests/core/...` | legacy precedence と invalid query が現状通り test 化される。 | 中。ability / sort 即時適用に注意。 | 中 | 6.4-2 | 必要。sort、ability、back。 | 不可。人間確認推奨。 |
-| 6.4-4 History API・popstate orchestration整理 | replace / push / popstate の小さな helper 化、同一 URL push 方針を確定。 | `frontend/js/utils/urlState.mjs`, `frontend/js/pages/schools.js`, `frontend/js/pages/players.js`, docs | canonicalization は replace、user action は push の invariant を満たす。 | 中。操作感に影響。 | 中 | 6.4-2, 6.4-3, 未決事項決定 | 必須。 | 不可。 |
-| 6.4-5 非同期競合対策・最終確認 | schools stale protection の導入可否を決め、players と合わせて race test / manual 確認。 | `frontend/js/pages/schools.js`, `frontend/js/pages/players.js`, tests/docs | stale response が新結果を上書きしない。error 時挙動が固定される。 | 中。schools error behavior 変更の可能性。 | 小〜中 | 6.4-4 | 必須。 | 不可または条件付き。 |
+| 6.4-2 schools URL state pure functions・characterization / target behavior test | schools pure state module を作成し、invalid `prefecture` / `play_style` を空へ正規化、canonical URL / API query から削除する。characterization test と新しい target behavior test を追加し、新規 `.mjs` を `scripts/check-js.js` へ追加する。 | `frontend/js/state/schoolSearchState.mjs`, `frontend/js/pages/schools.js`, `scripts/check-js.js`, `tests/core/...` | production 動作の意図した変更以外を避け、不正固定 select 値が空へ正規化される。`npm run check:frontend` が新規 `.mjs` を検査し、`npm run verify:all` が構文エラーを検出できる。 | 中 | 小〜中 | 6.4-1 | 必要。検索、reset、back。 | 不可 |
+| 6.4-3 players URL state pure functions・characterization / target behavior test | players pure state module を作成し、invalid `player_type` / `main_position` / `school_grade` / `roster_status` を空へ正規化する。reversed ability range は ability key を残して min/max を削除し、snapshot label 許可値は依存注入する。legacy precedence は維持し、新規 `.mjs` を `scripts/check-js.js` へ追加する。 | `frontend/js/state/playerSearchState.mjs`, `frontend/js/pages/players.js`, `scripts/check-js.js`, `tests/core/...` | legacy precedence と target behavior が test 化される。`npm run check:frontend` が新規 `.mjs` を検査し、`npm run verify:all` が構文エラーを検出できる。 | 中 | 中 | 6.4-2 | 必要。sort、ability、back。 | 不可 |
+| 6.4-4 History API・popstate orchestration整理 | 現在の push / replace 方針を維持する前提で、replace / push / popstate の小さな helper 化を検討する。同一 URL への重複 push 防止は自動導入しない。 | `frontend/js/utils/urlState.mjs`, `frontend/js/pages/schools.js`, `frontend/js/pages/players.js`, `scripts/check-js.js`, docs | canonicalization は replace、user action は現在どおり push。新規 `.mjs` があれば `npm run check:frontend` / `npm run verify:all` の構文確認対象に入る。 | 中。操作感に影響。 | 中 | 6.4-2, 6.4-3 | 必須。 | 不可 |
+| 6.4-5 非同期競合対策・最終確認 | schools stale response protection を導入する。request A 後に request B、B が先に完了、A が後で成功しても B を上書きしない。A が後で失敗しても error message を上書きせず、A の finally で B の busy 状態を解除しない。popstate 連続操作でも最後の URL 条件を維持する。通常の schools error policy 変更は別判断。 | `frontend/js/pages/schools.js`, `frontend/js/pages/players.js`, tests/docs | stale response が新結果を上書きせず、古い request が message / busy を変更しない。最新 request 失敗時に既存一覧を残すか消すかは現行 policy 維持または別タスク判断。 | 中。schools error behavior と混同しない。 | 小〜中 | 6.4-4 | 必須。 | 不可 |
 | 6.4-6 docs / roadmap 同期 | 実装後の仕様・未決解消を docs / phase / feature list に反映。 | `docs/design/state_management.md`, `docs/testing/url_state_management_tests.md`, `docs/phases/phase2.md`, `docs/requirements/feature_list.md` | 実装済み仕様と docs が一致する。 | 低。 | 小 | 6.4-5 | 不要。 | 可。 |
