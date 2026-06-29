@@ -136,6 +136,42 @@ test("ability key and range normalization covers invalid, partial, boundaries, d
   assert.equal(api("ability_key=power&ability_min=80&ability_max=50", reversed).ability_max, "");
 });
 
+test("ability range normalization preserves the valid opposite bound when only one side is invalid", () => {
+  const invalidMin = read("ability_key=power&ability_min=-1&ability_max=80");
+  assert.deepEqual(
+    { key: invalidMin.abilityKey, min: invalidMin.abilityMin, max: invalidMin.abilityMax },
+    { key: "power", min: "", max: "80" }
+  );
+  assert.equal(api("", invalidMin).ability_min, "");
+  assert.equal(api("", invalidMin).ability_max, "80");
+  assert.equal(canonical("ability_key=power&ability_min=-1&ability_max=80", invalidMin).has("ability_min"), false);
+  assert.equal(canonical("ability_key=power&ability_min=-1&ability_max=80", invalidMin).get("ability_max"), "80");
+
+  const invalidMax = read("ability_key=power&ability_min=20&ability_max=101");
+  assert.deepEqual(
+    { key: invalidMax.abilityKey, min: invalidMax.abilityMin, max: invalidMax.abilityMax },
+    { key: "power", min: "20", max: "" }
+  );
+  assert.equal(api("", invalidMax).ability_min, "20");
+  assert.equal(api("", invalidMax).ability_max, "");
+  assert.equal(canonical("ability_key=power&ability_min=20&ability_max=101", invalidMax).get("ability_min"), "20");
+  assert.equal(canonical("ability_key=power&ability_min=20&ability_max=101", invalidMax).has("ability_max"), false);
+
+  const decimalMin = read("ability_key=power&ability_min=50.5&ability_max=80");
+  assert.equal(decimalMin.abilityMin, "");
+  assert.equal(decimalMin.abilityMax, "80");
+
+  const nonNumericMax = read("ability_key=power&ability_min=20&ability_max=abc");
+  assert.equal(nonNumericMax.abilityMin, "20");
+  assert.equal(nonNumericMax.abilityMax, "");
+
+  const bothInvalid = read("ability_key=power&ability_min=-1&ability_max=101");
+  assert.deepEqual(
+    { key: bothInvalid.abilityKey, min: bothInvalid.abilityMin, max: bothInvalid.abilityMax },
+    { key: "power", min: "", max: "" }
+  );
+});
+
 test("canonical cleanup removes legacy and invalid recognized keys while preserving unrelated query", () => {
   const params = canonical("debug=1&sort=name:asc&admission_year=2026&position_type=pitcher&player_type=bad&snapshot_label=bad&ability_key=bad&ability_min=80");
   assert.equal(params.get("debug"), "1");

@@ -84,6 +84,17 @@ export function parsePlayerIntegerSearchValue(value) {
   return Number.isInteger(numericValue) && String(numericValue) === text ? String(numericValue) : "";
 }
 
+function normalizeAbilityBound(value, definition) {
+  const normalizedValue = parsePlayerIntegerSearchValue(value);
+
+  if (normalizedValue === "") {
+    return "";
+  }
+
+  const numberValue = Number(normalizedValue);
+  return numberValue >= definition.min && numberValue <= definition.max ? normalizedValue : "";
+}
+
 export function normalizePlayerAbilitySearchState(searchState = {}, { abilityDefinitions = [] } = {}) {
   const abilityKey = String(searchState.abilityKey ?? "").trim();
   const definition = getAbilityDefinition(abilityKey, abilityDefinitions);
@@ -92,24 +103,16 @@ export function normalizePlayerAbilitySearchState(searchState = {}, { abilityDef
     return { abilityKey: "", abilityMin: "", abilityMax: "" };
   }
 
-  const rawAbilityMin = String(searchState.abilityMin ?? "").trim();
-  const rawAbilityMax = String(searchState.abilityMax ?? "").trim();
-  const abilityMin = parsePlayerIntegerSearchValue(rawAbilityMin);
-  const abilityMax = parsePlayerIntegerSearchValue(rawAbilityMax);
-  const hasInvalidMin = rawAbilityMin !== "" && abilityMin === "";
-  const hasInvalidMax = rawAbilityMax !== "" && abilityMax === "";
-  const minNumber = abilityMin === "" ? null : Number(abilityMin);
-  const maxNumber = abilityMax === "" ? null : Number(abilityMax);
-  const isMinOutOfRange = minNumber !== null && (minNumber < definition.min || minNumber > definition.max);
-  const isMaxOutOfRange = maxNumber !== null && (maxNumber < definition.min || maxNumber > definition.max);
-  const hasInvalidRange = hasInvalidMin || hasInvalidMax || isMinOutOfRange || isMaxOutOfRange;
-  const isReversedRange = minNumber !== null && maxNumber !== null && minNumber > maxNumber;
+  const normalizedMin = normalizeAbilityBound(searchState.abilityMin, definition);
+  const normalizedMax = normalizeAbilityBound(searchState.abilityMax, definition);
+  const isReversedRange =
+    normalizedMin !== "" && normalizedMax !== "" && Number(normalizedMin) > Number(normalizedMax);
 
-  if (hasInvalidRange || isReversedRange) {
+  if (isReversedRange) {
     return { abilityKey, abilityMin: "", abilityMax: "" };
   }
 
-  return { abilityKey, abilityMin, abilityMax };
+  return { abilityKey, abilityMin: normalizedMin, abilityMax: normalizedMax };
 }
 
 export function normalizePlayerSearchState(searchState = {}, options = {}) {
