@@ -12,6 +12,7 @@
     "db:check": "node scripts/diagnostics/check-data-integrity.js",
     "check:backend": "node scripts/check-backend.js",
     "check:frontend": "node scripts/check-frontend.js",
+    "lint:frontend": "eslint \"frontend/js/**/*.{js,mjs}\" --max-warnings=0",
     "check:all": "node scripts/check-all.js",
     "diff:check": "git diff --check",
     "db:check:test": "node scripts/diagnostics/check-test-database.js",
@@ -37,5 +38,9 @@
   "bugs": {
     "url": "https://github.com/Cloy-9609/eikan-database/issues"
   },
-  "homepage": "https://github.com/Cloy-9609/eikan-database#readme"
+  "homepage": "https://github.com/Cloy-9609/eikan-database#readme",
+  "devDependencies": {
+    "eslint": "^10.6.0",
+    "globals": "^17.7.0"
+  }
 }
