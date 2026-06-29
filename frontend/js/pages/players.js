@@ -1,4 +1,13 @@
 import { fetchPlayerById, fetchPlayers } from "../api/playerApi.js";
+import {
+  buildCanonicalPlayerSearchParams,
+  buildPlayerListParams,
+  createDefaultPlayerSearchState,
+  normalizePlayerSearchState,
+  normalizePlayerSortOrder,
+  parsePlayerSortValue,
+  readPlayerSearchStateFromParams,
+} from "../state/playerSearchState.mjs";
 import { SNAPSHOT_LABEL_OPTIONS, getSnapshotLabel } from "../utils/playerSnapshots.js";
 import { buildYearPicker, setYearPickerValue, setupYearPickers } from "../components/admissionYearPicker.js";
 import {
@@ -10,26 +19,6 @@ import {
 const SCHOOL_SUFFIX = "高校";
 const DEFAULT_SORT_BY = "updated_at";
 const DEFAULT_SORT_ORDER = "desc";
-const PLAYER_SEARCH_QUERY_KEYS = [
-  "name",
-  "school_name",
-  "admission_year",
-  "admission_year_from",
-  "admission_year_to",
-  "player_type",
-  "main_position",
-  "position_type",
-  "school_grade",
-  "roster_status",
-  "snapshot_label",
-  "sort_by",
-  "sort_order",
-  "sort",
-  "ability_key",
-  "ability_min",
-  "ability_max",
-];
-
 const PLAYER_TYPE_OPTIONS = [
   { value: "normal", label: "通常" },
   { value: "genius", label: "天才" },
@@ -64,7 +53,6 @@ const ABILITY_FILTER_OPTIONS = [
   { value: "fielding", label: "守備力", group: "野手能力", min: 0, max: 100, ranked: true },
   { value: "catching", label: "捕球", group: "野手能力", min: 0, max: 100, ranked: true },
 ];
-const ABILITY_FILTER_BY_KEY = new Map(ABILITY_FILTER_OPTIONS.map((option) => [option.value, option]));
 const ABILITY_RANK_RANGES = [
   { value: "unranked", label: "ランク外", min: 0, max: 0 },
   { value: "G", label: "G", min: 1, max: 19 },
@@ -76,6 +64,10 @@ const ABILITY_RANK_RANGES = [
   { value: "A", label: "A", min: 80, max: 89 },
   { value: "S", label: "S", min: 90, max: 100 },
 ];
+
+const ABILITY_FILTER_BY_KEY = new Map(
+  ABILITY_FILTER_OPTIONS.map((option) => [option.value, option])
+);
 
 const BASE_SORT_OPTIONS = [
   {
@@ -116,30 +108,21 @@ const SORT_OPTION_GROUPS = [
 ];
 const SORT_OPTIONS = SORT_OPTION_GROUPS.flatMap((group) => group.options);
 
+const PLAYER_SEARCH_STATE_OPTIONS = {
+  allowedPlayerTypes: PLAYER_TYPE_OPTIONS.map((option) => option.value),
+  allowedMainPositions: MAIN_POSITION_OPTIONS.map((option) => option.value),
+  allowedSchoolGrades: SCHOOL_GRADE_OPTIONS.map((option) => option.value),
+  allowedRosterStatuses: ROSTER_STATUS_OPTIONS.map((option) => option.value),
+  allowedSnapshotLabels: SNAPSHOT_LABEL_OPTIONS.map((option) => option.value),
+  allowedSortKeys: SORT_OPTIONS.map((option) => option.sortBy),
+  abilityDefinitions: ABILITY_FILTER_OPTIONS.map(({ value, min, max }) => ({ value, min, max })),
+};
+
 let latestPlayersRequestId = 0;
 const PLAYER_DETAIL_CACHE = new Map();
 const PLAYER_DETAIL_LOADING = new Map();
 const PLAYER_ABILITY_MODES = new Map();
 const PLAYERS_TABLE_COLUMN_COUNT = 6;
-
-function createDefaultSearchState() {
-  return {
-    name: "",
-    schoolName: "",
-    admissionYearFrom: "",
-    admissionYearTo: "",
-    playerType: "",
-    mainPosition: "",
-    schoolGrade: "",
-    rosterStatus: "",
-    snapshotLabel: "",
-    sortBy: DEFAULT_SORT_BY,
-    sortOrder: DEFAULT_SORT_ORDER,
-    abilityKey: "",
-    abilityMin: "",
-    abilityMax: "",
-  };
-}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -170,23 +153,6 @@ function buildSelectOptions(options, selectedValue = "", blankLabel = "すべて
   return `<option value=""${blankSelected}>${escapeHtml(blankLabel)}</option>${optionItems}`;
 }
 
-function serializeSortValue(sortBy = DEFAULT_SORT_BY, sortOrder = DEFAULT_SORT_ORDER) {
-  return `${sortBy}:${sortOrder}`;
-}
-
-function normalizeSortOrder(sortOrder = DEFAULT_SORT_ORDER) {
-  return String(sortOrder).toLowerCase() === "asc" ? "asc" : DEFAULT_SORT_ORDER;
-}
-
-function parseSortValue(value = DEFAULT_SORT_BY, sortOrder = DEFAULT_SORT_ORDER) {
-  const [rawSortBy, legacySortOrder] = String(value ?? "").split(":");
-  const matchedOption = SORT_OPTIONS.find((option) => option.value === rawSortBy);
-
-  return matchedOption
-    ? { sortBy: matchedOption.sortBy, sortOrder: normalizeSortOrder(legacySortOrder ?? sortOrder) }
-    : { sortBy: DEFAULT_SORT_BY, sortOrder: DEFAULT_SORT_ORDER };
-}
-
 function buildSortOptions(selectedValue = DEFAULT_SORT_BY) {
   return SORT_OPTION_GROUPS.map((group) => {
     const optionItems = group.options.map((option) => {
@@ -198,125 +164,18 @@ function buildSortOptions(selectedValue = DEFAULT_SORT_BY) {
   }).join("");
 }
 
-function normalizeSnapshotLabel(value) {
-  const snapshotLabel = String(value ?? "").trim();
-  return SNAPSHOT_LABEL_OPTIONS.some((option) => option.value === snapshotLabel) ? snapshotLabel : "";
-}
-
 function buildSnapshotOptions(selectedValue = "") {
   return buildSelectOptions(SNAPSHOT_LABEL_OPTIONS, selectedValue, "最新（自動）");
 }
 
-function normalizeSearchState(searchState = {}) {
-  const { sortBy, sortOrder } = parseSortValue(searchState.sortBy, searchState.sortOrder);
-
-  return {
-    name: String(searchState.name ?? "").trim(),
-    schoolName: String(searchState.schoolName ?? "").trim(),
-    admissionYearFrom: String(searchState.admissionYearFrom ?? "").trim(),
-    admissionYearTo: String(searchState.admissionYearTo ?? "").trim(),
-    playerType: String(searchState.playerType ?? "").trim(),
-    mainPosition: String(searchState.mainPosition ?? "").trim(),
-    schoolGrade: String(searchState.schoolGrade ?? "").trim(),
-    rosterStatus: String(searchState.rosterStatus ?? "").trim(),
-    snapshotLabel: normalizeSnapshotLabel(searchState.snapshotLabel),
-    sortBy,
-    sortOrder,
-    ...normalizeAbilitySearchState(searchState),
-  };
-}
-
-function parseIntegerSearchValue(value) {
-  const text = String(value ?? "").trim();
-
-  if (!text) {
-    return "";
-  }
-
-  const numericValue = Number(text);
-  return Number.isInteger(numericValue) && String(numericValue) === text ? String(numericValue) : "";
-}
-
-function normalizeAbilitySearchState(searchState = {}) {
-  const abilityKey = String(searchState.abilityKey ?? "").trim();
-  const option = ABILITY_FILTER_BY_KEY.get(abilityKey);
-
-  if (!option) {
-    return { abilityKey: "", abilityMin: "", abilityMax: "" };
-  }
-
-  const abilityMin = parseIntegerSearchValue(searchState.abilityMin);
-  const abilityMax = parseIntegerSearchValue(searchState.abilityMax);
-  const minNumber = abilityMin === "" ? null : Number(abilityMin);
-  const maxNumber = abilityMax === "" ? null : Number(abilityMax);
-
-  return {
-    abilityKey,
-    abilityMin: minNumber !== null && minNumber >= option.min && minNumber <= option.max ? abilityMin : "",
-    abilityMax: maxNumber !== null && maxNumber >= option.min && maxNumber <= option.max ? abilityMax : "",
-  };
-}
-
 function readSearchStateFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  const sortBy = params.get("sort_by") ?? DEFAULT_SORT_BY;
-  const sortOrder = params.get("sort_order") ?? DEFAULT_SORT_ORDER;
-  const legacySort = params.get("sort");
-  const parsedSort = legacySort ? parseSortValue(legacySort) : parseSortValue(sortBy, sortOrder);
-  const legacyPositionType = params.get("position_type") ?? "";
-  const mainPosition = params.get("main_position") || (legacyPositionType === "pitcher" ? "投手" : legacyPositionType === "fielder" ? "全野手" : "");
-  const legacyAdmissionYear = params.get("admission_year") ?? "";
-
-  return normalizeSearchState({
-    name: params.get("name") ?? "",
-    schoolName: params.get("school_name") ?? "",
-    admissionYearFrom: params.get("admission_year_from") ?? legacyAdmissionYear,
-    admissionYearTo: params.get("admission_year_to") ?? legacyAdmissionYear,
-    playerType: params.get("player_type") ?? "",
-    mainPosition,
-    schoolGrade: params.get("school_grade") ?? "",
-    rosterStatus: params.get("roster_status") ?? "",
-    snapshotLabel: params.get("snapshot_label") ?? "",
-    sortBy: parsedSort.sortBy,
-    sortOrder: parsedSort.sortOrder,
-    abilityKey: params.get("ability_key") ?? "",
-    abilityMin: params.get("ability_min") ?? "",
-    abilityMax: params.get("ability_max") ?? "",
-  });
-}
-
-function buildPlayerListParams(searchState) {
-  return {
-    name: searchState.name,
-    school_name: searchState.schoolName,
-    admission_year_from: searchState.admissionYearFrom,
-    admission_year_to: searchState.admissionYearTo,
-    player_type: searchState.playerType,
-    main_position: searchState.mainPosition,
-    school_grade: searchState.schoolGrade,
-    roster_status: searchState.rosterStatus,
-    snapshot_label: searchState.snapshotLabel,
-    sort_by: searchState.sortBy,
-    sort_order: searchState.sortOrder,
-    ability_key: searchState.abilityKey,
-    ability_min: searchState.abilityMin,
-    ability_max: searchState.abilityMax,
-  };
+  return readPlayerSearchStateFromParams(new URLSearchParams(window.location.search), PLAYER_SEARCH_STATE_OPTIONS);
 }
 
 function writeSearchStateToUrl(searchState, { replace = false } = {}) {
-  const normalizedState = normalizeSearchState(searchState);
+  const normalizedState = normalizePlayerSearchState(searchState, PLAYER_SEARCH_STATE_OPTIONS);
   const url = new URL(window.location.href);
-
-  PLAYER_SEARCH_QUERY_KEYS.forEach((key) => url.searchParams.delete(key));
-
-  Object.entries(buildPlayerListParams(normalizedState)).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === "") {
-      return;
-    }
-
-    url.searchParams.set(key, String(value));
-  });
+  url.search = buildCanonicalPlayerSearchParams(url.searchParams, normalizedState, PLAYER_SEARCH_STATE_OPTIONS).toString();
 
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
   const method = replace ? "replaceState" : "pushState";
@@ -1086,23 +945,23 @@ function getOptionLabel(options, value) {
 }
 
 function getSortLabel(searchState) {
-  const { sortBy, sortOrder } = parseSortValue(searchState.sortBy, searchState.sortOrder);
+  const { sortBy, sortOrder } = parsePlayerSortValue(searchState.sortBy, searchState.sortOrder, PLAYER_SEARCH_STATE_OPTIONS);
   const option = SORT_OPTIONS.find((item) => item.sortBy === sortBy);
   return option?.sortLabels?.[sortOrder] ?? "更新日時が新しい順";
 }
 
 function getSortDirectionLabel(sortOrder = DEFAULT_SORT_ORDER) {
-  return normalizeSortOrder(sortOrder) === "asc" ? "昇順" : "降順";
+  return normalizePlayerSortOrder(sortOrder) === "asc" ? "昇順" : "降順";
 }
 
 function getSortDirectionButtonLabel(sortOrder = DEFAULT_SORT_ORDER) {
   const directionLabel = getSortDirectionLabel(sortOrder);
-  return normalizeSortOrder(sortOrder) === "asc" ? `↑ ${directionLabel}` : `↓ ${directionLabel}`;
+  return normalizePlayerSortOrder(sortOrder) === "asc" ? `↑ ${directionLabel}` : `↓ ${directionLabel}`;
 }
 
 function getSortDirectionAriaLabel(sortOrder = DEFAULT_SORT_ORDER) {
   const currentLabel = getSortDirectionLabel(sortOrder);
-  const nextLabel = normalizeSortOrder(sortOrder) === "asc" ? "降順" : "昇順";
+  const nextLabel = normalizePlayerSortOrder(sortOrder) === "asc" ? "降順" : "昇順";
   return `現在は${currentLabel}です。クリックすると${nextLabel}へ変更します。`;
 }
 
@@ -1534,10 +1393,10 @@ function renderPlayerRows(players) {
     .join("");
 }
 
-function renderPlayerList(root, players, { hasFilters = false, searchState = createDefaultSearchState() } = {}) {
+function renderPlayerList(root, players, { hasFilters = false, searchState = createDefaultPlayerSearchState() } = {}) {
   PLAYER_ABILITY_MODES.clear();
   const safePlayers = Array.isArray(players) ? players : [];
-  const normalizedSearchState = normalizeSearchState(searchState);
+  const normalizedSearchState = normalizePlayerSearchState(searchState, PLAYER_SEARCH_STATE_OPTIONS);
   const resultCountText = buildResultCountText(safePlayers.length, { hasFilters });
 
   if (safePlayers.length === 0) {
@@ -1694,7 +1553,7 @@ async function loadPlayers(listRoot, messageElement, searchState, { preserveCurr
   }
 
   try {
-    const players = await fetchPlayers(buildPlayerListParams(searchState));
+    const players = await fetchPlayers(buildPlayerListParams(searchState, PLAYER_SEARCH_STATE_OPTIONS));
 
     if (requestId !== latestPlayersRequestId) {
       return;
@@ -1728,9 +1587,9 @@ async function loadPlayers(listRoot, messageElement, searchState, { preserveCurr
 }
 
 function readSearchStateFromForm(form) {
-  const { sortBy, sortOrder } = parseSortValue(form.elements.sort_by.value, form.elements.sort_order.value);
+  const { sortBy, sortOrder } = parsePlayerSortValue(form.elements.sort_by.value, form.elements.sort_order.value, PLAYER_SEARCH_STATE_OPTIONS);
 
-  return normalizeSearchState({
+  return normalizePlayerSearchState({
     name: form.elements.name.value,
     schoolName: form.elements.school_name.value,
     admissionYearFrom: form.elements.admission_year_from.value,
@@ -1745,7 +1604,7 @@ function readSearchStateFromForm(form) {
     abilityKey: form.elements.ability_key.value,
     abilityMin: form.elements.ability_min.value,
     abilityMax: form.elements.ability_max.value,
-  });
+  }, PLAYER_SEARCH_STATE_OPTIONS);
 }
 
 function applySearchStateToForm(form, searchState) {
@@ -1793,17 +1652,9 @@ function setAbilityError(form, message = "") {
   }
 }
 
-function validateAbilitySearchState(searchState) {
-  const option = getAbilityOption(searchState.abilityKey);
-  if (!option || (!searchState.abilityMin && !searchState.abilityMax)) return "";
-  const min = searchState.abilityMin === "" ? null : Number(searchState.abilityMin);
-  const max = searchState.abilityMax === "" ? null : Number(searchState.abilityMax);
-  if (min !== null && max !== null && min > max) return "下限値は上限値以下にしてください。";
-  return "";
-}
 
 function refreshAbilityFilterControls(form, searchState = readSearchStateFromForm(form)) {
-  const normalizedState = normalizeSearchState(searchState);
+  const normalizedState = normalizePlayerSearchState(searchState, PLAYER_SEARCH_STATE_OPTIONS);
   const option = getAbilityOption(normalizedState.abilityKey) ?? ABILITY_FILTER_OPTIONS[0];
   const ranked = Boolean(getAbilityOption(normalizedState.abilityKey)?.ranked);
   form.elements.ability_min.innerHTML = buildAbilityNumberOptions({ min: option.min, max: option.max, selectedValue: normalizedState.abilityMin });
@@ -1814,7 +1665,7 @@ function refreshAbilityFilterControls(form, searchState = readSearchStateFromFor
   form.elements.ability_max_rank.innerHTML = ranked ? buildRankOptions(getRankForAbilityValue(normalizedState.abilityMax)) : '<option value="">ランクなし</option>';
   form.elements.ability_min.value = normalizedState.abilityMin;
   form.elements.ability_max.value = normalizedState.abilityMax;
-  setAbilityError(form, validateAbilitySearchState(normalizedState));
+  setAbilityError(form, "");
 }
 
 function setupAbilityFilterControls(form) {
@@ -1926,13 +1777,7 @@ function init() {
 
   const applyCurrentFormState = () => {
     const nextState = readSearchStateFromForm(form);
-    const abilityError = validateAbilitySearchState(nextState);
-
-    setAbilityError(form, abilityError);
-    if (abilityError) {
-      return;
-    }
-
+    setAbilityError(form, "");
     applySearchStateToForm(form, nextState);
     writeSearchStateToUrl(nextState);
     loadPlayers(listRoot, messageElement, nextState, {
@@ -1949,13 +1794,13 @@ function init() {
   form.elements.sort_by.addEventListener("change", applyCurrentFormState);
 
   form.querySelector("[data-sort-direction-toggle]")?.addEventListener("click", () => {
-    form.elements.sort_order.value = normalizeSortOrder(form.elements.sort_order.value) === "asc" ? "desc" : "asc";
+    form.elements.sort_order.value = normalizePlayerSortOrder(form.elements.sort_order.value) === "asc" ? "desc" : "asc";
     refreshSortDirectionButton(form, form.elements.sort_order.value);
     applyCurrentFormState();
   });
 
   resetButton.addEventListener("click", () => {
-    const nextState = createDefaultSearchState();
+    const nextState = createDefaultPlayerSearchState();
 
     applySearchStateToForm(form, nextState);
     writeSearchStateToUrl(nextState);

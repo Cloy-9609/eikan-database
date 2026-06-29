@@ -49,6 +49,7 @@ const frontendFiles = [
   "frontend/js/pages/players.js",
   "frontend/js/pages/school_detail.js",
   "frontend/js/pages/schools.js",
+  "frontend/js/state/playerSearchState.mjs",
   "frontend/js/state/schoolSearchState.mjs",
   "frontend/js/utils/formatter.js",
   "frontend/js/utils/playerRelations.js",
