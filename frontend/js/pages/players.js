@@ -65,6 +65,10 @@ const ABILITY_RANK_RANGES = [
   { value: "S", label: "S", min: 90, max: 100 },
 ];
 
+const ABILITY_FILTER_BY_KEY = new Map(
+  ABILITY_FILTER_OPTIONS.map((option) => [option.value, option])
+);
+
 const BASE_SORT_OPTIONS = [
   {
     value: "updated_at",
