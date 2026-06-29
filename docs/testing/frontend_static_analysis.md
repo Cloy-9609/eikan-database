@@ -71,6 +71,15 @@ Page script を変更した PR では最低限、次を確認する。
 - URL state変更ならreset / back / forwardを確認する
 ```
 
+
+## 初回導入時に発見した問題
+
+- `frontend/js/pages/player_detail.js` の `renderPlayerLegacy` 内で、IIFE を `return` した後に到達不能な legacy tail が残っていた。
+- tail 内には scope に存在しない `player` 参照があり、`no-unreachable` と `no-undef` により検出された。
+- 到達不能部分のみ削除し、有効な `renderPlayerLegacy` 本体と通常の `renderPlayer` は維持した。
+- production 挙動を意図的には変更していない。
+- この PR の browser smoke 対象には `player_detail.html` も含める。
+
 ## no-unused-vars 監査
 
 Phase 6.4-4 導入時点では `npx eslint "frontend/js/**/*.{js,mjs}" --rule "no-unused-vars: warn" --max-warnings=9999` により、既存の未使用変数 warning が16件確認された。分類は、API wrapper / page script の未使用 catch 変数、`player_detail.js` の legacy・補助関数・未使用定数、`players.js` / `player_edit.js` の未使用 catch 変数である。

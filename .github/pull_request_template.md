@@ -14,6 +14,7 @@
 
 Frontend page scriptを変更した場合:
 
+- [ ] 変更したpage scriptに対応する全対象ページを確認した
 - [ ] 対象ページが表示される
 - [ ] consoleにReferenceErrorがない
 - [ ] 変更したUIを操作した
