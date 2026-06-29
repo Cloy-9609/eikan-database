@@ -1,14 +1,21 @@
 import { createSchool, fetchSchools } from "../api/schoolApi.js";
 import { buildYearPicker, setYearPickerValue, setupYearPickers } from "../components/admissionYearPicker.js";
 import { PREFECTURE_GROUPS } from "../constants/prefectures.js";
+import {
+  buildCanonicalSchoolSearchParams,
+  buildSchoolListParams,
+  createDefaultSchoolSearchState,
+  normalizeSchoolSearchName,
+  normalizeSchoolSearchState,
+  parseSchoolSortValue,
+  readSchoolSearchStateFromParams,
+  serializeSchoolSortValue,
+} from "../state/schoolSearchState.mjs";
 import { formatSchoolName, formatSchoolPlayStyle } from "../utils/formatter.js";
 
-const SCHOOL_SUFFIX = "高校";
 const CREATE_PANEL_BODY_ID = "school-create-panel-body";
 const DEFAULT_PLAY_STYLE = "continuous";
 const DEFAULT_START_YEAR = new Date().getFullYear();
-const DEFAULT_SORT_BY = "updated_at";
-const DEFAULT_SORT_ORDER = "desc";
 const PLAY_STYLE_OPTIONS = [
   { value: "continuous", label: "継続プレイ" },
   { value: "three_year", label: "3年モード" },
@@ -21,17 +28,10 @@ const SORT_OPTIONS = [
   { value: "start_year:asc", sortBy: "start_year", sortOrder: "asc", label: "開始年度昇順" },
   { value: "start_year:desc", sortBy: "start_year", sortOrder: "desc", label: "開始年度降順" },
 ];
-const SCHOOL_SEARCH_QUERY_KEYS = ["name", "prefecture", "play_style", "sort_by", "sort_order", "sort"];
-
-function createDefaultSearchState() {
-  return {
-    name: "",
-    prefecture: "",
-    playStyle: "",
-    sortBy: DEFAULT_SORT_BY,
-    sortOrder: DEFAULT_SORT_ORDER,
-  };
-}
+const SCHOOL_SEARCH_STATE_OPTIONS = {
+  allowedPrefectures: PREFECTURE_GROUPS.flatMap((group) => group.options),
+  allowedPlayStyles: PLAY_STYLE_OPTIONS.map((option) => option.value),
+};
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -88,94 +88,26 @@ function buildGroupedOptions(groups, selectedValue = "", blankLabel = "選択し
   `;
 }
 
-function serializeSortValue(sortBy = DEFAULT_SORT_BY, sortOrder = DEFAULT_SORT_ORDER) {
-  return `${sortBy}:${sortOrder}`;
-}
-
-function parseSortValue(value = serializeSortValue()) {
-  const matchedOption = SORT_OPTIONS.find((option) => option.value === value);
-
-  return matchedOption
-    ? { sortBy: matchedOption.sortBy, sortOrder: matchedOption.sortOrder }
-    : { sortBy: DEFAULT_SORT_BY, sortOrder: DEFAULT_SORT_ORDER };
-}
-
-function normalizeSearchState(searchState = {}) {
-  const sortValue = serializeSortValue(searchState.sortBy, searchState.sortOrder);
-  const { sortBy, sortOrder } = parseSortValue(sortValue);
-
-  return {
-    name: String(searchState.name ?? "").trim(),
-    prefecture: String(searchState.prefecture ?? "").trim(),
-    playStyle: String(searchState.playStyle ?? "").trim(),
-    sortBy,
-    sortOrder,
-  };
-}
-
 function readSearchStateFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  const sortBy = params.get("sort_by") ?? DEFAULT_SORT_BY;
-  const sortOrder = params.get("sort_order") ?? DEFAULT_SORT_ORDER;
-  const legacySort = params.get("sort");
-  const parsedSort = legacySort ? parseSortValue(legacySort) : { sortBy, sortOrder };
-
-  return normalizeSearchState({
-    name: params.get("name") ?? "",
-    prefecture: params.get("prefecture") ?? "",
-    playStyle: params.get("play_style") ?? "",
-    sortBy: parsedSort.sortBy,
-    sortOrder: parsedSort.sortOrder,
-  });
+  return readSchoolSearchStateFromParams(new URLSearchParams(window.location.search), SCHOOL_SEARCH_STATE_OPTIONS);
 }
 
 function writeSearchStateToUrl(searchState, { replace = false } = {}) {
-  const normalizedState = normalizeSearchState(searchState);
   const url = new URL(window.location.href);
-
-  SCHOOL_SEARCH_QUERY_KEYS.forEach((key) => url.searchParams.delete(key));
-
-  const params = buildSchoolListParams(normalizedState);
-  Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === "") {
-      return;
-    }
-
-    url.searchParams.set(key, String(value));
-  });
+  url.search = buildCanonicalSchoolSearchParams(url.searchParams, searchState, SCHOOL_SEARCH_STATE_OPTIONS).toString();
 
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
   const method = replace ? "replaceState" : "pushState";
   window.history[method]({}, "", nextUrl);
 }
 
-function buildSortOptions(selectedValue = serializeSortValue()) {
+function buildSortOptions(selectedValue = serializeSchoolSortValue()) {
   return SORT_OPTIONS.map((option) => {
     const selected = option.value === selectedValue ? " selected" : "";
     return `<option value="${escapeAttribute(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
   }).join("");
 }
 
-function normalizeSchoolSearchName(value) {
-  const text = String(value ?? "").trim();
-
-  if (!text) {
-    return "";
-  }
-
-  const normalizedName = text.endsWith(SCHOOL_SUFFIX) ? text.slice(0, -SCHOOL_SUFFIX.length).trim() : text;
-  return normalizedName;
-}
-
-function buildSchoolListParams(searchState) {
-  return {
-    name: normalizeSchoolSearchName(searchState.name),
-    prefecture: searchState.prefecture,
-    play_style: searchState.playStyle,
-    sort_by: searchState.sortBy,
-    sort_order: searchState.sortOrder,
-  };
-}
 
 function hasActiveSearchFilters(searchState) {
   return Boolean(normalizeSchoolSearchName(searchState.name) || searchState.prefecture || searchState.playStyle);
@@ -294,7 +226,7 @@ function renderShell(root, searchState) {
             <div class="school-form-row school-search-field school-search-field--sort">
               <label for="school-search-sort">並び順</label>
               <select id="school-search-sort" name="sort">
-                ${buildSortOptions(serializeSortValue(searchState.sortBy, searchState.sortOrder))}
+                ${buildSortOptions(serializeSchoolSortValue(searchState.sortBy, searchState.sortOrder))}
               </select>
             </div>
           </div>
@@ -503,22 +435,22 @@ function resetCreateForm(form) {
 }
 
 function readSearchStateFromForm(form) {
-  const { sortBy, sortOrder } = parseSortValue(form.elements.sort.value);
+  const { sortBy, sortOrder } = parseSchoolSortValue(form.elements.sort.value);
 
-  return normalizeSearchState({
+  return normalizeSchoolSearchState({
     name: form.elements.name.value,
     prefecture: form.elements.prefecture.value,
     playStyle: form.elements.play_style.value,
     sortBy,
     sortOrder,
-  });
+  }, SCHOOL_SEARCH_STATE_OPTIONS);
 }
 
 function applySearchStateToForm(form, searchState) {
   form.elements.name.value = searchState.name;
   form.elements.prefecture.value = searchState.prefecture;
   form.elements.play_style.value = searchState.playStyle;
-  form.elements.sort.value = serializeSortValue(searchState.sortBy, searchState.sortOrder);
+  form.elements.sort.value = serializeSchoolSortValue(searchState.sortBy, searchState.sortOrder);
 }
 
 async function handleCreateSubmit(
@@ -575,7 +507,7 @@ async function handleSearchReset(form, { listRoot, listMessageElement, searchSta
   setButtonsDisabled([submitButton, resetButton], true);
 
   try {
-    Object.assign(searchState, createDefaultSearchState());
+    Object.assign(searchState, createDefaultSchoolSearchState());
     applySearchStateToForm(form, searchState);
     writeSearchStateToUrl(searchState);
     await loadSchools(listRoot, listMessageElement, searchState);
