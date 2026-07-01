@@ -12,6 +12,7 @@ import {
   serializeSchoolSortValue,
 } from "../state/schoolSearchState.mjs";
 import { formatSchoolName, formatSchoolPlayStyle } from "../utils/formatter.js";
+import { createLatestRequestRunner } from "../utils/latestRequestRunner.mjs";
 
 /**
  * schools page orchestration boundary.
@@ -44,6 +45,9 @@ const SCHOOL_SEARCH_STATE_OPTIONS = {
   allowedPrefectures: PREFECTURE_GROUPS.flatMap((group) => group.options),
   allowedPlayStyles: PLAY_STYLE_OPTIONS.map((option) => option.value),
 };
+
+// Guard school list rendering, messages, and busy state from stale requests.
+const runLatestSchoolListRequest = createLatestRequestRunner();
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -393,17 +397,33 @@ function renderSchoolList(root, schools, { hasFilters = false } = {}) {
   `;
 }
 
-async function loadSchools(listRoot, listMessageElement, searchState) {
-  try {
-    const schools = await fetchSchools(buildSchoolListParams(searchState));
-    renderSchoolList(listRoot, schools, {
-      hasFilters: hasActiveSearchFilters(searchState),
-    });
-    setMessage(listMessageElement, "");
-  } catch (error) {
-    listRoot.innerHTML = "";
-    setMessage(listMessageElement, `学校一覧の取得に失敗しました。 ${error.message}`, "error");
-  }
+async function loadSchools(listRoot, listMessageElement, searchState, { onBusyChange = null } = {}) {
+  const requestSearchState = normalizeSchoolSearchState(
+    { ...searchState },
+    SCHOOL_SEARCH_STATE_OPTIONS
+  );
+
+  return runLatestSchoolListRequest({
+    request: () => fetchSchools(buildSchoolListParams(requestSearchState)),
+    onStart: () => {
+      listRoot.setAttribute("aria-busy", "true");
+      onBusyChange?.(true);
+    },
+    onSuccess: (schools) => {
+      renderSchoolList(listRoot, schools, {
+        hasFilters: hasActiveSearchFilters(requestSearchState),
+      });
+      setMessage(listMessageElement, "");
+    },
+    onError: (error) => {
+      listRoot.innerHTML = "";
+      setMessage(listMessageElement, `学校一覧の取得に失敗しました。 ${error.message}`, "error");
+    },
+    onFinally: () => {
+      listRoot.setAttribute("aria-busy", "false");
+      onBusyChange?.(false);
+    },
+  });
 }
 
 function getFlashMessage() {
@@ -465,6 +485,11 @@ function applySearchStateToForm(form, searchState) {
   form.elements.sort.value = serializeSchoolSortValue(searchState.sortBy, searchState.sortOrder);
 }
 
+function setSearchControlsBusy(form, resetButton, isBusy) {
+  const submitButton = form.querySelector('button[type="submit"]');
+  setButtonsDisabled([submitButton, resetButton], isBusy);
+}
+
 async function handleCreateSubmit(
   event,
   {
@@ -474,6 +499,7 @@ async function handleCreateSubmit(
     searchState,
     accordionToggle,
     accordionBody,
+    onSearchBusyChange,
   }
 ) {
   event.preventDefault();
@@ -490,7 +516,7 @@ async function handleCreateSubmit(
     resetCreateForm(form);
     setAccordionExpanded(accordionToggle, accordionBody, true);
     setMessage(pageMessageElement, "学校を登録しました。", "success");
-    await loadSchools(listRoot, listMessageElement, searchState);
+    await loadSchools(listRoot, listMessageElement, searchState, { onBusyChange: onSearchBusyChange });
   } catch (error) {
     setMessage(pageMessageElement, error.message, "error");
   } finally {
@@ -498,34 +524,20 @@ async function handleCreateSubmit(
   }
 }
 
-async function handleSearchSubmit(event, { listRoot, listMessageElement, searchState, resetButton }) {
+async function handleSearchSubmit(event, { listRoot, listMessageElement, searchState, onSearchBusyChange }) {
   event.preventDefault();
 
   const form = event.currentTarget;
-  const submitButton = form.querySelector('button[type="submit"]');
-  setButtonsDisabled([submitButton, resetButton], true);
-
-  try {
-    Object.assign(searchState, readSearchStateFromForm(form));
-    writeSearchStateToUrl(searchState);
-    await loadSchools(listRoot, listMessageElement, searchState);
-  } finally {
-    setButtonsDisabled([submitButton, resetButton], false);
-  }
+  Object.assign(searchState, readSearchStateFromForm(form));
+  writeSearchStateToUrl(searchState);
+  await loadSchools(listRoot, listMessageElement, searchState, { onBusyChange: onSearchBusyChange });
 }
 
-async function handleSearchReset(form, { listRoot, listMessageElement, searchState, resetButton }) {
-  const submitButton = form.querySelector('button[type="submit"]');
-  setButtonsDisabled([submitButton, resetButton], true);
-
-  try {
-    Object.assign(searchState, createDefaultSchoolSearchState());
-    applySearchStateToForm(form, searchState);
-    writeSearchStateToUrl(searchState);
-    await loadSchools(listRoot, listMessageElement, searchState);
-  } finally {
-    setButtonsDisabled([submitButton, resetButton], false);
-  }
+async function handleSearchReset(form, { listRoot, listMessageElement, searchState, onSearchBusyChange }) {
+  Object.assign(searchState, createDefaultSchoolSearchState());
+  applySearchStateToForm(form, searchState);
+  writeSearchStateToUrl(searchState);
+  await loadSchools(listRoot, listMessageElement, searchState, { onBusyChange: onSearchBusyChange });
 }
 
 async function init() {
@@ -542,6 +554,10 @@ async function init() {
   const searchResetButton = document.getElementById("schools-search-reset");
   const accordionToggle = document.getElementById("school-create-toggle");
   const accordionBody = document.getElementById(CREATE_PANEL_BODY_ID);
+
+  const handleSearchBusyChange = (isBusy) => {
+    setSearchControlsBusy(searchForm, searchResetButton, isBusy);
+  };
 
   const flashMessage = getFlashMessage();
   if (flashMessage) {
@@ -562,6 +578,7 @@ async function init() {
       searchState,
       accordionToggle,
       accordionBody,
+      onSearchBusyChange: handleSearchBusyChange,
     })
   );
 
@@ -570,7 +587,7 @@ async function init() {
       listRoot,
       listMessageElement,
       searchState,
-      resetButton: searchResetButton,
+      onSearchBusyChange: handleSearchBusyChange,
     })
   );
 
@@ -579,18 +596,18 @@ async function init() {
       listRoot,
       listMessageElement,
       searchState,
-      resetButton: searchResetButton,
+      onSearchBusyChange: handleSearchBusyChange,
     })
   );
 
   window.addEventListener("popstate", async () => {
     Object.assign(searchState, readSearchStateFromUrl());
     applySearchStateToForm(searchForm, searchState);
-    await loadSchools(listRoot, listMessageElement, searchState);
+    await loadSchools(listRoot, listMessageElement, searchState, { onBusyChange: handleSearchBusyChange });
   });
 
   writeSearchStateToUrl(searchState, { replace: true });
-  await loadSchools(listRoot, listMessageElement, searchState);
+  await loadSchools(listRoot, listMessageElement, searchState, { onBusyChange: handleSearchBusyChange });
 }
 
 init();
