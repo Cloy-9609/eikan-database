@@ -16,6 +16,14 @@ import {
   PITCH_MOVEMENT_DIRECTIONS,
 } from "../utils/playerRelations.js";
 
+/**
+ * players page orchestration boundary.
+ * This file keeps DOM rendering, form adapters, History API updates, API fetching,
+ * stale response protection, and ability-filter UI controls. URL parsing,
+ * normalized state, legacy query handling, and canonical query generation live in
+ * playerSearchState.mjs.
+ */
+
 const SCHOOL_SUFFIX = "高校";
 const DEFAULT_SORT_BY = "updated_at";
 const DEFAULT_SORT_ORDER = "desc";
@@ -65,6 +73,12 @@ const ABILITY_RANK_RANGES = [
   { value: "S", label: "S", min: 90, max: 100 },
 ];
 
+/**
+ * Ability-filter UI lookup.
+ * Source of truth is ABILITY_FILTER_OPTIONS; this Map is still required by
+ * getAbilityOption, renderAbilityFilterControls, and refreshAbilityFilterControls,
+ * even though URL state normalization moved to playerSearchState.mjs.
+ */
 const ABILITY_FILTER_BY_KEY = new Map(
   ABILITY_FILTER_OPTIONS.map((option) => [option.value, option])
 );
@@ -108,6 +122,10 @@ const SORT_OPTION_GROUPS = [
 ];
 const SORT_OPTIONS = SORT_OPTION_GROUPS.flatMap((group) => group.options);
 
+/**
+ * Injection boundary for production UI definitions used by the pure state module.
+ * Keep allowed values here instead of duplicating them inside playerSearchState.mjs.
+ */
 const PLAYER_SEARCH_STATE_OPTIONS = {
   allowedPlayerTypes: PLAYER_TYPE_OPTIONS.map((option) => option.value),
   allowedMainPositions: MAIN_POSITION_OPTIONS.map((option) => option.value),
@@ -118,6 +136,10 @@ const PLAYER_SEARCH_STATE_OPTIONS = {
   abilityDefinitions: ABILITY_FILTER_OPTIONS.map(({ value, min, max }) => ({ value, min, max })),
 };
 
+/**
+ * Prevent stale request success, failure, or finally handlers from mutating the
+ * latest player list, message, or busy state after a newer request has started.
+ */
 let latestPlayersRequestId = 0;
 const PLAYER_DETAIL_CACHE = new Map();
 const PLAYER_DETAIL_LOADING = new Map();

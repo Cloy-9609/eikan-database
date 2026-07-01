@@ -13,6 +13,14 @@ import {
 } from "../state/schoolSearchState.mjs";
 import { formatSchoolName, formatSchoolPlayStyle } from "../utils/formatter.js";
 
+/**
+ * schools page orchestration boundary.
+ * This file keeps DOM rendering, form adapters, History API updates, API fetching,
+ * loading / error display, flash messages, and school creation. URL parsing,
+ * normalized state, legacy sort handling, and canonical query generation live in
+ * schoolSearchState.mjs.
+ */
+
 const CREATE_PANEL_BODY_ID = "school-create-panel-body";
 const DEFAULT_PLAY_STYLE = "continuous";
 const DEFAULT_START_YEAR = new Date().getFullYear();
@@ -28,6 +36,10 @@ const SORT_OPTIONS = [
   { value: "start_year:asc", sortBy: "start_year", sortOrder: "asc", label: "開始年度昇順" },
   { value: "start_year:desc", sortBy: "start_year", sortOrder: "desc", label: "開始年度降順" },
 ];
+/**
+ * Injection boundary for production UI definitions used by the pure state module.
+ * Keep allowed values here instead of duplicating them inside schoolSearchState.mjs.
+ */
 const SCHOOL_SEARCH_STATE_OPTIONS = {
   allowedPrefectures: PREFECTURE_GROUPS.flatMap((group) => group.options),
   allowedPlayStyles: PLAY_STYLE_OPTIONS.map((option) => option.value),

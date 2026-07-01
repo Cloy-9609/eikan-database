@@ -4,6 +4,7 @@ const path = require("path");
 const repoRoot = path.resolve(__dirname, "..");
 const commands = [
   ["npm", ["run", "check:all"]],
+  ["npm", ["run", "lint:frontend"]],
   ["npm", ["run", "test:core"]],
   ["npm", ["run", "db:check:test"]],
   ["npm", ["run", "diff:check"]],
