@@ -53,6 +53,7 @@ const frontendFiles = [
   "frontend/js/state/schoolSearchState.mjs",
   "frontend/js/utils/formatter.js",
   "frontend/js/utils/latestRequestRunner.mjs",
+  "frontend/js/utils/urlHistory.mjs",
   "frontend/js/utils/playerRelations.js",
   "frontend/js/utils/playerSnapshots.js",
   "frontend/js/utils/validator.js",

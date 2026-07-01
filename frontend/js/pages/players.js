@@ -15,6 +15,7 @@ import {
   PITCH_METER_MAX_LEVEL,
   PITCH_MOVEMENT_DIRECTIONS,
 } from "../utils/playerRelations.js";
+import { writeHistoryUrl } from "../utils/urlHistory.mjs";
 
 /**
  * players page orchestration boundary.
@@ -197,11 +198,15 @@ function readSearchStateFromUrl() {
 function writeSearchStateToUrl(searchState, { replace = false } = {}) {
   const normalizedState = normalizePlayerSearchState(searchState, PLAYER_SEARCH_STATE_OPTIONS);
   const url = new URL(window.location.href);
-  url.search = buildCanonicalPlayerSearchParams(url.searchParams, normalizedState, PLAYER_SEARCH_STATE_OPTIONS).toString();
+  const searchParams = buildCanonicalPlayerSearchParams(url.searchParams, normalizedState, PLAYER_SEARCH_STATE_OPTIONS);
 
-  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
-  const method = replace ? "replaceState" : "pushState";
-  window.history[method]({}, "", nextUrl);
+  return writeHistoryUrl({
+    history: window.history,
+    pathname: url.pathname,
+    search: searchParams.toString(),
+    hash: url.hash,
+    replace,
+  });
 }
 
 function hasActiveSearchFilters(searchState) {
