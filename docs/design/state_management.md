@@ -45,14 +45,18 @@ buildCanonicalSchoolSearchParams
 ↓
 writeHistoryUrl(..., { replace: true })
 ↓
-buildSchoolListParams
+loadSchools
+↓
+requestSearchState snapshot 作成
+↓
+buildSchoolListParams / hasActiveSearchFilters
 ↓
 createLatestRequestRunner 経由で fetchSchools
 ↓
 latest success のみ renderSchoolList
 ```
 
-`schools.js` は `searchState` を `init` 内に持ち、submit / reset / popstate で normalized state に差し替える。API request 開始時には `normalizeSchoolSearchState` で normalized state snapshot を作り、その snapshot から canonical URL と API query を作る。
+`schools.js` は `searchState` を `init` 内に持ち、submit / reset / popstate で normalized state に差し替える。canonical URL は init / page handler が現在の normalized `searchState` から生成し、`loadSchools` 内では request 開始時に `normalizeSchoolSearchState` で `requestSearchState` snapshot を作る。この snapshot は `buildSchoolListParams` による API query 生成と `hasActiveSearchFilters` 判定に使用し、canonical URL 生成には使用しない。
 
 ### schools.js 操作時
 
@@ -65,7 +69,11 @@ normalizeSchoolSearchState
 ↓
 writeHistoryUrl(..., { replace: false }) = pushState
 ↓
-buildSchoolListParams
+loadSchools
+↓
+requestSearchState snapshot 作成
+↓
+buildSchoolListParams / hasActiveSearchFilters
 ↓
 createLatestRequestRunner 経由で fetchSchools
 ↓

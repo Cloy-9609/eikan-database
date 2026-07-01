@@ -30,7 +30,7 @@
 | hash あり | `?name=青葉#list` | `#list` を保持する。 |
 | filter apply | form submit | `pushState` され、API query と form が一致。 |
 | reset | reset click | default state、default sort URL、`pushState`。 |
-| back / forward | browser back / forward または fake popstate | URL から form と API query を復元し、History 書き込みはしない。 |
+| back / forward | browser back / forward | URL から form と API 条件を復元し、popstate 中は History 書き込みを行わない。実 browser 動作は browser smoke で確認する。 |
 | school deletion flash message | `?message=school-deleted&name=青葉` | message 表示後に `message` だけ `replaceState` で削除し、検索条件と hash は維持。 |
 
 ## 4. players test matrix
@@ -57,7 +57,7 @@
 | reset | reset click | default state、default sort URL、`pushState`。 |
 | sort key 変更 | sort select change | 即時 `pushState`、loadPlayers。 |
 | sort direction 変更 | direction button click | hidden `sort_order` 反転、即時 `pushState`、loadPlayers。 |
-| back / forward | browser back / forward または fake popstate | URL から form と API query を復元し、History 書き込みはしない。 |
+| back / forward | browser back / forward | URL から form、sort、ability 条件、API 条件を復元し、popstate 中は History 書き込みを行わない。実 browser 動作は browser smoke で確認する。 |
 | stale response | request A 後に request B、A が後から resolve | `latestPlayersRequestId` により B の結果が維持され、A は render / message / busy 解除しない。 |
 
 ## 5. History API operation matrix
@@ -128,6 +128,7 @@ DOM なしで検証する範囲は default state、query parse / normalize、leg
 
 - Playwright 等の browser E2E test。
 - jsdom による DOM integration test。
+- fake DOM / fake popstate による page-level integration test。
 - duplicate push 抑止。
 - admission year 厳格化。
 - error policy 統一。

@@ -30,7 +30,7 @@
 | backend controller | `backend/controllers/playerController.js` | service結果をJSON `{ success, data, error }` で返す。 |
 | backend service | `backend/services/playerService.js` | query正規化、入力検証、snapshot選択、series/detail response構築。 |
 | backend model | `backend/models/playerModel.js` | players一覧SQL、最新snapshot join、一覧select columns、並び替えSQL。 |
-| snapshot定義 | `backend/constants/playerSnapshots.js`, `frontend/js/utils/playerSnapshots.js` | 公式snapshot timelineと表示ラベル。players画面は現状ローカル定義も持つ。 |
+| snapshot定義 | `backend/constants/playerSnapshots.js`, `frontend/js/utils/playerSnapshots.js` | frontend / backend それぞれの snapshot 定義 helper。`players.js` は `frontend/js/utils/playerSnapshots.js` の `SNAPSHOT_LABEL_OPTIONS` / `getSnapshotLabel` を利用し、URL state module へ `allowedSnapshotLabels` を依存注入する。 |
 | DB設計 | `docs/design/database_design.md`, `scripts/schema.sql` | `player_series` と `players`、能力値カラム、関連テーブル。 |
 | 既存要件 | `docs/requirements/player_data.md` | 能力値の想定範囲。 |
 

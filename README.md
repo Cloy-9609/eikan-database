@@ -114,7 +114,7 @@ node scripts/diagnostics/check-data-integrity.js
 
 `npm run lint:frontend` は ESLint で frontend JS / MJS を静的解析し、`no-undef` / `no-redeclare` / `no-unreachable` などを error として扱います。`npm run verify:all` には `npm run lint:frontend` が含まれます。
 
-`npm run test:core` は Node.js 標準の `node:test` / `node:assert/strict` を使います。外部テストframeworkやHTTP client dependencyは使わず、テストDBは `EIKAN_DB_PATH` を backend require 前に OS 一時ディレクトリのSQLiteへ向けます。テストサーバーは `startServer(0)` で空きポートを使用するため、開発サーバーが `localhost:3000` で起動中でも競合しません。テスト終了時は HTTP server、hot reload watcher、DB接続、一時fileをcleanupします。現在は、選手登録、snapshot 作成・seed・重複防止、legacy snapshot の読み取り互換、players 一覧 validation、入学年度範囲、検索・絞り込み、ability filter、sort、snapshot 指定時の検索・sort、URL state pure module、latest request runner、History URL helper、学校年度進行、undo を core 回帰テストで確認します。いずれも一時DBを使うため、通常DBを保護したまま実行できます。詳細は `docs/testing/core_regression_tests.md` を参照してください。
+`npm run test:core` は Node.js 標準の `node:test` / `node:assert/strict` を使います。外部テストframeworkやHTTP client dependencyは使いません。DBを必要とする選手登録、snapshot 作成・seed・重複防止、players 一覧 validation・検索・sort、学校年度進行・undo などの backend / API 結合 test は、`EIKAN_DB_PATH` を backend require 前に OS 一時ディレクトリのSQLiteへ向けて実行します。一方、school / player URL state pure tests、latest request runner tests、History URL helper tests は DB を使わず Node.js 標準機能だけで動作します。テストサーバーは `startServer(0)` で空きポートを使用するため、開発サーバーが `localhost:3000` で起動中でも競合しません。テスト終了時は HTTP server、hot reload watcher、DB接続、一時fileをcleanupし、通常DBを保護します。詳細は `docs/testing/core_regression_tests.md` を参照してください。
 
 実ブラウザ確認は必要に応じて別途行います。
 
