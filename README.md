@@ -5,7 +5,7 @@
 
 ## 現在の状態
 
-2026年6月時点では、Phase 1 は完了済みで、現在地は Phase 2後半〜終盤入口です。
+2026年7月時点では、Phase 1 は完了済みで、現在地は Phase 2後半〜終盤入口です。
 
 ### 実装済みの主要機能
 
@@ -13,6 +13,10 @@
   - 学校作成、一覧、詳細、編集、論理削除
   - 学校一覧の basic 検索・sort
   - 学校年度進行と直前 1 回 undo
+- schools / players の URL検索状態同期
+  - URL共有・reload・back / forward復元
+  - legacy query互換
+  - schools stale response protection
 - 選手管理
   - 選手登録、詳細、編集
   - `player_series` / `players` snapshot 管理
@@ -36,7 +40,9 @@
 - テスト・CI 基盤
   - Node.js 標準の `node:test` による core regression test
   - OS 一時ディレクトリ上の SQLite DB を使う安全なテスト
-  - `npm run verify:all` による構文確認・core 回帰テスト・一時DB診断・空白確認の一括実行
+  - frontend 構文確認と frontend ESLint
+  - URL state pure tests、latest request runner tests、History URL helper tests
+  - `npm run verify:all` による構文確認・frontend lint・core 回帰テスト・一時DB診断・空白確認の一括実行
   - GitHub Actions の `verify-all` による PR merge 前の自動検証
 
 ### 未実装または本格整備前
@@ -86,6 +92,7 @@
 
 - backend 構文確認: `npm run check:backend`
 - frontend 構文確認: `npm run check:frontend`
+- frontend ESLint: `npm run lint:frontend`
 - 一括確認: `npm run check:all`
 - core回帰テスト: `npm run test:core`
 - DB 診断: `npm run db:check`
@@ -105,7 +112,9 @@ node scripts/diagnostics/check-data-integrity.js
 
 `npm run db:check:test` は OS 一時ディレクトリに fresh なSQLite DBを作成し、既存の `initializeDatabase()` で schema を初期化してから診断します。通常DBを参照しないため、`verify:all` では通常DB向けの `db:check` ではなく `db:check:test` を使います。
 
-`npm run test:core` は Node.js 標準の `node:test` / `node:assert/strict` を使います。外部テストframeworkやHTTP client dependencyは使わず、テストDBは `EIKAN_DB_PATH` を backend require 前に OS 一時ディレクトリのSQLiteへ向けます。テストサーバーは `startServer(0)` で空きポートを使用するため、開発サーバーが `localhost:3000` で起動中でも競合しません。テスト終了時は HTTP server、hot reload watcher、DB接続、一時fileをcleanupします。現在は、選手登録、snapshot 作成・seed・重複防止、legacy snapshot の読み取り互換、players 一覧 validation、入学年度範囲、検索・絞り込み、ability filter、sort、snapshot 指定時の検索・sort、学校年度進行、undo を core 回帰テストで確認します。いずれも一時DBを使うため、通常DBを保護したまま実行できます。詳細は `docs/testing/core_regression_tests.md` を参照してください。
+`npm run lint:frontend` は ESLint で frontend JS / MJS を静的解析し、`no-undef` / `no-redeclare` / `no-unreachable` などを error として扱います。`npm run verify:all` には `npm run lint:frontend` が含まれます。
+
+`npm run test:core` は Node.js 標準の `node:test` / `node:assert/strict` を使います。外部テストframeworkやHTTP client dependencyは使いません。DBを必要とする選手登録、snapshot 作成・seed・重複防止、players 一覧 validation・検索・sort、学校年度進行・undo などの backend / API 結合 test は、`EIKAN_DB_PATH` を backend require 前に OS 一時ディレクトリのSQLiteへ向けて実行します。一方、school / player URL state pure tests、latest request runner tests、History URL helper tests は DB を使わず Node.js 標準機能だけで動作します。テストサーバーは `startServer(0)` で空きポートを使用するため、開発サーバーが `localhost:3000` で起動中でも競合しません。テスト終了時は HTTP server、hot reload watcher、DB接続、一時fileをcleanupし、通常DBを保護します。詳細は `docs/testing/core_regression_tests.md` を参照してください。
 
 実ブラウザ確認は必要に応じて別途行います。
 
@@ -122,7 +131,7 @@ node scripts/diagnostics/check-data-integrity.js
 
 - GitHub repository `Cloy-9609/eikan-database` を作業の基準にします。
 - Codex は `codex/staging` から `codex/<task-name>` 形式の作業ブランチを作成します。
-- 変更後は `npm run check:all` と `npm run diff:check` を実行してから commit します。
+- 変更後は `npm run check:all`、必要に応じて `npm run lint:frontend` / `npm run test:core`、および `npm run diff:check` を実行してから commit します。
 - 作業ブランチを GitHub へ push し、`codex/staging` 向けの通常 Pull Request を作成します。
 - 低リスク、または中リスクでも小〜中規模のタスクは、確認コマンドが成功し、Pull Request が競合なく merge 可能な場合に限り、Codex が `codex/staging` へ merge できます。
 - 高リスク、または中リスクでも大規模なタスクは Pull Request 作成までで停止し、ユーザーが確認・merge します。

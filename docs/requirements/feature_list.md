@@ -1,6 +1,6 @@
 # 機能一覧
 
-この文書は、2026年6月時点の実装状況を大まかに整理する。
+この文書は、2026年7月時点の実装状況を大まかに整理する。
 詳細な画面導線は `docs/requirements/screen_list.md`、Phase上の位置づけは `docs/phases/phase2.md` を参照する。
 
 ## 実装済み
@@ -45,6 +45,19 @@
 - サブポジション編集 UI
 - 守備位置図
 
+### URL・状態管理
+
+- schools検索stateのURL同期
+- players検索stateのURL同期
+- canonical URL生成
+- legacy query読込互換
+- reset / reload / back / forward復元
+- unrelated query / hash保持
+- fixed select invalid値の正規化
+- ability range正規化
+- schools stale response protection
+- History API書き込みutility
+
 ### 管理コード基盤
 
 - `school_code`
@@ -56,13 +69,21 @@
 ### テスト・診断
 
 - backend / frontend の構文確認 script
+- frontend ESLint
+- `no-undef` / `no-redeclare` / `no-unreachable`
+- `npm run lint:frontend`
 - core regression test
+- URL state pure tests
+- latest request runner tests
+- History URL helper tests
 - 通常 DB を使わない一時 SQLite DB によるテスト実行
 - DB 診断 script `scripts/diagnostics/check-data-integrity.js`
 - `git diff --check` 用 script
 - `npm run verify:all`
 - GitHub Actions `verify-all`
 - `codex/staging` Ruleset による required status check `verify-all`
+- PR browser smoke checklist
+- 削除前参照調査手順
 
 ## 一部実装
 
@@ -84,11 +105,14 @@
 - OCR本体MVP
 - DB backup / restore
 - export / import
-- Prompt5-6 URL・状態管理整理
 - 管理コードの画面表示・検索への本格展開
 - 特殊能力の高度検索
 - 複数能力 AND / OR 検索
 - table header クリック sort
+- browser E2E test
+- duplicate push改善
+- admission year厳格化
+- error policy統一
 - 公開用認証・権限・ユーザー所有権
 - 転生選手フォーラム等の公開機能
 
