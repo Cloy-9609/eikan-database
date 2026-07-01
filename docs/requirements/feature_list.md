@@ -99,12 +99,32 @@
 - 生成・backfill の基盤は実装済み
 - 画面表示・検索・URL / API・export / import 連携への本格展開は未実装
 
+### DB保全・データ移行
+
+以下は設計済みであり、実装済みではない。
+
+- backup / restore設計
+- version付きJSON export / import設計
+- empty DB import方針
+- merge import将来方針
+- CLI / browser責務分離
+- local / online storage拡張方針
+- 転生選手bundle概念設計
+
 
 ## 未実装・今後
 
 - OCR本体MVP
-- DB backup / restore
-- export / import
+- backup実装
+- restore実装
+- JSON export実装
+- import dry-run
+- import実行
+- browserデータ管理画面
+- 転生選手bundle実装
+- online storage
+- online DB
+- merge import
 - 管理コードの画面表示・検索への本格展開
 - 特殊能力の高度検索
 - 複数能力 AND / OR 検索
