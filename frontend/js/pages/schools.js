@@ -13,6 +13,7 @@ import {
 } from "../state/schoolSearchState.mjs";
 import { formatSchoolName, formatSchoolPlayStyle } from "../utils/formatter.js";
 import { createLatestRequestRunner } from "../utils/latestRequestRunner.mjs";
+import { writeHistoryUrl } from "../utils/urlHistory.mjs";
 
 /**
  * schools page orchestration boundary.
@@ -110,11 +111,15 @@ function readSearchStateFromUrl() {
 
 function writeSearchStateToUrl(searchState, { replace = false } = {}) {
   const url = new URL(window.location.href);
-  url.search = buildCanonicalSchoolSearchParams(url.searchParams, searchState, SCHOOL_SEARCH_STATE_OPTIONS).toString();
+  const searchParams = buildCanonicalSchoolSearchParams(url.searchParams, searchState, SCHOOL_SEARCH_STATE_OPTIONS);
 
-  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
-  const method = replace ? "replaceState" : "pushState";
-  window.history[method]({}, "", nextUrl);
+  return writeHistoryUrl({
+    history: window.history,
+    pathname: url.pathname,
+    search: searchParams.toString(),
+    hash: url.hash,
+    replace,
+  });
 }
 
 function buildSortOptions(selectedValue = serializeSchoolSortValue()) {
